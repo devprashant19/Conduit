@@ -15,3 +15,5 @@ api-keys.json
 *secret*.json
 .conduit/
 
+.termhive/
+plan.md
