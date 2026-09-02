@@ -16,7 +16,6 @@ import GateModal from './components/GateModal';
 import PlanModal from './components/PlanModal';
 import UsagePanel from './components/UsagePanel';
 import Ic, { MOD } from './components/Icons';
-import type { Plan } from '../../src/types';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useSpeechInput } from './hooks/useSpeechInput';
 import { useWakeWord } from './hooks/useWakeWord';
@@ -25,7 +24,7 @@ import SettingsModal from './components/SettingsModal';
 import logoDark from './assets/logo_dark_sm.jpg';
 import logoLight from './assets/logo_light_sm.jpg';
 import * as api from './api';
-import type { Project, Agent } from './api';
+import type { Project, Agent, Plan } from './api';
 
 type MainTab = 'terminals' | 'messages' | 'groupchat' | 'shared' | 'wiki' | 'activity' | 'usage';
 type Theme = 'dark' | 'light' | 'amber' | 'mono';
@@ -56,15 +55,25 @@ export default function App() {
     () => localStorage.getItem('conduit:wake') === '1',
   );
   const [wakePhrase, setWakePhrase] = useState(
-    () => localStorage.getItem('conduit:wake-phrase') || '皇后',
+    () => localStorage.getItem('conduit:wake-phrase') || 'jarvis',
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const voice = useVoiceConfig();
   const [notifSeen, setNotifSeen] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<string | null>(null);
   const commandOpenRef = useRef(commandOpen);
-  commandOpenRef.current = commandOpen;
+  useEffect(() => { commandOpenRef.current = commandOpen; }, [commandOpen]);
   const brainBusyRef = useRef(false);
   const brainConvIdRef = useRef('');
+  const selectedProjectRef = useRef<string | null>(null);
+
+  // Transient error toast (start/stop failures etc.)
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [toast]);
+  const showError = (err: unknown) => setToast(err instanceof Error ? err.message : String(err));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(() => {
     return (localStorage.getItem('conduit:theme') as Theme) || 'dark';
@@ -78,7 +87,10 @@ export default function App() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [activeGateAgent, setActiveGateAgent] = useState<{ projectId: string; agentId: string } | null>(null);
-  const [activePlan, setActivePlan] = useState<Plan | null>(null);
+  // Pending Supervisor plans, oldest first. The modal shows the head of the queue.
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [planDismissed, setPlanDismissed] = useState<Set<string>>(new Set());
+  const activePlan = plans.find((p) => !planDismissed.has(p.id)) || null;
   const [contentRefresh, setContentRefresh] = useState(0);
 
   // Sidebar collapse + resize state
@@ -96,6 +108,8 @@ export default function App() {
     localStorage.setItem('conduit:sidebar-w', String(sidebarW));
   }, [sidebarW]);
 
+  const sidebarDragCancel = useRef<(() => void) | null>(null);
+  useEffect(() => () => { sidebarDragCancel.current?.(); }, []);
   const onSidebarResizeDown = (e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -107,11 +121,15 @@ export default function App() {
     const up = () => {
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
+      window.removeEventListener('blur', up);
       document.body.style.cursor = '';
+      sidebarDragCancel.current = null;
     };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
+    window.addEventListener('blur', up);
     document.body.style.cursor = 'col-resize';
+    sidebarDragCancel.current = up;
   };
 
   // Theme persistence
@@ -124,14 +142,20 @@ export default function App() {
   }, [layout]);
 
   // WebSocket
-  const { send, wsRef } = useWebSocket((msg: { type?: string; agentId?: string; status?: string }) => {
+  const ws = useWebSocket((msg) => {
     if (msg.type === 'content:updated') {
       setContentRefresh((n) => n + 1);
     }
-    if (msg.type === 'org:changed') {
-      // The orchestrator created/changed a project or agent — refresh the sidebar.
+    if (msg.type === 'org:changed' || msg.type === 'ws:open') {
+      // Something changed a project or agent (or we just reconnected) —
+      // refresh the sidebar and every loaded agent list.
       loadProjects();
-      if (selectedProjectId) loadAgents(selectedProjectId);
+      setAgents((prev) => {
+        for (const pid of prev.keys()) loadAgents(pid);
+        return prev;
+      });
+      const pid = selectedProjectRef.current;
+      if (pid) loadPlans(pid);
     }
     if (msg.type === 'brain:event') {
       // The single reliable brain-event sink — ws.onmessage. The Jarvis HUD
@@ -160,66 +184,92 @@ export default function App() {
         }
       }
     }
-    if (msg.type === 'agent:status' && msg.agentId && msg.status) {
+    if (msg.type === 'agent:status' && typeof msg.agentId === 'string' && typeof msg.status === 'string') {
+      const { agentId, status } = msg;
       setAgents((prev) => {
         const next = new Map(prev);
         for (const [pid, list] of next) {
           const updated = list.map((a) =>
-            a.id === msg.agentId ? { ...a, status: msg.status as Agent['status'] } : a
+            a.id === agentId
+              ? { ...a, status: status as Agent['status'], pendingGate: status === 'stopped' ? undefined : a.pendingGate }
+              : a
           );
           next.set(pid, updated);
         }
         return next;
       });
+      if (status === 'stopped') setActiveGateAgent((cur) => (cur?.agentId === agentId ? null : cur));
     }
     if (msg.type === 'gate:triggered') {
-      const p = msg as any;
+      const p = msg as unknown as { projectId: string; agentId: string; prompt: string; source: 'regex' | 'supervisor'; options?: string[] };
       setAgents((prev) => {
         const next = new Map(prev);
         const list = next.get(p.projectId) || [];
-        const updated = list.map((a) =>
+        next.set(p.projectId, list.map((a) =>
           a.id === p.agentId ? { ...a, pendingGate: { prompt: p.prompt, source: p.source, options: p.options } } : a
-        );
-        next.set(p.projectId, updated);
+        ));
         return next;
       });
-      setActiveGateAgent({ projectId: p.projectId, agentId: p.agentId });
+      setActiveGateAgent((cur) => cur ?? { projectId: p.projectId, agentId: p.agentId });
     }
     if (msg.type === 'gate:resolved') {
-      const p = msg as any;
+      const agentId = String(msg.agentId);
       setAgents((prev) => {
         const next = new Map(prev);
         for (const [pid, list] of next) {
-          const updated = list.map((a) =>
-            a.id === p.agentId ? { ...a, pendingGate: undefined } : a
-          );
-          next.set(pid, updated);
+          next.set(pid, list.map((a) => a.id === agentId ? { ...a, pendingGate: undefined } : a));
         }
         return next;
       });
-      setActiveGateAgent(current => current?.agentId === p.agentId ? null : current);
+      setActiveGateAgent((cur) => (cur?.agentId === agentId ? null : cur));
     }
     if (msg.type === 'plan:created') {
-      const p = msg as { plan: Plan };
-      if (!activePlan) setActivePlan(p.plan);
+      const plan = msg.plan as Plan;
+      if (plan?.id) setPlans((prev) => prev.some((p) => p.id === plan.id) ? prev : [...prev, plan]);
     }
     if (msg.type === 'plan:resolved') {
-      const p = msg as { planId: string; decision: string };
-      setActivePlan(current => current?.id === p.planId ? null : current);
+      const planId = String(msg.planId);
+      setPlans((prev) => prev.filter((p) => p.id !== planId));
     }
   });
 
   const loadProjects = useCallback(async () => {
-    const list = await api.listProjects();
-    setProjects(list);
+    try {
+      const list = await api.listProjects();
+      setProjects(list);
+    } catch (err) {
+      showError(err);
+    }
   }, []);
 
   const loadAgents = useCallback(async (projectId: string) => {
-    const list = await api.listAgents(projectId);
-    setAgents((prev) => new Map(prev).set(projectId, list));
+    try {
+      const list = await api.listAgents(projectId);
+      setAgents((prev) => new Map(prev).set(projectId, list));
+    } catch { /* project may have been deleted */ }
   }, []);
 
-  useEffect(() => { loadProjects(); }, []);
+  const loadPlans = useCallback(async (projectId: string) => {
+    try {
+      const list = await api.listPlans(projectId);
+      setPlans((prev) => {
+        const others = prev.filter((p) => p.projectId !== projectId);
+        return [...others, ...list];
+      });
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  // Open a gate modal for any agent that already has one pending (e.g. after
+  // a page reload) — the live gate:triggered event covers the rest.
+  useEffect(() => {
+    if (activeGateAgent) return;
+    for (const [pid, list] of agents) {
+      const gated = list.find((a) => a.pendingGate && a.status !== 'stopped');
+      if (gated) { setActiveGateAgent({ projectId: pid, agentId: gated.id }); return; }
+    }
+  }, [agents, activeGateAgent]);
 
   // Opening the Command panel clears the brain-completion cue.
   useEffect(() => {
@@ -227,15 +277,28 @@ export default function App() {
   }, [commandOpen]);
 
   useEffect(() => {
-    if (selectedProjectId) loadAgents(selectedProjectId);
-  }, [selectedProjectId]);
+    selectedProjectRef.current = selectedProjectId;
+    if (selectedProjectId) {
+      loadAgents(selectedProjectId);
+      loadPlans(selectedProjectId);
+    }
+  }, [selectedProjectId, loadAgents, loadPlans]);
 
   // Load agents for ALL projects so sidebar can show running counts
   useEffect(() => {
     projects.forEach((p) => {
       if (!agents.has(p.id)) loadAgents(p.id);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects]);
+
+  // If the selected project disappears (deleted elsewhere), deselect it.
+  useEffect(() => {
+    if (selectedProjectId && projects.length && !projects.some((p) => p.id === selectedProjectId)) {
+      setSelectedProjectId(null);
+      setSelectedAgentId(null);
+    }
+  }, [projects, selectedProjectId]);
 
   const projectAgents = selectedProjectId ? agents.get(selectedProjectId) || [] : [];
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -334,34 +397,61 @@ export default function App() {
   };
 
   const handleCreateProject = async (data: { name: string; cwd: string; description?: string }) => {
-    const project = await api.createProject(data);
-    setShowNewProject(false);
-    await loadProjects();
-    setSelectedProjectId(project.id);
+    try {
+      const project = await api.createProject(data);
+      setShowNewProject(false);
+      await loadProjects();
+      setSelectedProjectId(project.id);
+    } catch (err) {
+      showError(err);
+      throw err;
+    }
   };
 
   const handleCreateAgent = async (data: { name: string; cli: string; cwd?: string; role?: string; flags?: Agent['flags'] }) => {
     if (!selectedProjectId) return;
-    await api.createAgent(selectedProjectId, data);
-    setShowNewAgent(false);
-    await loadAgents(selectedProjectId);
+    try {
+      await api.createAgent(selectedProjectId, data);
+      setShowNewAgent(false);
+      await loadAgents(selectedProjectId);
+    } catch (err) {
+      showError(err);
+      throw err;
+    }
   };
 
   const handleStartAgent = async (agent: Agent) => {
-    await api.startAgent(agent.projectId, agent.id);
+    try {
+      await api.startAgent(agent.projectId, agent.id);
+    } catch (err) {
+      showError(err);
+    }
     await loadAgents(agent.projectId);
   };
   const handleStopAgent = async (agent: Agent) => {
-    await api.stopAgent(agent.projectId, agent.id);
+    try {
+      await api.stopAgent(agent.projectId, agent.id);
+    } catch (err) {
+      showError(err);
+    }
     await loadAgents(agent.projectId);
   };
   const handleRestartAgent = async (agent: Agent) => {
-    await api.restartAgent(agent.projectId, agent.id);
-    setTimeout(() => loadAgents(agent.projectId), 800);
+    try {
+      await api.restartAgent(agent.projectId, agent.id);
+    } catch (err) {
+      showError(err);
+    }
+    // The daemon restarts asynchronously; refresh once it has had a moment.
+    setTimeout(() => loadAgents(agent.projectId), 1000);
   };
   const handleDeleteAgent = async (agent: Agent) => {
     if (!confirm(`Delete agent "${agent.name}"?`)) return;
-    await api.deleteAgent(agent.projectId, agent.id);
+    try {
+      await api.deleteAgent(agent.projectId, agent.id);
+    } catch (err) {
+      showError(err);
+    }
     if (selectedAgentId === agent.id) setSelectedAgentId(null);
     if (activeGateAgent?.agentId === agent.id) setActiveGateAgent(null);
     await loadAgents(agent.projectId);
@@ -369,38 +459,41 @@ export default function App() {
 
   const handleResolveGate = async (decision: 'approve' | 'reject' | 'custom', customInput?: string) => {
     if (!activeGateAgent) return;
+    const { projectId, agentId } = activeGateAgent;
     try {
-      await fetch(`/api/projects/${activeGateAgent.projectId}/agents/${activeGateAgent.agentId}/gate/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision, customInput })
-      });
-      setActiveGateAgent(null);
+      await api.resolveGate(projectId, agentId, decision, customInput);
     } catch (err) {
-      console.error('Failed to resolve gate', err);
+      // A 409 means the gate was already cleared elsewhere — just close.
+      if (!(err instanceof Error && /No pending gate/.test(err.message))) throw err;
     }
+    setActiveGateAgent(null);
+    setAgents((prev) => {
+      const next = new Map(prev);
+      const list = next.get(projectId) || [];
+      next.set(projectId, list.map((a) => a.id === agentId ? { ...a, pendingGate: undefined } : a));
+      return next;
+    });
   };
 
   const handleResolvePlan = async (decision: 'approve' | 'reject', reason?: string) => {
     if (!activePlan) return;
-    try {
-      await fetch(`/api/projects/${activePlan.projectId}/plans/${activePlan.id}/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision, reason })
-      });
-      setActivePlan(null);
-    } catch (err) {
-      console.error('Failed to resolve plan', err);
-    }
+    const plan = activePlan;
+    const r = await api.resolvePlan(plan.projectId, plan.id, decision, reason);
+    setPlans((prev) => prev.filter((p) => p.id !== plan.id));
+    if (decision === 'approve' && !r.delivered) setToast(r.note || 'The target agent is not running — nothing was sent.');
   };
 
   const handleDeleteProject = async () => {
     if (!selectedProjectId) return;
     const project = projects.find((p) => p.id === selectedProjectId);
-    if (!confirm(`Delete project "${project?.name}"?`)) return;
+    if (!confirm(`Delete project "${project?.name}"? Running agents will be stopped.`)) return;
     const removeData = confirm('Also remove shared content and wiki data?');
-    await api.deleteProject(selectedProjectId, removeData);
+    try {
+      await api.deleteProject(selectedProjectId, removeData);
+    } catch (err) {
+      showError(err);
+      return;
+    }
     setSelectedProjectId(null);
     setSelectedAgentId(null);
     await loadProjects();
@@ -411,7 +504,9 @@ export default function App() {
     if (!pid) return;
     const list = agents.get(pid) || [];
     const stopped = list.filter((a) => a.status === 'stopped');
-    await Promise.all(stopped.map((a) => api.startAgent(pid, a.id)));
+    const results = await Promise.allSettled(stopped.map((a) => api.startAgent(pid, a.id)));
+    const failed = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+    if (failed.length) showError(failed[0].reason);
     await loadAgents(pid);
   };
 
@@ -421,7 +516,7 @@ export default function App() {
     const list = agents.get(pid) || [];
     // Stop everything that is alive — running, awaiting_input, or idle
     const alive = list.filter((a) => a.status !== 'stopped');
-    await Promise.all(alive.map((a) => api.stopAgent(pid, a.id)));
+    await Promise.allSettled(alive.map((a) => api.stopAgent(pid, a.id)));
     await loadAgents(pid);
   };
 
@@ -430,7 +525,10 @@ export default function App() {
   const fireQuickCmd = (textArg?: string) => {
     const text = (textArg ?? quickCmd).trim();
     if (!text || brainWorking) return;
-    send({ type: 'brain:send', message: text });
+    if (!ws.send({ type: 'brain:send', message: text })) {
+      setToast('Not connected to Conduit yet — try again in a moment.');
+      return;
+    }
     setQuickCmd('');
     brainBusyRef.current = true;
     setBrainWorking(true);
@@ -445,13 +543,16 @@ export default function App() {
   // Keep toggle reachable from the global keydown listener without forcing it
   // to re-bind on every render.
   const quickSpeechRef = useRef(quickSpeech);
-  quickSpeechRef.current = quickSpeech;
+  useEffect(() => { quickSpeechRef.current = quickSpeech; });
 
-  // Always-on wake word — "Hey Queen, <command>" drives the brain hands-free.
+  // Always-on wake word — "<phrase>, <command>" drives the brain hands-free.
+  // Push-to-talk and the wake word share the browser's single recogniser, so
+  // the wake word pauses while the user is actively recording.
   const wake = useWakeWord({
-    enabled: wakeEnabled,
+    enabled: wakeEnabled && !quickSpeech.listening,
     phrase: wakePhrase,
-    onWake: () => { /* armed — the Jarvis orb shows the listening cue */ },
+    language: voice.cfg.stt.language,
+    onWake: () => { setToast(`Listening — say your command for The Keeper.`); },
     onCommand: (text) => fireQuickCmd(text),
   });
   useEffect(() => {
@@ -670,6 +771,7 @@ export default function App() {
 
             {mainTab === 'terminals' && (
               <AgentGrid
+                key={selectedProjectId}
                 agents={projectAgents}
                 layout={layout}
                 focusedId={selectedAgentId}
@@ -678,22 +780,21 @@ export default function App() {
                 onStop={handleStopAgent}
                 onRestart={handleRestartAgent}
                 onDelete={handleDeleteAgent}
-                send={send}
-                wsRef={wsRef}
+                ws={ws}
                 projectId={selectedProjectId}
               />
             )}
             {mainTab === 'messages' && (
-              <MessagesPanel projectId={selectedProjectId} agents={projectAgents} wsRef={wsRef} />
+              <MessagesPanel key={selectedProjectId} projectId={selectedProjectId} agents={projectAgents} ws={ws} />
             )}
             {mainTab === 'groupchat' && (
-              <GroupChat projectId={selectedProjectId} agents={projectAgents} wsRef={wsRef} />
+              <GroupChat key={selectedProjectId} projectId={selectedProjectId} agents={projectAgents} ws={ws} />
             )}
             {mainTab === 'shared' && (
-              <SharedContentView projectId={selectedProjectId} refreshTrigger={contentRefresh} />
+              <SharedContentView key={selectedProjectId} projectId={selectedProjectId} refreshTrigger={contentRefresh} />
             )}
-            {mainTab === 'wiki' && <ProjectWiki projectId={selectedProjectId} />}
-            {mainTab === 'activity' && <ActivityFeed projectId={selectedProjectId} wsRef={wsRef} />}
+            {mainTab === 'wiki' && <ProjectWiki key={selectedProjectId} projectId={selectedProjectId} />}
+            {mainTab === 'activity' && <ActivityFeed key={selectedProjectId} projectId={selectedProjectId} ws={ws} />}
             {mainTab === 'usage' && <UsagePanel />}
           </>
         ) : (
@@ -733,10 +834,24 @@ export default function App() {
           <span className="st-kbd"><kbd>{MOD}K</kbd> palette</span>
           <span className="st-kbd"><kbd>{MOD}J</kbd> command</span>
           <span className="st-kbd"><kbd>{MOD};</kbd> voice</span>
-          <span className="st-kbd"><kbd>{MOD}1-5</kbd> agent</span>
-          <span className="st-item ok">ws · connected</span>
+          <span className="st-kbd"><kbd>{MOD}1-9</kbd> agent</span>
+          <span className={'st-item ' + (ws.connected ? 'ok' : 'err')} title={ws.connected ? 'Live connection to the Conduit server' : 'Reconnecting to the Conduit server…'}>
+            <span className={'sdot ' + (ws.connected ? 'running' : 'stopped')} style={{ width: 6, height: 6 }} />
+            {ws.connected ? 'connected' : 'reconnecting…'}
+          </span>
+          {ws.connected && !ws.daemon && (
+            <span className="st-item err" title="The agent daemon is not reachable. Start it with: npm run daemon">
+              daemon offline
+            </span>
+          )}
         </div>
       </footer>
+
+      {toast && (
+        <div className="toast" role="status" onClick={() => setToast(null)}>
+          {toast}
+        </div>
+      )}
 
       <CommandPalette
         open={paletteOpen}
@@ -754,18 +869,18 @@ export default function App() {
       <CommandPanel
         open={commandOpen}
         onClose={() => setCommandOpen(false)}
-        wsRef={wsRef}
+        ws={ws}
         sttCfg={{ provider: voice.cfg.stt.provider, language: voice.cfg.stt.language }}
       />
 
       {!commandOpen && (
         <JarvisHud
-          send={send}
+          send={(m) => { ws.send(m); }}
           working={brainWorking}
           lastReply={brainReply}
           onClearReply={() => setBrainReply(null)}
           sttCfg={{ provider: voice.cfg.stt.provider, language: voice.cfg.stt.language }}
-          ttsCfg={voice.cfg.tts}
+          ttsCfg={{ ...voice.cfg.tts, language: voice.cfg.stt.language }}
           headerListening={quickSpeech.listening}
           wake={{
             enabled: wakeEnabled,
@@ -802,20 +917,25 @@ export default function App() {
           onCreate={handleCreateAgent}
         />
       )}
-      {activeGateAgent && (
-        <GateModal
-          project={projects.find(p => p.id === activeGateAgent.projectId)}
-          agent={agents.get(activeGateAgent.projectId)?.find(a => a.id === activeGateAgent.agentId)}
-          gate={agents.get(activeGateAgent.projectId)?.find(a => a.id === activeGateAgent.agentId)?.pendingGate!}
-          onClose={() => setActiveGateAgent(null)}
-          onResolve={handleResolveGate}
-        />
-      )}
+      {activeGateAgent && (() => {
+        const gatedAgent = agents.get(activeGateAgent.projectId)?.find(a => a.id === activeGateAgent.agentId);
+        return (
+          <GateModal
+            project={projects.find(p => p.id === activeGateAgent.projectId)}
+            agent={gatedAgent}
+            gate={gatedAgent?.pendingGate}
+            onClose={() => setActiveGateAgent(null)}
+            onResolve={handleResolveGate}
+          />
+        );
+      })()}
       {activePlan && (
         <PlanModal
+          key={activePlan.id}
           project={projects.find(p => p.id === activePlan.projectId)}
           plan={activePlan}
-          onClose={() => setActivePlan(null)}
+          queued={plans.filter((p) => !planDismissed.has(p.id)).length - 1}
+          onClose={() => setPlanDismissed((prev) => new Set(prev).add(activePlan.id))}
           onResolve={handleResolvePlan}
         />
       )}

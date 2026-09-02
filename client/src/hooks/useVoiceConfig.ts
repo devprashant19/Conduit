@@ -25,7 +25,7 @@ export interface VoiceCfg {
 }
 
 const DEFAULT_CFG: VoiceCfg = {
-  stt: { provider: 'browser', model: '', language: 'zh-TW', saveRecordings: false },
+  stt: { provider: 'browser', model: '', language: 'en-US', saveRecordings: false },
   tts: { enabled: true, provider: 'browser', model: '', voice: '', speed: 1.0 },
 };
 

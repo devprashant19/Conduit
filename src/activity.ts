@@ -1,8 +1,9 @@
 import { watch, type FSWatcher } from 'chokidar';
+import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuid } from 'uuid';
-import { SHARED_CONTENT_DIR } from './storage.js';
+import { sharedDirFor } from './storage.js';
 import type { ActivityEvent } from './types.js';
 
 const MAX_EVENTS = 200;
@@ -27,7 +28,7 @@ export function pushEvent(detail: Omit<ActivityEvent, 'id' | 'timestamp'>) {
 
   // Append to the global activity log
   try {
-    const logPath = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.conduit', 'activity.jsonl');
+    const logPath = path.join(os.homedir(), '.conduit', 'activity.jsonl');
     fs.appendFile(logPath, JSON.stringify(full) + '\n', (err: NodeJS.ErrnoException | null) => {
       if (err) console.error('[activity] Error writing to log:', err);
     });
@@ -47,7 +48,7 @@ export function getEvents(projectId?: string): ActivityEvent[] {
 export function watchProject(projectId: string, projectName: string) {
   if (watchers.has(projectId)) return;
 
-  const dir = path.join(SHARED_CONTENT_DIR, projectName);
+  const dir = sharedDirFor(projectName);
   fs.mkdirSync(dir, { recursive: true });
 
   console.log(`[activity] Watching shared content: ${dir}`);

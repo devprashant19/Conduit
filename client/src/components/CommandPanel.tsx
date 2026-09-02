@@ -14,15 +14,11 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { marked } from 'marked';
 import Ic from './Icons';
 import { useSpeechInput } from '../hooks/useSpeechInput';
 import { stopSpeaking } from './JarvisHud';
-
-function renderMd(text: string): string {
-  try { return marked.parse(text, { async: false }) as string; }
-  catch { return text; }
-}
+import { renderMarkdown } from '../utils/md';
+import type { WsApi } from '../hooks/useWebSocket';
 
 interface BrainMessage {
   id: string;
@@ -53,7 +49,7 @@ type BrainEvent =
 interface Props {
   open: boolean;
   onClose: () => void;
-  wsRef: React.RefObject<WebSocket | null>;
+  ws: WsApi;
   sttCfg: { provider: 'browser' | 'openai' | 'gemini'; language: string };
 }
 
@@ -73,13 +69,14 @@ function timeAgo(ts: string): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-export default function CommandPanel({ open, onClose, wsRef, sttCfg }: Props) {
+export default function CommandPanel({ open, onClose, ws, sttCfg }: Props) {
   const [messages, setMessages] = useState<BrainMessage[]>([]);
   const [status, setStatus] = useState<BrainStatus>('idle');
   const [conversations, setConversations] = useState<BrainConversationMeta[]>([]);
   const [currentId, setCurrentId] = useState('');
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   // "Stick to bottom" mode — true while the user is parked at the bottom of
   // the transcript. As soon as they scroll up to read history, we stop
@@ -93,7 +90,7 @@ export default function CommandPanel({ open, onClose, wsRef, sttCfg }: Props) {
 
   // Keep the active conversation id reachable from the (long-lived) ws handler.
   const currentIdRef = useRef(currentId);
-  currentIdRef.current = currentId;
+  useEffect(() => { currentIdRef.current = currentId; }, [currentId]);
 
   const applyState = useCallback((s: BrainState) => {
     setMessages(Array.isArray(s.messages) ? s.messages : []);
@@ -107,36 +104,41 @@ export default function CommandPanel({ open, onClose, wsRef, sttCfg }: Props) {
     if (!open) return;
     let cancelled = false;
 
-    fetch('/api/brain')
-      .then((r) => r.json())
-      .then((s: BrainState) => { if (!cancelled) applyState(s); })
-      .catch(() => { /* daemon down — usable once it returns */ });
-
-    const ws = wsRef.current;
-    if (!ws) return () => { cancelled = true; };
-    const handler = (ev: MessageEvent) => {
-      try {
-        const data = JSON.parse(ev.data);
-        if (data.type !== 'brain:event') return;
-        const p: BrainEvent = data.payload;
-        if (p.kind === 'append') {
-          if (p.conversationId === currentIdRef.current) {
-            setMessages((prev) =>
-              prev.some((m) => m.id === p.message.id) ? prev : [...prev, p.message]);
-          }
-        } else if (p.kind === 'status') {
-          setStatus(p.status);
-        } else if (p.kind === 'state') {
-          applyState(p.state);
-        }
-      } catch { /* ignore */ }
+    const load = () => {
+      fetch('/api/brain')
+        .then(async (r) => {
+          const s = (await r.json()) as BrainState & { error?: string };
+          if (cancelled) return;
+          if (!r.ok) { setLoadError(s.error || `HTTP ${r.status}`); return; }
+          setLoadError(null);
+          applyState(s);
+        })
+        .catch((err) => { if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err)); });
     };
-    ws.addEventListener('message', handler);
-    return () => { cancelled = true; ws.removeEventListener('message', handler); };
-  }, [open, wsRef, applyState]);
+    load();
+
+    const unsubscribe = ws.subscribe((data) => {
+      if (data.type === 'ws:open') { load(); return; }
+      if (data.type !== 'brain:event') return;
+      const p = data.payload as BrainEvent;
+      if (p.kind === 'append') {
+        if (p.conversationId === currentIdRef.current) {
+          setMessages((prev) =>
+            prev.some((m) => m.id === p.message.id) ? prev : [...prev, p.message]);
+        }
+      } else if (p.kind === 'status') {
+        setStatus(p.status);
+      } else if (p.kind === 'state') {
+        applyState(p.state);
+      }
+    });
+    return () => { cancelled = true; unsubscribe(); };
+  }, [open, ws.subscribe, applyState]);
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 60);
+    if (!open) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
   }, [open]);
 
   useEffect(() => {
@@ -163,12 +165,7 @@ export default function CommandPanel({ open, onClose, wsRef, sttCfg }: Props) {
 
   if (!open) return null;
 
-  const wsSend = (obj: object): boolean => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-    ws.send(JSON.stringify(obj));
-    return true;
-  };
+  const wsSend = (obj: object): boolean => ws.send(obj);
 
   const send = (textArg?: string) => {
     const text = (textArg ?? input).trim();
@@ -203,7 +200,7 @@ export default function CommandPanel({ open, onClose, wsRef, sttCfg }: Props) {
 
   return (
     <div className="cmd-scrim" onClick={onClose}>
-      <div className="cmd-drawer" onClick={(e) => e.stopPropagation()}>
+      <div className="cmd-drawer" role="dialog" aria-modal="true" aria-label="Command" onClick={(e) => e.stopPropagation()}>
         <header className="cmd-h">
           <div className="cmd-h-l">
             <div className="cmd-mark"><Ic.logo size={15} /></div>
@@ -261,6 +258,12 @@ export default function CommandPanel({ open, onClose, wsRef, sttCfg }: Props) {
           </div>
         ) : (
           <div className="cmd-body scroll" ref={bodyRef} onScroll={onBodyScroll}>
+            {loadError && (
+              <div className="cmd-err">
+                The Keeper is unavailable: {loadError}. The daemon must be running (<code>npm run daemon</code>) and the <code>codex</code> CLI installed.
+              </div>
+            )}
+            {!ws.connected && <div className="cmd-system">Reconnecting to Conduit…</div>}
             {messages.length === 0 ? (
               <div className="cmd-intro">
                 <div className="cmd-intro-mark"><Ic.logo size={24} /></div>
@@ -318,7 +321,7 @@ export default function CommandPanel({ open, onClose, wsRef, sttCfg }: Props) {
             <button
               className="cmd-send"
               onClick={() => send()}
-              disabled={!input.trim() || status === 'thinking'}
+              disabled={!input.trim() || status === 'thinking' || !ws.connected}
               title="Send"
             >
               <Ic.send size={14} />
@@ -344,7 +347,7 @@ function BrainRow({ m }: { m: BrainMessage }) {
           <div className="cmd-avatar"><Ic.logo size={11} /></div>
           <div
             className="cmd-bubble cmd-md"
-            dangerouslySetInnerHTML={{ __html: renderMd(m.text) }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }}
           />
         </div>
       );

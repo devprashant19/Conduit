@@ -15,21 +15,22 @@ const ARM_TIMEOUT = 9000; // disarm if no command follows the wake phrase
 
 interface WakeOptions {
   enabled: boolean;
-  /** The wake phrase to listen for. Should be Chinese — the recognition runs
-   *  in zh-TW (for the commands), and a zh model won't transcribe English. */
+  /** The wake phrase to listen for, in the same language as `language`. */
   phrase: string;
+  /** BCP-47 tag for recognition, e.g. "en-US". Defaults to the browser language. */
+  language?: string;
   onWake: () => void;
   onCommand: (text: string) => void;
 }
 
-export function useWakeWord({ enabled, phrase, onWake, onCommand }: WakeOptions) {
+export function useWakeWord({ enabled, phrase, language, onWake, onCommand }: WakeOptions) {
   const [armed, setArmed] = useState(false);
   const [listening, setListening] = useState(false);
   const armedRef = useRef(false);
   const phraseRef = useRef(phrase);
-  phraseRef.current = phrase;
   const cbRef = useRef({ onWake, onCommand });
-  cbRef.current = { onWake, onCommand };
+  useEffect(() => { phraseRef.current = phrase; cbRef.current = { onWake, onCommand }; });
+  const lang = language || (typeof navigator !== 'undefined' ? navigator.language : '') || 'en-US';
 
   const SR =
     typeof window !== 'undefined'
@@ -79,9 +80,13 @@ export function useWakeWord({ enabled, phrase, onWake, onCommand }: WakeOptions)
       }
     };
 
+    let restarts = 0;
     const scheduleRestart = () => {
       if (stopped || restartTimer) return;
-      restartTimer = setTimeout(() => { restartTimer = null; start(); }, 600);
+      // Back off if recognition keeps ending immediately (no mic, tab hidden…)
+      restarts += 1;
+      const delay = Math.min(15_000, 600 * Math.pow(1.5, Math.min(restarts, 8)));
+      restartTimer = setTimeout(() => { restartTimer = null; start(); }, delay);
     };
 
     const start = () => {
@@ -89,10 +94,10 @@ export function useWakeWord({ enabled, phrase, onWake, onCommand }: WakeOptions)
       let r: SpeechRecognitionLike;
       try { r = new Rec(); }
       catch (err) { console.warn('[wake] could not create SpeechRecognition:', err); return; }
-      r.lang = 'zh-TW';
+      r.lang = lang;
       r.continuous = true;
       r.interimResults = false; // matching only acts on final results — interim is noise
-      r.onstart = () => { setListening(true); };
+      r.onstart = () => { setListening(true); restarts = 0; };
       r.onspeechstart = () => { /* no-op */ };
       r.onresult = handleResult;
       r.onerror = (ev: { error?: string }) => {
@@ -120,7 +125,7 @@ export function useWakeWord({ enabled, phrase, onWake, onCommand }: WakeOptions)
       try { rec?.abort(); } catch { /* ignore */ }
       rec = null;
     };
-  }, [SR, enabled]);
+  }, [SR, enabled, lang]);
 
   return { supported, armed, listening };
 }

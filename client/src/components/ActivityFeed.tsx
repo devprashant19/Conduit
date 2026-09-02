@@ -5,23 +5,13 @@
 
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import Ic from './Icons';
-
-interface ActivityEvent {
-  id: string;
-  projectId: string;
-  agentId?: string;
-  agentName?: string;
-  event: string;
-  detail: string;
-  timestamp: string;
-  fromAgent?: string;
-  toAgent?: string;
-  message?: string;
-}
+import * as api from '../api';
+import type { ActivityEvent } from '../api';
+import type { WsApi } from '../hooks/useWebSocket';
 
 interface Props {
   projectId: string;
-  wsRef: React.RefObject<WebSocket | null>;
+  ws: WsApi;
 }
 
 type Filter = 'all' | 'messages' | 'files' | 'lifecycle';
@@ -78,36 +68,34 @@ function dayGroup(timestamp: string): string {
   return d.toLocaleDateString();
 }
 
-export default function ActivityFeed({ projectId, wsRef }: Props) {
+export default function ActivityFeed({ projectId, ws }: Props) {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/activity?projectId=${projectId}`)
-      .then(r => r.json())
-      .then((data: ActivityEvent[]) => setEvents(data))
-      .catch(() => {});
+    let cancelled = false;
+    setEvents([]);
+    api.listActivity(projectId)
+      .then((data) => { if (!cancelled) setEvents(Array.isArray(data) ? data : []); })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)); });
+    return () => { cancelled = true; };
   }, [projectId]);
 
   useEffect(() => {
-    const ws = wsRef.current;
-    if (!ws) return;
-    const handler = (msg: MessageEvent) => {
-      try {
-        const data = JSON.parse(msg.data);
-        if (data.type === 'activity' && data.event.projectId === projectId) {
-          setEvents(prev => [...prev, data.event]);
-        }
-      } catch { /* ignore */ }
-    };
-    ws.addEventListener('message', handler);
-    return () => ws.removeEventListener('message', handler);
-  }, [projectId, wsRef]);
+    return ws.subscribe((msg) => {
+      if (msg.type !== 'activity') return;
+      const ev = msg.event as ActivityEvent | undefined;
+      if (!ev || ev.projectId !== projectId) return;
+      setEvents((prev) => prev.some((e) => e.id === ev.id) ? prev : [...prev, ev]);
+    });
+  }, [projectId, ws.subscribe]);
 
-  const filtered = events.filter(e => matchesFilter(e.event, filter));
-  const sorted = [...filtered].sort((a, b) =>
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  const sorted = useMemo(() => {
+    const filtered = events.filter(e => matchesFilter(e.event, filter));
+    return [...filtered].sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [events, filter]);
 
   const grouped = useMemo(() => {
     const groups = new Map<string, ActivityEvent[]>();
@@ -136,7 +124,8 @@ export default function ActivityFeed({ projectId, wsRef }: Props) {
         </div>
       </div>
       <div className="panel-body scroll">
-        {sorted.length === 0 ? (
+        {error && <div className="panel-empty" style={{ color: 'var(--err)' }}>{error}</div>}
+        {!error && sorted.length === 0 ? (
           <div className="panel-empty">No activity yet. Start an agent or edit shared content.</div>
         ) : (
           <div className="act-list wide">

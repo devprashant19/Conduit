@@ -47,9 +47,8 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
   const [error, setError] = useState<string | null>(null);
   const activeRef = useRef<Active>(null);
   const onTextRef = useRef(onText);
-  onTextRef.current = onText;
   const optRef = useRef(options);
-  optRef.current = options;
+  useEffect(() => { onTextRef.current = onText; optRef.current = options; });
 
   const SR =
     typeof window !== 'undefined'
@@ -82,7 +81,7 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
     if (!secure) { setError(explainError('', false)); return; }
     setError(null);
     const r = new Rec();
-    r.lang = optRef.current.language || 'zh-TW';
+    r.lang = optRef.current.language || navigator.language || 'en-US';
     r.interimResults = true;
     r.continuous = false;
     r.onresult = (e) => {
@@ -157,7 +156,8 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
       console.log(`[speech] stop — ${chunks.length} chunk(s), ${blob.size} bytes, ${elapsedMs}ms elapsed`);
       if (blob.size === 0) { console.warn('[speech] empty blob'); return; }
       try {
-        const r = await fetch('/api/voice/transcribe', {
+        const lang = optRef.current.language ? `?language=${encodeURIComponent(optRef.current.language)}` : '';
+        const r = await fetch('/api/voice/transcribe' + lang, {
           method: 'POST',
           headers: { 'Content-Type': blobMime },
           body: blob,

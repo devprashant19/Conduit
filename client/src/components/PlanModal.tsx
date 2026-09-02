@@ -1,84 +1,82 @@
-import React, { useState } from 'react';
-import type { Plan, Project } from '../../../src/types';
+import { useEffect, useState } from 'react';
+import type { Plan, Project } from '../api';
+import Ic from './Icons';
 
 interface PlanModalProps {
   project?: Project;
   plan: Plan;
+  /** How many more plans are queued behind this one. */
+  queued?: number;
   onClose: () => void;
-  onResolve: (decision: 'approve' | 'reject', reason?: string) => void;
+  onResolve: (decision: 'approve' | 'reject', reason?: string) => Promise<void> | void;
 }
 
-export default function PlanModal({ project, plan, onClose, onResolve }: PlanModalProps) {
+export default function PlanModal({ project, plan, queued = 0, onClose, onResolve }: PlanModalProps) {
   const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const resolve = async (decision: 'approve' | 'reject') => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onResolve(decision, reason.trim() || undefined);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 font-mono text-sm">
-      <div className="w-full max-w-lg bg-gray-900 border border-purple-500/30 rounded-lg shadow-2xl flex flex-col">
-        {/* Header */}
-        <div className="p-3 border-b border-gray-800 flex items-center justify-between bg-purple-900/20">
-          <div className="flex items-center gap-2 text-purple-400">
-            <span className="font-bold">⚠️ SUPERVISOR PLAN AWAITING APPROVAL</span>
-          </div>
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal modal-plan"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="plan-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2 id="plan-title"><Ic.sparkles size={12} /> Supervisor plan awaiting approval</h2>
+          <button className="hbtn" onClick={onClose} aria-label="Dismiss for now" title="Dismiss for now (Esc)"><Ic.x size={14} /></button>
         </div>
 
-        {/* Body */}
-        <div className="p-4 space-y-4">
-          <div>
-            <div className="text-gray-400 mb-1 text-xs uppercase tracking-wider">Project</div>
-            <div className="text-gray-200">{project?.name || plan.projectId}</div>
-          </div>
-
-          <div>
-            <div className="text-gray-400 mb-1 text-xs uppercase tracking-wider">Target Agent</div>
-            <div className="text-gray-200">{plan.targetAgent}</div>
-          </div>
-
-          <div>
-            <div className="text-gray-400 mb-1 text-xs uppercase tracking-wider">Description</div>
-            <div className="p-2 bg-black rounded text-gray-300">
-              {plan.description}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-gray-400 mb-1 text-xs uppercase tracking-wider">Proposed Message</div>
-            <div className="p-2 bg-black rounded text-green-400 whitespace-pre-wrap">
-              {plan.proposedMessage}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-gray-400 mb-1 text-xs uppercase tracking-wider">Rejection Reason (Optional)</div>
-            <input
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500 transition-colors"
-              placeholder="Why are you rejecting this?"
-            />
-          </div>
+        <div className="modal-kv">
+          <div className="k">Project</div><div className="v">{project?.name || plan.projectId}</div>
+          <div className="k">Target agent</div><div className="v">{plan.targetAgent}</div>
+          <div className="k">Proposed</div><div className="v">{new Date(plan.createdAt).toLocaleString()}</div>
         </div>
 
-        {/* Footer */}
-        <div className="p-3 border-t border-gray-800 flex items-center justify-end gap-2 bg-gray-900/50">
-          <button
-            onClick={() => {
-              onResolve('reject', reason);
-              onClose();
-            }}
-            className="px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
-          >
-            Reject
-          </button>
-          
-          <button
-            onClick={() => {
-              onResolve('approve');
-              onClose();
-            }}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded transition-colors"
-          >
-            Approve Plan
+        <label>Why the Supervisor wants this</label>
+        <div className="modal-pre wrap">{plan.description}</div>
+
+        <label>Exact message that would be sent to {plan.targetAgent}</label>
+        <pre className="modal-pre accent">{plan.proposedMessage}</pre>
+
+        <label htmlFor="plan-reason">Reason (used if you reject — the Supervisor sees it)</label>
+        <input
+          id="plan-reason"
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Optional — e.g. not now, we're mid-release"
+        />
+
+        {error && <div className="modal-error">{error}</div>}
+
+        <div className="modal-actions">
+          {queued > 0 && <span className="modal-queued">{queued} more waiting</span>}
+          <button type="button" onClick={onClose} disabled={busy}>Later</button>
+          <button type="button" className="danger" onClick={() => void resolve('reject')} disabled={busy}>Reject</button>
+          <button type="button" className="primary" onClick={() => void resolve('approve')} disabled={busy}>
+            Approve &amp; send
           </button>
         </div>
       </div>

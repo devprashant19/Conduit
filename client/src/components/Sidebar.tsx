@@ -167,6 +167,7 @@ export default function Sidebar({
                 className={'sb-agent' + (isActive ? ' active' : '')}
                 onClick={() => handleSelectAgent(a.projectId, a.id)}
                 style={{ '--accent-color': hue } as React.CSSProperties}
+                aria-current={isActive ? 'true' : undefined}
               >
                 <span className="st">
                   {a.pendingGate ? (
@@ -183,10 +184,14 @@ export default function Sidebar({
                 </span>
                 <span className="sub">{a.role || a.cwd}</span>
                 <span className="meta">
-                  {i < 5 && <span className="num">{MOD}{i + 1}</span>}
+                  {i < 9 && <span className="num">{MOD}{i + 1}</span>}
                   <span
                     className="sb-agent-delete"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Delete ${a.name}`}
                     onClick={(e) => { e.stopPropagation(); onDeleteAgent(a); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onDeleteAgent(a); } }}
                     title="Delete agent"
                   >
                     <Ic.x size={11} />

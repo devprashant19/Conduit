@@ -8,8 +8,9 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { marked } from 'marked';
 import Ic from './Icons';
+import { renderMarkdown } from '../utils/md';
+import type { WsApi } from '../hooks/useWebSocket';
 
 interface CodexItem {
   id: string;
@@ -31,57 +32,66 @@ interface CodexItem {
 
 interface Props {
   agentId: string;
-  send: (msg: object) => void;
-  wsRef: React.RefObject<WebSocket | null>;
+  ws: WsApi;
   onFocus?: () => void;
   focused?: boolean;
 }
 
-function renderMd(text: string): string {
-  try { return marked.parse(text, { async: false }) as string; }
-  catch { return text; }
-}
+const MODEL_KEY = 'conduit:codex-model';
+const EFFORT_KEY = 'conduit:codex-effort';
 
-export default function CodexAgentView({ agentId, send, wsRef, onFocus, focused }: Props) {
+export default function CodexAgentView({ agentId, ws, onFocus, focused }: Props) {
   const [items, setItems] = useState<CodexItem[]>([]);
   const [input, setInput] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [model, setModel] = useState('');
-  const [effort, setEffort] = useState('');
+  const [model, setModel] = useState(() => localStorage.getItem(MODEL_KEY) || '');
+  const [effort, setEffort] = useState(() => localStorage.getItem(EFFORT_KEY) || '');
   const [models, setModels] = useState<string[]>([]);
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => { try { localStorage.setItem(MODEL_KEY, model); } catch { /* ignore */ } }, [model]);
+  useEffect(() => { try { localStorage.setItem(EFFORT_KEY, effort); } catch { /* ignore */ } }, [effort]);
+
   // Available models for the picker (codex `model/list`).
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/codex/models')
       .then((r) => r.json())
-      .then((d) => { if (Array.isArray(d?.models)) setModels(d.models); })
+      .then((d) => { if (!cancelled && Array.isArray(d?.models)) setModels(d.models); })
       .catch(() => { /* picker just shows "default" */ });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    setItems([]);
-    send({ type: 'terminal:attach', agentId });
-    const ws = wsRef.current;
-    const handler = (ev: MessageEvent) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        if (msg.type === 'codex:item' && msg.agentId === agentId) {
-          setItems((prev) => {
-            const idx = prev.findIndex((i) => i.id === msg.item.id);
-            if (idx >= 0) { const n = prev.slice(); n[idx] = msg.item; return n; }
-            return [...prev, msg.item];
-          });
-        }
-      } catch { /* ignore */ }
+    let attached = false;
+    const attach = () => {
+      if (!ws.isOpen()) return;
+      setItems([]);
+      ws.send({ type: 'terminal:attach', agentId });
+      attached = true;
     };
-    ws?.addEventListener('message', handler);
+    const unsubscribe = ws.subscribe((msg) => {
+      if (msg.type === 'codex:item' && msg.agentId === agentId && msg.item) {
+        const item = msg.item as CodexItem;
+        setItems((prev) => {
+          const idx = prev.findIndex((i) => i.id === item.id);
+          if (idx >= 0) { const n = prev.slice(); n[idx] = item; return n; }
+          return [...prev, item];
+        });
+      } else if (msg.type === 'ws:open') {
+        attach();
+      } else if (msg.type === 'ws:close') {
+        attached = false;
+      }
+    });
+    attach();
     return () => {
-      ws?.removeEventListener('message', handler);
-      send({ type: 'terminal:detach', agentId });
+      unsubscribe();
+      if (attached) ws.send({ type: 'terminal:detach', agentId });
     };
-  }, [agentId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentId, ws.send, ws.subscribe, ws.isOpen]);
 
   useEffect(() => {
     if (focused) inputRef.current?.focus();
@@ -104,17 +114,18 @@ export default function CodexAgentView({ agentId, send, wsRef, onFocus, focused 
   const submit = () => {
     const t = input.trim();
     if (!t) return;
-    send({
+    const ok = ws.send({
       type: 'codex:send', agentId, text: t,
       model: model || undefined, effort: effort || undefined,
     });
-    setInput('');
+    if (ok) setInput('');
   };
 
   const startNewThread = () => {
+    if (!confirm('Start a new thread? The current conversation stays on disk but this view resets.')) return;
     setItems([]);
     setExpanded(new Set());
-    send({ type: 'codex:new-thread', agentId });
+    ws.send({ type: 'codex:new-thread', agentId });
   };
 
   const working = items.some((i) => i.status === 'running');
@@ -127,6 +138,7 @@ export default function CodexAgentView({ agentId, send, wsRef, onFocus, focused 
           value={model}
           onChange={(e) => setModel(e.target.value)}
           title="Model"
+          aria-label="Model"
         >
           <option value="">Model: default</option>
           {models.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -136,6 +148,7 @@ export default function CodexAgentView({ agentId, send, wsRef, onFocus, focused 
           value={effort}
           onChange={(e) => setEffort(e.target.value)}
           title="Reasoning effort"
+          aria-label="Reasoning effort"
         >
           <option value="">Reasoning: default</option>
           <option value="minimal">minimal</option>
@@ -151,7 +164,7 @@ export default function CodexAgentView({ agentId, send, wsRef, onFocus, focused 
       </div>
       <div className="cxv-body" ref={bodyRef}>
         {items.length === 0 && (
-          <div className="cxv-empty">Waiting for the Codex agent…</div>
+          <div className="cxv-empty">{ws.connected ? 'Waiting for the Codex agent…' : 'Reconnecting…'}</div>
         )}
         {items.map((it) => (
           <CodexItemRow
@@ -178,8 +191,9 @@ export default function CodexAgentView({ agentId, send, wsRef, onFocus, focused 
           }}
           placeholder="Message this Codex agent…  (Enter to send)"
           rows={2}
+          aria-label="Message to Codex agent"
         />
-        <button className="cxv-send" onClick={submit} disabled={!input.trim()} title="Send">
+        <button className="cxv-send" onClick={submit} disabled={!input.trim() || !ws.connected} title="Send" aria-label="Send">
           <Ic.send size={14} />
         </button>
       </div>
@@ -209,7 +223,7 @@ function CodexItemRow({ item, open, onToggle }: {
         <div className="cxv-avatar"><Ic.bolt size={11} /></div>
         <div
           className="cxv-md"
-          dangerouslySetInnerHTML={{ __html: renderMd(it.text || '') }}
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(it.text || '') }}
         />
       </div>
     );
@@ -217,7 +231,7 @@ function CodexItemRow({ item, open, onToggle }: {
   if (it.kind === 'reasoning') {
     return (
       <div className="cxv-card">
-        <button className="cxv-card-h" onClick={onToggle}>
+        <button className="cxv-card-h" onClick={onToggle} aria-expanded={open}>
           <Ic.chevR size={10} className={'cxv-chev' + (open ? ' rot' : '')} />
           <Ic.sparkles size={10} />
           <span className="cxv-card-t">Thinking</span>
@@ -225,7 +239,7 @@ function CodexItemRow({ item, open, onToggle }: {
         {open && (
           <div
             className="cxv-card-b cxv-md cxv-reasoning"
-            dangerouslySetInnerHTML={{ __html: renderMd(it.text || '') }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(it.text || '') }}
           />
         )}
       </div>
@@ -235,7 +249,7 @@ function CodexItemRow({ item, open, onToggle }: {
     const show = open || it.status === 'running';
     return (
       <div className="cxv-card">
-        <button className="cxv-card-h cxv-card-h-cmd" onClick={onToggle}>
+        <button className="cxv-card-h cxv-card-h-cmd" onClick={onToggle} aria-expanded={show}>
           <Ic.chevR size={10} className={'cxv-chev' + (show ? ' rot' : '')} />
           <Ic.terminal size={10} />
           <span className="cxv-card-t mono cxv-cmd-t">{it.command || '(command)'}</span>
@@ -254,7 +268,7 @@ function CodexItemRow({ item, open, onToggle }: {
   if (it.kind === 'tool') {
     return (
       <div className="cxv-card">
-        <button className="cxv-card-h" onClick={onToggle}>
+        <button className="cxv-card-h" onClick={onToggle} aria-expanded={open}>
           <Ic.chevR size={10} className={'cxv-chev' + (open ? ' rot' : '')} />
           <Ic.bolt size={10} />
           <span className="cxv-card-t mono">
@@ -274,7 +288,7 @@ function CodexItemRow({ item, open, onToggle }: {
   if (it.kind === 'file') {
     return (
       <div className="cxv-card">
-        <button className="cxv-card-h" onClick={onToggle}>
+        <button className="cxv-card-h" onClick={onToggle} aria-expanded={open}>
           <Ic.chevR size={10} className={'cxv-chev' + (open ? ' rot' : '')} />
           <Ic.file size={10} />
           <span className="cxv-card-t mono">{it.path || '(file)'}</span>

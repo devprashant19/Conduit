@@ -207,25 +207,44 @@ export default function SharedContentView({ projectId, refreshTrigger }: Props) 
 
   const selectedItem = selected ? items.find(i => i.filename === selected) : null;
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleSave = async () => {
     if (!selected) return;
     setSaving(true);
-    await api.updateContent(projectId, selected, content);
-    setSaving(false);
-    setDirty(false);
+    setError(null);
+    try {
+      await api.updateContent(projectId, selected, content);
+      setDirty(false);
+    } catch (err) {
+      setError('Save failed: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleNew = async () => {
     const filename = prompt('Filename (e.g. notes.md, or subdir/file.md):');
-    if (!filename) return;
-    await api.createContent(projectId, { filename, content: '' });
-    await reload();
-    setSelected(filename);
+    if (!filename || !filename.trim()) return;
+    setError(null);
+    try {
+      const created = await api.createContent(projectId, { filename: filename.trim(), content: '' });
+      await reload();
+      setSelected(created.filename);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const handleDelete = async () => {
     if (!selected || !confirm(`Delete ${selected}?`)) return;
-    await api.deleteContent(projectId, selected);
+    setError(null);
+    try {
+      await api.deleteContent(projectId, selected);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      return;
+    }
     setSelected(null);
     await reload();
   };
@@ -275,6 +294,7 @@ export default function SharedContentView({ projectId, refreshTrigger }: Props) 
                   </div>
                 </div>
                 <div className="grow" />
+                {error && <span style={{ color: 'var(--err)', fontSize: 11.5, marginRight: 8 }}>{error}</span>}
                 <button className="chip" onClick={handleSave} disabled={saving || !dirty}>
                   {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
                 </button>

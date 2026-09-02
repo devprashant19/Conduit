@@ -3,12 +3,10 @@
  * article body on the right. Supports click-to-navigate internal markdown links.
  */
 
-import { useState, useEffect } from 'react';
-import { marked } from 'marked';
+import { useState, useEffect, useCallback } from 'react';
 import * as api from '../api';
 import Ic from './Icons';
-
-marked.setOptions({ gfm: true, breaks: true });
+import { renderMarkdown } from '../utils/md';
 
 interface Props {
   projectId: string;
@@ -58,25 +56,13 @@ export default function ProjectWiki({ projectId }: Props) {
   const [content, setContent] = useState('');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [logEntries, setLogEntries] = useState<{ date: string; action: string; summary: string }[]>([]);
 
-  useEffect(() => {
-    setInitialized(null);
-    setFiles([]);
-    setSelected(null);
-    setContent('');
-    setEditing(false);
-    setLogEntries([]);
-    api.getWikiStatus(projectId).then(s => {
-      setInitialized(s.initialized);
-      if (s.initialized) loadFiles();
-    });
-  }, [projectId]);
-
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async (pickDefault: boolean) => {
     const list = await api.listWikiFiles(projectId);
     setFiles(list);
-    if (list.length > 0 && !selected) {
+    if (pickDefault && list.length > 0) {
       const def = list.find(f => f.filename === '_index.md')
         || list.find(f => f.filename === 'overview.md')
         || list[0];
@@ -86,7 +72,24 @@ export default function ProjectWiki({ projectId }: Props) {
       const log = await api.getWikiFile(projectId, '_log.md');
       if (log) setLogEntries(parseLog(log.content));
     } catch { /* no log yet */ }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setInitialized(null);
+    setFiles([]);
+    setSelected(null);
+    setContent('');
+    setEditing(false);
+    setError(null);
+    setLogEntries([]);
+    api.getWikiStatus(projectId).then(async (s) => {
+      if (cancelled) return;
+      setInitialized(s.initialized);
+      if (s.initialized) await loadFiles(true);
+    }).catch((err) => { if (!cancelled) { setError(err instanceof Error ? err.message : String(err)); setInitialized(false); } });
+    return () => { cancelled = true; };
+  }, [projectId, loadFiles]);
 
   useEffect(() => {
     if (!selected) { setContent(''); return; }
@@ -97,18 +100,29 @@ export default function ProjectWiki({ projectId }: Props) {
   }, [projectId, selected]);
 
   const handleInit = async () => {
-    await api.initializeWiki(projectId);
-    setInitialized(true);
-    await loadFiles();
+    try {
+      await api.initializeWiki(projectId);
+      setInitialized(true);
+      await loadFiles(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const handleSave = async () => {
     if (!selected) return;
     setSaving(true);
-    await api.updateWikiFile(projectId, selected, content);
-    setSaving(false);
-    setEditing(false);
-    if (selected === '_log.md') setLogEntries(parseLog(content));
+    setError(null);
+    try {
+      await api.updateWikiFile(projectId, selected, content);
+      setEditing(false);
+      if (selected === '_log.md') setLogEntries(parseLog(content));
+      await loadFiles(false);
+    } catch (err) {
+      setError('Save failed: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (initialized === null) {
@@ -131,6 +145,7 @@ export default function ProjectWiki({ projectId }: Props) {
             <button className="batch-btn primary" onClick={handleInit}>
               <Ic.plus size={11} /> Initialize Wiki
             </button>
+            {error && <p style={{ color: 'var(--err)', marginTop: 12, fontSize: 12 }}>{error}</p>}
           </div>
         </div>
       </div>
@@ -176,6 +191,7 @@ export default function ProjectWiki({ projectId }: Props) {
           </span>
         </div>
         <div className="panel-h-r">
+          {error && <span style={{ color: 'var(--err)', fontSize: 11.5, marginRight: 8 }}>{error}</span>}
           {editing ? (
             <>
               <button className="chip" onClick={() => {
@@ -234,7 +250,7 @@ export default function ProjectWiki({ projectId }: Props) {
                 )}
                 <div
                   className="wiki-body"
-                  dangerouslySetInnerHTML={{ __html: marked(content) as string }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
                     if (target.tagName === 'A') {

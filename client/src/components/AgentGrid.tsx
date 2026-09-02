@@ -18,6 +18,7 @@ import CodexAgentView from './CodexAgentView';
 import Ic from './Icons';
 import { agentHue, agentInitials } from '../utils/agentIdentity';
 import type { Agent } from '../api';
+import type { WsApi } from '../hooks/useWebSocket';
 
 export type GridLayout = 'single' | '2up' | '3up' | 'grid' | 'canvas';
 
@@ -129,15 +130,14 @@ interface AgentPaneProps {
   headMouseDown?: (e: React.MouseEvent) => void;
   isDragging?: boolean;
   isDragOver?: boolean;
-  send: (msg: object) => void;
-  wsRef: React.RefObject<WebSocket | null>;
+  ws: WsApi;
 }
 
 function AgentPane({
   agent, focused, onFocus,
   onStart, onStop, onRestart, onDelete,
   dragHandlers, headMouseDown, isDragging, isDragOver,
-  send, wsRef,
+  ws,
 }: AgentPaneProps) {
   const hue = agentHue(agent.name);
   const initials = agentInitials(agent.name);
@@ -210,16 +210,14 @@ function AgentPane({
           agent.cli === 'codex' ? (
             <CodexAgentView
               agentId={agent.id}
-              send={send}
-              wsRef={wsRef}
+              ws={ws}
               onFocus={onFocus}
               focused={focused}
             />
           ) : (
             <Terminal
               agentId={agent.id}
-              send={send}
-              wsRef={wsRef}
+              ws={ws}
               onFocus={onFocus}
               focused={focused}
             />
@@ -238,18 +236,36 @@ function AgentPane({
   );
 }
 
+/**
+ * Track a mouse drag on `window` until mouseup. Returns a cancel function so
+ * an unmount mid-drag never leaks listeners or a stuck cursor.
+ */
+function trackDrag(move: (ev: MouseEvent) => void, cursor: string): () => void {
+  const up = () => {
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+    window.removeEventListener('blur', up);
+    document.body.style.cursor = '';
+  };
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  window.addEventListener('blur', up);
+  document.body.style.cursor = cursor;
+  return up;
+}
+
+/** Cancel any in-flight drag when the owning component unmounts. */
+function useDragCleanup() {
+  const cancelRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => { cancelRef.current?.(); }, []);
+  return (cancel: () => void) => { cancelRef.current = cancel; };
+}
+
 function Resizer({ onDrag }: { onDrag: (dx: number, dy: number) => void }) {
+  const remember = useDragCleanup();
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
-    const move = (ev: MouseEvent) => onDrag(ev.movementX, ev.movementY);
-    const up = () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-      document.body.style.cursor = '';
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-    document.body.style.cursor = 'col-resize';
+    remember(trackDrag((ev) => onDrag(ev.movementX, ev.movementY), 'col-resize'));
   };
   return (
     <div className="pane-resizer" onMouseDown={onMouseDown}>
@@ -269,14 +285,12 @@ interface DraggableRowProps {
   onStop: (a: Agent) => void;
   onRestart: (a: Agent) => void;
   onDelete: (a: Agent) => void;
-  send: (msg: object) => void;
-  wsRef: React.RefObject<WebSocket | null>;
-  rowRef?: React.RefObject<HTMLDivElement>;
+  ws: WsApi;
 }
 
 function DraggableRow({
   items, focusedId, onFocus, onReorder, sizes, onResize,
-  onStart, onStop, onRestart, onDelete, send, wsRef,
+  onStart, onStop, onRestart, onDelete, ws,
 }: DraggableRowProps) {
   const [dragIx, setDragIx] = useState<number | null>(null);
   const [overIx, setOverIx] = useState<number | null>(null);
@@ -318,8 +332,7 @@ function DraggableRow({
                 dragHandlers={handlers}
                 isDragging={dragIx === i}
                 isDragOver={overIx === i && dragIx !== i}
-                send={send}
-                wsRef={wsRef}
+                ws={ws}
               />
             </div>
             {onResize && i < items.length - 1 && (
@@ -350,15 +363,14 @@ interface TmuxNodeProps {
   onStop: (a: Agent) => void;
   onRestart: (a: Agent) => void;
   onDelete: (a: Agent) => void;
-  send: (msg: object) => void;
-  wsRef: React.RefObject<WebSocket | null>;
+  ws: WsApi;
 }
 
 function TmuxNode({
   node, agents, focusedId, onFocus,
   onSplit, onClose, onRatio, onSwap,
   dragState, setDragState, path = [],
-  onStart, onStop, onRestart, onDelete, send, wsRef,
+  onStart, onStop, onRestart, onDelete, ws,
 }: TmuxNodeProps): JSX.Element | null {
   if (node.kind === 'leaf') {
     const agent = agents.find(a => a.id === node.id);
@@ -406,8 +418,7 @@ function TmuxNode({
             },
             onDragEnd: () => setDragState({ dragId: null, overId: null }),
           }}
-          send={send}
-          wsRef={wsRef}
+          ws={ws}
         />
         <div className="tmux-pane-ctrls">
           <button className="pane-btn" title="Split right" onClick={(e) => { e.stopPropagation(); onSplit((node as { kind: 'leaf'; id: string }).id, 'h'); }}>
@@ -436,19 +447,11 @@ function TmuxNode({
     const size0 = isH ? rect0.width : rect0.height;
     let accPx = 0;
     const startRatio = node.ratio;
-    const move = (ev: MouseEvent) => {
+    trackDrag((ev) => {
       accPx += isH ? ev.movementX : ev.movementY;
       const ratio = Math.max(0.1, Math.min(0.9, startRatio + accPx / size0));
       onRatio(path, ratio);
-    };
-    const up = () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-      document.body.style.cursor = '';
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-    document.body.style.cursor = isH ? 'col-resize' : 'row-resize';
+    }, isH ? 'col-resize' : 'row-resize');
   };
 
   return (
@@ -459,7 +462,7 @@ function TmuxNode({
           onSwap={onSwap} dragState={dragState} setDragState={setDragState}
           path={[...path, 'a']}
           onStart={onStart} onStop={onStop} onRestart={onRestart} onDelete={onDelete}
-          send={send} wsRef={wsRef} />
+          ws={ws} />
       </div>
       <div className={'tmux-divider ' + (isH ? 'vert' : 'horiz')} onMouseDown={onResizeDown} />
       <div className="tmux-side" style={styleB}>
@@ -468,7 +471,7 @@ function TmuxNode({
           onSwap={onSwap} dragState={dragState} setDragState={setDragState}
           path={[...path, 'b']}
           onStart={onStart} onStop={onStop} onRestart={onRestart} onDelete={onDelete}
-          send={send} wsRef={wsRef} />
+          ws={ws} />
       </div>
     </div>
   );
@@ -476,12 +479,12 @@ function TmuxNode({
 
 function GridTmuxLayout({
   agents, focusedId, onFocus, projectId,
-  onStart, onStop, onRestart, onDelete, send, wsRef,
+  onStart, onStop, onRestart, onDelete, ws,
 }: {
   agents: Agent[]; focusedId: string | null; onFocus: (id: string) => void; projectId: string;
   onStart: (a: Agent) => void; onStop: (a: Agent) => void;
   onRestart: (a: Agent) => void; onDelete: (a: Agent) => void;
-  send: (msg: object) => void; wsRef: React.RefObject<WebSocket | null>;
+  ws: WsApi;
 }) {
   const storageKey = `conduit:tmux-tree:${projectId}`;
   const idSet = new Set(agents.map(a => a.id));
@@ -571,8 +574,7 @@ function GridTmuxLayout({
         onStop={onStop}
         onRestart={onRestart}
         onDelete={onDelete}
-        send={send}
-        wsRef={wsRef}
+        ws={ws}
       />
     </div>
   );
@@ -584,12 +586,12 @@ interface Rect { x: number; y: number; w: number; h: number; z: number }
 
 function CanvasLayout({
   agents, focusedId, onFocus, projectId,
-  onStart, onStop, onRestart, onDelete, send, wsRef,
+  onStart, onStop, onRestart, onDelete, ws,
 }: {
   agents: Agent[]; focusedId: string | null; onFocus: (id: string) => void; projectId: string;
   onStart: (a: Agent) => void; onStop: (a: Agent) => void;
   onRestart: (a: Agent) => void; onDelete: (a: Agent) => void;
-  send: (msg: object) => void; wsRef: React.RefObject<WebSocket | null>;
+  ws: WsApi;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const storageKey = `conduit:canvas:${projectId}`;
@@ -609,28 +611,30 @@ function CanvasLayout({
   };
 
   const [rects, setRects] = useState<Record<string, Rect>>(initRects);
-  const [zTop, setZTop] = useState<number>(() => agents.length + 1);
+  // z-order counter lives in a ref: it's only ever bumped, never rendered.
+  const zTopRef = useRef<number>(Math.max(agents.length + 1, ...Object.values(rects).map((r) => r.z)));
+  const remember = useDragCleanup();
 
   // Sync rects with current agent set (add missing, drop gone)
   useEffect(() => {
     setRects(prev => {
       const next: Record<string, Rect> = { ...prev };
-      let z = zTop;
+      let changed = false;
       agents.forEach((a, i) => {
         if (!next[a.id]) {
           const col = i % 2;
           const row = Math.floor(i / 2);
-          z += 1;
-          next[a.id] = { x: 20 + col * 520, y: 60 + row * 360, w: 500, h: 340, z };
+          zTopRef.current += 1;
+          next[a.id] = { x: 20 + col * 520, y: 60 + row * 360, w: 500, h: 340, z: zTopRef.current };
+          changed = true;
         }
       });
       // Drop agents that no longer exist
       const ids = new Set(agents.map(a => a.id));
       for (const key of Object.keys(next)) {
-        if (!ids.has(key)) delete next[key];
+        if (!ids.has(key)) { delete next[key]; changed = true; }
       }
-      if (z !== zTop) setZTop(z);
-      return next;
+      return changed ? next : prev;
     });
   }, [agents.map(a => a.id).join(',')]);
 
@@ -639,11 +643,9 @@ function CanvasLayout({
   }, [rects, storageKey]);
 
   const bringFront = (id: string) => {
-    setZTop(z => {
-      const nz = z + 1;
-      setRects(r => (r[id] ? { ...r, [id]: { ...r[id], z: nz } } : r));
-      return nz;
-    });
+    zTopRef.current += 1;
+    const nz = zTopRef.current;
+    setRects(r => (r[id] && r[id].z !== nz ? { ...r, [id]: { ...r[id], z: nz } } : r));
   };
 
   const startDrag = (id: string) => (e: React.MouseEvent) => {
@@ -651,7 +653,7 @@ function CanvasLayout({
     if (target.closest('.pane-btn') || target.closest('input')) return;
     e.preventDefault();
     bringFront(id);
-    const move = (ev: MouseEvent) => {
+    remember(trackDrag((ev) => {
       setRects(prev => {
         const cur = prev[id];
         if (!cur) return prev;
@@ -660,15 +662,7 @@ function CanvasLayout({
           [id]: { ...cur, x: Math.max(0, cur.x + ev.movementX), y: Math.max(0, cur.y + ev.movementY) },
         };
       });
-    };
-    const up = () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-      document.body.style.cursor = '';
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-    document.body.style.cursor = 'grabbing';
+    }, 'grabbing'));
   };
 
   const startResize = (id: string, dir: string) => (e: React.MouseEvent) => {
@@ -676,7 +670,11 @@ function CanvasLayout({
     e.stopPropagation();
     bringFront(id);
     const MIN_W = 280, MIN_H = 200;
-    const move = (ev: MouseEvent) => {
+    const cursors: Record<string, string> = {
+      n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize',
+      se: 'nwse-resize', nw: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize',
+    };
+    remember(trackDrag((ev) => {
       const dx = ev.movementX, dy = ev.movementY;
       setRects(prev => {
         const cur = prev[id];
@@ -698,19 +696,7 @@ function CanvasLayout({
         }
         return { ...prev, [id]: r };
       });
-    };
-    const up = () => {
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-      document.body.style.cursor = '';
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-    const cursors: Record<string, string> = {
-      n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize',
-      se: 'nwse-resize', nw: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize',
-    };
-    document.body.style.cursor = cursors[dir] || '';
+    }, cursors[dir] || ''));
   };
 
   const tileAll = () => {
@@ -730,7 +716,7 @@ function CanvasLayout({
       next[a.id] = { x: 16 + c * (cw + 16), y: 60 + r * (ch + 16), w: cw, h: ch, z: i + 1 };
     });
     setRects(next);
-    setZTop(n + 1);
+    zTopRef.current = n + 1;
   };
 
   return (
@@ -762,8 +748,7 @@ function CanvasLayout({
                   onRestart={onRestart}
                   onDelete={onDelete}
                   headMouseDown={startDrag(a.id)}
-                  send={send}
-                  wsRef={wsRef}
+                  ws={ws}
                 />
               </div>
               {(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as const).map(d => (
@@ -788,15 +773,14 @@ interface Props {
   onStop: (a: Agent) => void;
   onRestart: (a: Agent) => void;
   onDelete: (a: Agent) => void;
-  send: (msg: object) => void;
-  wsRef: React.RefObject<WebSocket | null>;
+  ws: WsApi;
   projectId: string;
 }
 
 export default function AgentGrid({
   agents, layout, focusedId, onFocus,
   onStart, onStop, onRestart, onDelete,
-  send, wsRef, projectId,
+  ws, projectId,
 }: Props) {
   const orderKey = `conduit:agent-order:${projectId}`;
   const sizesKey2 = `conduit:grid-sizes-2:${projectId}`;
@@ -823,13 +807,26 @@ export default function AgentGrid({
 
   const ordered = order.map(id => agents.find(a => a.id === id)).filter((a): a is Agent => a != null);
 
-  const reorder = (from: number, to: number) => {
+  /**
+   * Move `fromId` to where `toId` sits in the persisted order. The rows hand
+   * us indices into their *visible* list, which for 2-up is focused-first —
+   * so we translate through ids instead of trusting row indices.
+   */
+  const reorderIds = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
     setOrder(prev => {
       const next = prev.slice();
-      const [m] = next.splice(from, 1);
-      next.splice(to, 0, m);
+      const from = next.indexOf(fromId);
+      const to = next.indexOf(toId);
+      if (from < 0 || to < 0) return prev;
+      next.splice(from, 1);
+      next.splice(to, 0, fromId);
       return next;
     });
+  };
+  const reorderIn = (visible: Agent[]) => (from: number, to: number) => {
+    const a = visible[from], b = visible[to];
+    if (a && b) reorderIds(a.id, b.id);
   };
 
   const [sizes2, setSizes2] = useState<number[]>(() => {
@@ -875,7 +872,7 @@ export default function AgentGrid({
     );
   }
 
-  const commonPaneProps = { onStart, onStop, onRestart, onDelete, send, wsRef };
+  const commonPaneProps = { onStart, onStop, onRestart, onDelete, ws };
 
   if (layout === 'canvas') {
     return (
@@ -912,7 +909,7 @@ export default function AgentGrid({
           items={pick}
           focusedId={focusedId}
           onFocus={onFocus}
-          onReorder={reorder}
+          onReorder={reorderIn(pick)}
           sizes={currentSizes}
           onResize={resizeRow(setSizes2)}
           {...commonPaneProps}
@@ -933,7 +930,7 @@ export default function AgentGrid({
           items={pick}
           focusedId={focusedId}
           onFocus={onFocus}
-          onReorder={reorder}
+          onReorder={reorderIn(pick)}
           sizes={currentSizes}
           onResize={resizeRow(setSizes3)}
           {...commonPaneProps}

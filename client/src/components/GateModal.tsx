@@ -1,99 +1,124 @@
-import { useState } from 'react';
-import type { Agent, Project } from '../api';
+import { useEffect, useState } from 'react';
+import type { Agent, PendingGate, Project } from '../api';
 import Ic from './Icons';
 
 interface Props {
   project?: Project;
   agent?: Agent;
-  gate?: NonNullable<Agent['pendingGate']>;
+  gate?: PendingGate;
   onClose: () => void;
-  onResolve: (decision: 'approve' | 'reject' | 'custom', customInput?: string) => void;
+  onResolve: (decision: 'approve' | 'reject' | 'custom', customInput?: string) => Promise<void> | void;
 }
 
-const HIGH_RISK_KEYWORDS = [
-  /delete/i,
-  /force push/i,
-  /drop table/i,
-  /rm -rf/i,
-  /overwrite/i,
-  /\bDROP\b/i,
-  /\bTRUNCATE\b/i,
-];
+const YES_NO = /\[y\/N\]|\[Y\/n\]|\(yes\/no\)|\(y\/n\)/i;
 
 export default function GateModal({ project, agent, gate, onClose, onResolve }: Props) {
   const [customInput, setCustomInput] = useState('');
   const [showCustom, setShowCustom] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const yesNo = !!gate && gate.source === 'regex' && YES_NO.test(gate.prompt);
+
+  const resolve = async (decision: 'approve' | 'reject' | 'custom', input?: string) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onResolve(decision, input);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  };
+
+  // Keyboard: y = approve, n = reject, Esc = close (only while not typing).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (showCustom) return;
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); void resolve('approve'); }
+      if (e.key === 'n' || e.key === 'N') { e.preventDefault(); void resolve('reject'); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCustom, busy]);
 
   if (!agent || !gate) return null;
 
-  const isHighRisk = HIGH_RISK_KEYWORDS.some(pattern => pattern.test(gate.prompt));
-
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
-        <div className="modal-h">
-          <h2>Action Required: {agent.name}</h2>
-          <button className="hbtn" onClick={onClose}><Ic.x size={14} /></button>
+      <div
+        className="modal modal-gate"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gate-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2 id="gate-title">
+            <Ic.stop size={12} /> {agent.name} needs your decision
+          </h2>
+          <button className="hbtn" onClick={onClose} aria-label="Close" title="Close (Esc)"><Ic.x size={14} /></button>
         </div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-            Agent <strong>{agent.name}</strong> in project <strong>{project?.name || agent.projectId}</strong> is blocked.
-            {gate.source === 'supervisor' && ' The Supervisor detected a risky action.'}
+
+        <p className="modal-lead">
+          <strong>{agent.name}</strong> in <strong>{project?.name || agent.projectId}</strong>
+          {gate.source === 'supervisor'
+            ? ' is about to do something the Supervisor flagged as risky.'
+            : yesNo
+              ? ' is waiting for a yes / no answer.'
+              : ' hit a command or prompt that matches a risk pattern.'}
+        </p>
+
+        <pre className="modal-pre">{gate.prompt}</pre>
+
+        {!yesNo && gate.source === 'regex' && (
+          <p className="modal-note">
+            Approve leaves the agent alone. Reject sends Escape to interrupt it and tells it to stop.
+          </p>
+        )}
+        {gate.source === 'supervisor' && (
+          <p className="modal-note">
+            Reject interrupts the agent and tells it not to proceed. Approve lets it continue.
+          </p>
+        )}
+
+        {error && <div className="modal-error">{error}</div>}
+
+        {!showCustom ? (
+          <div className="modal-actions">
+            <button type="button" onClick={() => setShowCustom(true)} disabled={busy}>Type a reply…</button>
+            <button type="button" className="danger" onClick={() => void resolve('reject')} disabled={busy}>
+              Reject <kbd>n</kbd>
+            </button>
+            <button type="button" className="primary" onClick={() => void resolve('approve')} disabled={busy}>
+              Approve <kbd>y</kbd>
+            </button>
           </div>
-
-          {isHighRisk && (
-            <div style={{ padding: '8px 12px', background: 'rgba(255, 60, 60, 0.1)', color: 'var(--err)', borderRadius: 6, fontSize: 13, border: '1px solid var(--err)' }}>
-              <strong>High Risk Action:</strong> This action matches a restricted pattern and cannot be auto-approved. You must explicitly choose an action.
+        ) : (
+          <div className="modal-custom">
+            <label htmlFor="gate-custom">Send this to the agent's terminal</label>
+            <input
+              id="gate-custom"
+              autoFocus
+              placeholder="e.g. 2, or a short instruction…"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && customInput.trim()) void resolve('custom', customInput);
+                if (e.key === 'Escape') setShowCustom(false);
+              }}
+            />
+            <div className="modal-actions">
+              <button type="button" onClick={() => setShowCustom(false)} disabled={busy}>Back</button>
+              <button type="button" className="primary" onClick={() => void resolve('custom', customInput)} disabled={busy || !customInput.trim()}>
+                Send
+              </button>
             </div>
-          )}
-
-          <div style={{
-            background: 'var(--bg)',
-            padding: 12,
-            borderRadius: 6,
-            border: '1px solid var(--border)',
-            fontFamily: 'var(--mono)',
-            fontSize: 12,
-            whiteSpace: 'pre-wrap',
-            color: 'var(--fg)',
-            maxHeight: 200,
-            overflowY: 'auto'
-          }}>
-            {gate.prompt}
           </div>
-
-          {!showCustom ? (
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn" onClick={() => setShowCustom(true)}>Custom Input</button>
-              <button className="btn" style={{ color: 'var(--err)', borderColor: 'var(--err)' }} onClick={() => onResolve('reject')}>
-                Reject (n)
-              </button>
-              <button 
-                className="btn primary" 
-                onClick={() => onResolve('approve')}
-              >
-                Approve (y)
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-              <input
-                autoFocus
-                className="input"
-                placeholder="Enter custom input to send..."
-                value={customInput}
-                onChange={e => setCustomInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') onResolve('custom', customInput);
-                }}
-              />
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button className="btn" onClick={() => setShowCustom(false)}>Back</button>
-                <button className="btn primary" onClick={() => onResolve('custom', customInput)}>Send Input</button>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,21 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import Ic from './Icons';
-import type { Agent } from '../api';
-
-interface GroupChatMsg {
-  id: string;
-  role: 'human' | 'agent' | 'supervisor';
-  sender: string;
-  message?: string;
-  text?: string;
-  classification?: string;
-  ts: string;
-}
+import * as api from '../api';
+import type { Agent, GroupChatMsg } from '../api';
+import type { WsApi } from '../hooks/useWebSocket';
 
 interface Props {
   projectId: string;
   agents: Agent[];
-  wsRef: React.RefObject<WebSocket | null>;
+  ws: WsApi;
 }
 
 function timeAgo(ts: string): string {
@@ -29,163 +21,119 @@ function timeAgo(ts: string): string {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function GroupChat({ projectId, agents, wsRef }: Props) {
+export default function GroupChat({ projectId, agents, ws }: Props) {
   const [messages, setMessages] = useState<GroupChatMsg[]>([]);
   const [composeBody, setComposeBody] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    fetch(`/api/projects/${projectId}/groupchat`)
-      .then(r => r.json())
-      .then((data: any) => {
-        if (Array.isArray(data.messages)) {
-          setMessages(data.messages);
-        }
-      })
-      .catch(() => {});
+    let cancelled = false;
+    setMessages([]);
+    setError(null);
+    api.listGroupChat(projectId)
+      .then((data) => { if (!cancelled) setMessages(Array.isArray(data?.messages) ? data.messages : []); })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)); });
+    return () => { cancelled = true; };
   }, [projectId]);
 
   useEffect(() => {
-    const ws = wsRef.current;
-    if (!ws) return;
-    const handler = (ev: MessageEvent) => {
-      try {
-        const data = JSON.parse(ev.data);
-        if (data.type === 'groupchat:message' && data.payload.projectId === projectId) {
-          setMessages(prev => [...prev, data.payload]);
-        }
-      } catch { /* ignore */ }
-    };
-    ws.addEventListener('message', handler);
-    return () => ws.removeEventListener('message', handler);
-  }, [projectId, wsRef]);
+    return ws.subscribe((msg) => {
+      if (msg.type !== 'groupchat:message') return;
+      const payload = msg.payload as GroupChatMsg | undefined;
+      if (!payload || (payload.projectId && payload.projectId !== projectId)) return;
+      setMessages((prev) => prev.some((m) => m.id === payload.id) ? prev : [...prev, payload]);
+    });
+  }, [projectId, ws.subscribe]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSend = async () => {
-    if (!composeBody.trim()) return;
+    const text = composeBody.trim();
+    if (!text || sending) return;
     setSending(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/groupchat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: composeBody.trim() }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(body.error || `HTTP ${res.status}`); return; }
+      await api.sendGroupChat(projectId, text);
       setComposeBody('');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSending(false);
+      inputRef.current?.focus();
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
+  const running = agents.filter((a) => a.status !== 'stopped').map((a) => a.name);
+
   return (
-    <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="panel gc-panel">
       <div className="panel-h">
         <div className="panel-h-l">
           <h2>Group Chat</h2>
           <span className="panel-sub">
-            Talk to all agents across the project
+            Messages go to every running agent · <code>@name</code> to pick one · Supervisor summaries land here
           </span>
         </div>
       </div>
-      <div className="scroll" style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div className="scroll gc-list">
         {messages.length === 0 ? (
-          <div className="panel-empty">No messages in group chat yet. Say hello!</div>
+          <div className="panel-empty">
+            No messages yet. Say hello — everything you type here is delivered into your running agents' terminals.
+          </div>
         ) : (
-          messages.map(m => {
-            const isHuman = m.role === 'human';
+          messages.map((m) => {
+            const isHuman = m.role === 'human' || m.role === 'user';
             const isSystem = m.role === 'supervisor';
-            const isGate = m.classification === 'risky_action';
-            const isPlanProgress = isSystem && m.classification === 'progress';
-            const isPlanBlocker = isSystem && m.classification === 'blocker';
-            
-            let bg = isHuman ? 'var(--accent)' : 'var(--bg2)';
-            let color = isHuman ? '#fff' : 'var(--fg)';
-            let border = isSystem ? '1px dashed var(--border)' : '1px solid var(--border)';
-
-            if (isGate) {
-              bg = 'rgba(255, 60, 60, 0.1)';
-              color = 'var(--err)';
-              border = '1px solid var(--err)';
-            } else if (isPlanProgress) {
-              bg = 'rgba(60, 255, 60, 0.05)';
-              border = '1px solid var(--success)';
-            } else if (isPlanBlocker) {
-              bg = 'rgba(255, 60, 60, 0.05)';
-              border = '1px dashed var(--err)';
-            }
-
+            const cls = ['gc-msg'];
+            if (isHuman) cls.push('mine');
+            if (isSystem) cls.push('system');
+            if (m.classification) cls.push('c-' + m.classification);
             return (
-              <div 
-                key={m.id} 
-                style={{ 
-                  alignSelf: isHuman ? 'flex-end' : 'flex-start',
-                  maxWidth: '80%',
-                  background: bg,
-                  color: color,
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  borderBottomRightRadius: isHuman ? '2px' : '12px',
-                  borderBottomLeftRadius: !isHuman ? '2px' : '12px',
-                  border: border,
-                }}
-              >
-                <div style={{ fontSize: '10px', opacity: 0.7, marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+              <div key={m.id} className={cls.join(' ')}>
+                <div className="gc-meta">
                   <strong>{m.sender}</strong>
-                  <span style={{ marginLeft: '12px' }}>{timeAgo(m.ts)}</span>
+                  {m.classification && m.classification !== 'noise' && (
+                    <span className={'gc-chip ' + m.classification}>{m.classification.replace('_', ' ')}</span>
+                  )}
+                  <span className="gc-time">{timeAgo(m.ts)}</span>
                 </div>
-                <div style={{ fontSize: '13px', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>
-                  {m.text || m.message}
-                </div>
+                <div className="gc-body">{m.text || m.message}</div>
               </div>
             );
           })
         )}
         <div ref={endRef} />
       </div>
-      <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
-        {error && <div style={{ color: 'var(--err)', fontSize: 11.5, marginBottom: '8px' }}>{error}</div>}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+      <div className="gc-compose">
+        {error && <div className="gc-error">{error}</div>}
+        <div className="gc-compose-row">
           <textarea
-            placeholder="Send a message (e.g. '@Backend check the auth flow')"
+            ref={inputRef}
+            placeholder={running.length
+              ? `Message ${running.length === 1 ? running[0] : running.length + ' running agents'}…  (@name to target one)`
+              : 'No agents running — start one, then say something here'}
             rows={1}
             value={composeBody}
             onChange={(e) => setComposeBody(e.target.value)}
             onKeyDown={handleKeyDown}
-            style={{ 
-              flex: 1, 
-              minHeight: '40px',
-              maxHeight: '120px',
-              resize: 'none',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              background: 'var(--bg2)',
-              color: 'var(--fg)',
-              fontFamily: 'inherit',
-              fontSize: '13px'
-            }}
+            aria-label="Group chat message"
           />
           <button
             className="send-btn primary"
-            onClick={handleSend}
+            onClick={() => void handleSend()}
             disabled={sending || !composeBody.trim()}
-            style={{ height: '40px', padding: '0 16px', borderRadius: '8px', fontWeight: 600 }}
           >
             <Ic.send size={13} /> {sending ? 'Sending…' : 'Send'}
           </button>

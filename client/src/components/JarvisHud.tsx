@@ -9,15 +9,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { marked } from 'marked';
 import Ic from './Icons';
 import { useSpeechInput } from '../hooks/useSpeechInput';
 import type { AgentNotif } from './NotificationCenter';
-
-function renderMd(text: string): string {
-  try { return marked.parse(text, { async: false }) as string; }
-  catch { return text; }
-}
+import { renderMarkdown } from '../utils/md';
 
 interface TtsCfg {
   enabled: boolean;
@@ -25,6 +20,8 @@ interface TtsCfg {
   model: string;
   voice: string;
   speed: number;
+  /** BCP-47 tag used for browser speech synthesis (falls back to the page language). */
+  language?: string;
 }
 
 /**
@@ -107,9 +104,9 @@ async function processTtsQueue(): Promise<void> {
   const job = ttsQueue.shift()!;
   try {
     if (job.cfg.provider === 'openai' || job.cfg.provider === 'gemini') {
-      await playApi(job.spoken);
+      await playApi(job.spoken, job.cfg);
     } else {
-      await playBrowser(job.spoken);
+      await playBrowser(job.spoken, job.cfg);
     }
   } catch (err) {
     console.warn('[tts] failed:', err);
@@ -124,7 +121,7 @@ async function processTtsQueue(): Promise<void> {
   }
 }
 
-async function playApi(text: string): Promise<void> {
+async function playApi(text: string, cfg: TtsCfg): Promise<void> {
   // Snapshot the generation at start of this play. If stopSpeaking bumps the
   // counter while we're in an await (fetch / blob), abandon the play before
   // creating an Audio element — otherwise the OLD playApi would still build
@@ -133,7 +130,7 @@ async function playApi(text: string): Promise<void> {
   const r = await fetch('/api/voice/tts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, provider: cfg.provider, model: cfg.model, voice: cfg.voice, speed: cfg.speed }),
   });
   if (myGen !== speakGen) return; // cancelled during fetch
   if (!r.ok) throw new Error(`tts ${r.status}: ${await r.text().catch(() => '')}`);
@@ -161,25 +158,24 @@ async function playApi(text: string): Promise<void> {
   });
 }
 
-async function playBrowser(text: string): Promise<void> {
+async function playBrowser(text: string, cfg: TtsCfg): Promise<void> {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
   const myGen = speakGen;
   const synth = window.speechSynthesis;
   return new Promise((resolve) => {
     // If we were cancelled while waiting for the queue, don't queue more.
     if (myGen !== speakGen) { resolve(); return; }
-    const zh = synth.getVoices().find((v) => /^zh|cmn/i.test(v.lang));
-    // Quiet warm-up absorbs the audio-device wake-up clip on the first line.
-    if (!synth.speaking && !synth.pending) {
-      const warm = new SpeechSynthesisUtterance('嗯。嗯。嗯。');
-      warm.lang = 'zh-TW';
-      warm.volume = 0.1;
-      if (zh) warm.voice = zh;
-      synth.speak(warm);
-    }
+    const lang = cfg.language || navigator.language || 'en-US';
+    const base = lang.split('-')[0].toLowerCase();
+    const voices = synth.getVoices();
+    const voice =
+      (cfg.voice && voices.find((v) => v.name === cfg.voice)) ||
+      voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase()) ||
+      voices.find((v) => v.lang.toLowerCase().startsWith(base));
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'zh-TW';
-    if (zh) u.voice = zh;
+    u.lang = lang;
+    u.rate = Math.max(0.5, Math.min(2, cfg.speed || 1));
+    if (voice) u.voice = voice;
     u.onend = () => resolve();
     u.onerror = () => resolve();
     synth.speak(u);
@@ -233,10 +229,9 @@ export default function JarvisHud({
     { provider: sttCfg.provider, language: sttCfg.language },
   );
   const ttsCfgRef = useRef(ttsCfg);
-  ttsCfgRef.current = ttsCfg;
   const inputRef = useRef<HTMLInputElement>(null);
   const voiceOutRef = useRef(voiceOut);
-  voiceOutRef.current = voiceOut;
+  useEffect(() => { ttsCfgRef.current = ttsCfg; voiceOutRef.current = voiceOut; });
 
   useEffect(() => {
     localStorage.setItem('conduit:voice-out', voiceOut ? '1' : '0');
@@ -259,7 +254,9 @@ export default function JarvisHud({
   }, [working]);
 
   useEffect(() => {
-    if (expanded) setTimeout(() => inputRef.current?.focus(), 80);
+    if (!expanded) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 80);
+    return () => clearTimeout(t);
   }, [expanded]);
 
   const state = working ? 'thinking'
@@ -284,7 +281,7 @@ export default function JarvisHud({
               <button
                 className={'jv-x' + (wake.enabled ? ' on' : '')}
                 onClick={wake.onToggle}
-                title={wake.enabled ? 'Wake word on — say “Hey Queen”' : 'Wake word off'}
+                title={wake.enabled ? `Wake word on — say “${wake.phrase}”` : 'Wake word off'}
               >
                 <Ic.mic size={13} />
               </button>
@@ -300,13 +297,14 @@ export default function JarvisHud({
           {wake.enabled && (
             <div className="jv-wake-cfg">
               <Ic.mic size={11} />
-              <span className="jv-wake-lbl">喚醒詞</span>
+              <span className="jv-wake-lbl">Wake word</span>
               <input
                 className="jv-wake-input"
                 value={wake.phrase}
                 onChange={(e) => wake.onPhraseChange(e.target.value)}
-                placeholder="中文喚醒詞…"
+                placeholder="e.g. jarvis"
                 spellCheck={false}
+                aria-label="Wake word"
               />
             </div>
           )}
@@ -358,7 +356,7 @@ export default function JarvisHud({
                   </button>
                   <div
                     className="jv-reply-t cmd-md"
-                    dangerouslySetInnerHTML={{ __html: renderMd(reply) }}
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(reply) }}
                   />
                 </>
               )}
