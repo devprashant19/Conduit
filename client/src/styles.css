@@ -34,6 +34,13 @@
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-blur: blur(16px);
 
+  /* shadow and glow tokens */
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --glow-primary: 0 0 15px rgba(59, 130, 246, 0.4), 0 0 30px rgba(59, 130, 246, 0.2);
+  --glow-hover: 0 0 20px rgba(59, 130, 246, 0.6), 0 0 40px rgba(59, 130, 246, 0.3);
+
   --attn: oklch(72% 0.13 75);
   --attn-soft: oklch(72% 0.13 75 / 0.14);
   --ok: oklch(68% 0.11 155);
