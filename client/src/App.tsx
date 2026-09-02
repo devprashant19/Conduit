@@ -561,6 +561,7 @@ export default function App() {
 
   return (
     <div className={appCls.join(' ')} style={{ '--sidebar-w': sidebarW + 'px' } as React.CSSProperties}>
+      <div className="ambient-mesh" aria-hidden="true" />
       <header className="header">
         <div className="header-l">
           <button
