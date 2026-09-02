@@ -26,3 +26,15 @@ This is because the local development environment does not currently have AWS cr
 
 **Next Steps:**
 To complete the verification step as requested, please add valid AWS credentials with Bedrock access to your `.env` file. Once added, I can re-run the smoke test and capture the actual model response here.
+
+## Bedrock Deployment Path Decision (AgentCore vs Direct)
+
+Per the "Agents for Humans" official rules, deploying with Amazon Bedrock AgentCore strengthens the Technical Implementation score but is not strictly required. We evaluated the two paths:
+
+1. **Direct Bedrock Runtime calls**: Simpler, faster to build, and runs fine on our single EC2 instance container. The AWS Strands Agents SDK handles the tool orchestration locally within the Node process.
+2. **Bedrock AgentCore Runtime**: Requires packaging the agent specifically for AgentCore deployment and managing AgentCore-specific IAM/execution roles. This pairs perfectly with the "not scalable but real AWS deployment" framing, as AgentCore handles the agent execution instead of us managing it as a raw EC2 process.
+
+**Sequencing Choice**: Given the hackathon timeline constraints, we deliberately chose to build against the **direct Bedrock Runtime first** to guarantee a functional, end-to-end working dashboard. We are targeting the AgentCore Runtime deployment as a Phase 6 stretch goal. This explicit sequencing ensures our core feature work (Group Chat, Approval Gates, Watchdog) isn't blocked by AgentCore setup risk, while still providing a path to maximize the Technical Implementation score.
+
+## AWS Builder ID
+**Compliance Check**: A dedicated AWS Builder ID (separate from the standard AWS account) has been created. It is ready for inclusion in the Devpost submission form, as required by the hackathon rules.
