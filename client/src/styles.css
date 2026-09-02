@@ -827,33 +827,44 @@ input, select, textarea { font-family: inherit; }
   border: 1px solid var(--border);
 }
 .tmux-divider {
-  flex: 0 0 4px;
-  background: var(--border);
+  flex: 0 0 6px;
+  background: transparent;
   position: relative;
-  transition: background 120ms ease;
+  transition: background 150ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.tmux-divider:hover, .tmux-divider:active { background: var(--accent); }
+.tmux-divider::before {
+  content: "";
+  position: absolute;
+  background: var(--border);
+  border-radius: 999px;
+  transition: all 150ms ease;
+}
+.tmux-divider.vert::before { top: 12px; bottom: 12px; width: 2px; }
+.tmux-divider.horiz::before { left: 12px; right: 12px; height: 2px; }
+
+.tmux-divider:hover::before, .tmux-divider:active::before {
+  background: #0f0f11;
+  width: 4px;
+}
+.tmux-divider.horiz:hover::before, .tmux-divider.horiz:active::before {
+  height: 4px;
+}
 .tmux-divider.vert { cursor: col-resize; }
 .tmux-divider.horiz { cursor: row-resize; }
-.tmux-divider::after {
-  content: ""; position: absolute;
-  background: transparent;
-}
-.tmux-divider.vert::after { top: 0; bottom: 0; left: -4px; right: -4px; }
-.tmux-divider.horiz::after { left: 0; right: 0; top: -4px; bottom: -4px; }
 
 .gr-body.layout-grid.empty { display: grid; place-items: center; }
 .tmux-empty { text-align: center; }
-.tmux-empty-title { font-size: 14px; color: var(--text-1); margin-bottom: 4px; }
-.tmux-empty-sub { font-size: 12px; color: var(--text-3); }
+.tmux-empty-title { font-size: 14px; font-weight: 600; color: var(--text-0); margin-bottom: 4px; }
+.tmux-empty-sub { font-size: 12px; color: var(--text-2); }
 
 /* ---- Canvas (free-form) ---- */
 .gr-body.layout-canvas {
   position: relative;
   overflow: auto;
-  background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px) 0 0 / 24px 24px,
-    transparent;
+  background: transparent;
   padding: 0;
   gap: 0;
   display: block;
@@ -867,30 +878,26 @@ input, select, textarea { font-family: inherit; }
   position: sticky; top: 0; left: 0; right: 0;
   z-index: 10000;
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 16px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--glass-border);
+  padding: 8px 18px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
   pointer-events: auto;
-  height: 38px;
+  height: 42px;
 }
-.canvas-toolbar .pane-btn { display: inline-flex; align-items: center; padding: 4px 8px; width: auto; }
-.canvas-hint { font-size: 11px; color: var(--text-3); }
+.canvas-toolbar .pane-btn { display: inline-flex; align-items: center; padding: 4px 10px; width: auto; border-radius: var(--radius-pill); }
+.canvas-hint { font-size: 11.5px; color: var(--text-2); }
 .canvas-card {
   position: absolute;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: #ffffff;
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 16px 40px -12px rgba(0,0,0,0.7), var(--shadow-sm);
+  box-shadow: 0 10px 30px -8px rgba(15, 15, 17, 0.08), 0 2px 6px rgba(15, 15, 17, 0.02);
   overflow: hidden;
   transition: box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .canvas-card.focused {
-  border-color: rgba(59, 130, 246, 0.6);
-  box-shadow: 0 20px 48px -10px rgba(0,0,0,0.8), var(--glow-primary);
+  border-color: #0f0f11;
+  box-shadow: 0 16px 40px -8px rgba(15, 15, 17, 0.16), 0 0 0 1px #0f0f11;
 }
 .canvas-card-inner { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .canvas-card-inner > .pane { flex: 1; min-height: 0; width: 100%; border: none; border-radius: 0; box-shadow: none; }
