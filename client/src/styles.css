@@ -1522,13 +1522,13 @@ input, select, textarea { font-family: inherit; }
 
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(15, 15, 17, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: grid; place-items: center;
   z-index: 300;
   padding: 16px;
-  animation: modal-fade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modal-fade 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes modal-fade {
   from { opacity: 0; }
@@ -1537,16 +1537,14 @@ input, select, textarea { font-family: inherit; }
 
 .modal {
   width: min(560px, 92vw);
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: #ffffff;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), var(--glow-primary);
+  box-shadow: 0 24px 60px -10px rgba(15, 15, 17, 0.18), 0 0 0 1px rgba(15, 15, 17, 0.05);
   padding: 24px;
   max-height: 88vh;
   overflow: auto;
-  animation: modal-scale 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modal-scale 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes modal-scale {
   from { transform: scale(0.97) translateY(8px); opacity: 0; }
@@ -2494,8 +2492,8 @@ input, select, textarea { font-family: inherit; }
 .modal-error { margin-top: 10px; padding: 8px 10px; border-radius: 6px; font-size: 12px;
   background: color-mix(in oklab, var(--err) 12%, transparent); color: var(--err); border: 1px solid var(--err); }
 .modal-pre {
-  background: rgba(9, 9, 11, 0.85);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-0);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
   font-family: var(--ff-mono, monospace);
@@ -2509,19 +2507,19 @@ input, select, textarea { font-family: inherit; }
   margin: 0;
 }
 .modal-pre.wrap { font-family: inherit; font-size: 13px; }
-.modal-pre.accent { border-color: color-mix(in oklab, var(--accent) 45%, var(--border)); }
-.modal-kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 12.5px; margin-bottom: 4px; }
-.modal-kv .k { color: var(--text-2); }
-.modal-kv .v { color: var(--text-0); }
-.modal-custom label { margin-top: 8px; }
-.modal-actions { align-items: center; }
+.modal-pre.accent { border-color: #0f0f11; background: var(--bg-2); }
+.modal-kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 12.5px; margin-bottom: 8px; }
+.modal-kv .k { color: var(--text-2); font-weight: 500; }
+.modal-kv .v { color: var(--text-0); font-weight: 600; }
+.modal-custom label { margin-top: 8px; font-weight: 600; }
+.modal-actions { align-items: center; margin-top: 16px; display: flex; gap: 8px; }
 .modal-actions .modal-queued { margin-right: auto; font-size: 11.5px; color: var(--text-2); }
 .modal-actions button kbd {
   margin-left: 6px; font-size: 10px; padding: 1px 5px; border-radius: 4px;
-  background: rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.12); font-family: var(--ff-mono, monospace);
+  background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.08); font-family: var(--ff-mono, monospace);
 }
-.modal-actions button.danger { color: var(--err); border-color: color-mix(in oklab, var(--err) 55%, var(--border)); }
-.modal-actions button.danger:hover { background: color-mix(in oklab, var(--err) 14%, var(--bg-3)); color: var(--err); }
+.modal-actions button.danger { color: var(--err); border-color: var(--err-soft); }
+.modal-actions button.danger:hover { background: var(--err-soft); }
 .modal-gate { width: min(560px, 92vw); }
 .modal-plan { width: min(640px, 92vw); }
 
