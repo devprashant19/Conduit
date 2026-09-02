@@ -237,10 +237,15 @@ input, select, textarea { font-family: inherit; }
 
 .sb {
   grid-area: sb;
-  background: var(--bg-1);
-  border-right: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  margin: 12px 0 12px 12px;
   display: flex; flex-direction: column;
   overflow: hidden;
+  box-shadow: var(--shadow-md);
 }
 
 .sb-section-h {
