@@ -249,6 +249,136 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           </div>
         </div>
       </section>
+
+      {/* Section 4: Team Demo & Calendar Booking Card (Image 4) */}
+      <section className="landing-section demo-sec">
+        <h2 className="section-title">
+          See what Conduit can do for<br />
+          your whole team.
+        </h2>
+        <p className="section-subtitle">
+          Get help with pricing and plans, schedule a walkthrough, explore use-cases for your team, and more.
+        </p>
+
+        <div className="calendar-card-wrap">
+          <div className="calendar-card">
+            {/* Left sidebar: Host details */}
+            <div className="cal-host-col">
+              <div className="cal-host-avatar">👨‍💻</div>
+              <div className="cal-host-meta">
+                <span className="cal-host-name">Conduit Founders</span>
+                <h3 className="cal-meeting-title">30 min with Conduit team</h3>
+              </div>
+              <p className="cal-meeting-desc">
+                Set up Conduit for your team. Get help with pricing and plans, schedule a demo, explore use-cases, and more.
+              </p>
+              <div className="cal-meeting-details">
+                <div className="cal-detail-item">⏱ 30m</div>
+                <div className="cal-detail-item">📹 Google Meet</div>
+                <div className="cal-detail-item">🌐 Asia/Kolkata</div>
+              </div>
+            </div>
+
+            {/* Middle: Month Date Grid */}
+            <div className="cal-grid-col">
+              <div className="cal-month-header">
+                <span className="cal-month-name">September 2026</span>
+                <div className="cal-nav-arrows">
+                  <span className="arrow">‹</span>
+                  <span className="arrow">›</span>
+                </div>
+              </div>
+              <div className="cal-days-header">
+                <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
+              </div>
+              <div className="cal-dates-grid">
+                <span className="dim">30</span><span className="dim">31</span>
+                <span>1</span><span>2</span><span className="active-date">3</span><span>4</span><span>5</span>
+                <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span>
+                <span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span>
+                <span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span>
+                <span>27</span><span>28</span><span>29</span><span>30</span>
+              </div>
+            </div>
+
+            {/* Right: Time Slots */}
+            <div className="cal-slots-col">
+              <div className="cal-slots-header">
+                <span className="cal-day-label">Thu 3rd</span>
+                <div className="time-format-toggle">
+                  <span className="active">12h</span>
+                  <span>24h</span>
+                </div>
+              </div>
+              <div className="cal-slot-list">
+                <button className="cal-slot-btn" onClick={onOpenConsole}>10:30pm</button>
+                <button className="cal-slot-btn" onClick={onOpenConsole}>11:00pm</button>
+                <button className="cal-slot-btn" onClick={onOpenConsole}>11:30pm</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 5: FAQ & Bottom Mascot Sign-off (Image 5) */}
+      <section id="faq" className="landing-section faq-sec">
+        <h2 className="section-title">Frequently asked questions</h2>
+
+        <div className="faq-list">
+          {/* FAQ 1 */}
+          <div className="faq-item open">
+            <div className="faq-question">
+              <span>Who is Conduit for?</span>
+              <span className="faq-toggle">×</span>
+            </div>
+            <div className="faq-answer">
+              Anyone whose work sprawls across tabs, files, and tools. Founders, chiefs of staff, operations and sales teams, team leads, and product and engineering managers are our power users. We are onboarding more professionals every day. If repetitive computer work eats your week, Conduit is for you.
+            </div>
+          </div>
+
+          {/* FAQ 2 */}
+          <div className="faq-item">
+            <div className="faq-question">
+              <span>How does Conduit work?</span>
+              <span className="faq-toggle">+</span>
+            </div>
+          </div>
+
+          {/* FAQ 3 */}
+          <div className="faq-item">
+            <div className="faq-question">
+              <span>Does it work with the tools I already use?</span>
+              <span className="faq-toggle">+</span>
+            </div>
+          </div>
+
+          {/* FAQ 4 */}
+          <div className="faq-item">
+            <div className="faq-question">
+              <span>Is my data secure and private?</span>
+              <span className="faq-toggle">+</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Mascot Parade & Final Hero Sign-off */}
+        <div className="footer-signoff-wrap">
+          <div className="mascot-parade-row">
+            <span className="parade-mascot">👾</span>
+            <span className="parade-mascot">🐻</span>
+            <span className="parade-mascot">🌱</span>
+            <span className="parade-mascot">🐰</span>
+            <span className="parade-mascot">🌸</span>
+            <span className="parade-mascot">🍑</span>
+          </div>
+          <h2 className="signoff-title">
+            Consider it <span className="highlight-pill">done.</span>
+          </h2>
+          <button className="landing-btn-black signoff-btn" onClick={onOpenConsole}>
+            Launch Conduit Console <Ic.chevR size={12} />
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
