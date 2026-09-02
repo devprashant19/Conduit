@@ -113,12 +113,14 @@ export type DaemonRequest =
   | { id: string; op: 'agent:preview'; agentId: string }
   | { id: string; op: 'agent:runningIds' }
   | { id: string; op: 'agent:statuses' }
+  | { id: string; op: 'agent:replay'; agentId: string }
   | { id: string; op: 'brain:state' }
   | { id: string; op: 'codex:models' }
   // --- Fire-and-forget commands ---
   | { op: 'terminal:attach'; agentId: string }
   | { op: 'terminal:detach'; agentId: string }
   | { op: 'terminal:input'; agentId: string; data: string }
+  | { op: 'terminal:interrupt'; agentId: string }
   | { op: 'terminal:resize'; agentId: string; cols: number; rows: number }
   | { op: 'codex:send'; agentId: string; text: string; model?: string; effort?: string }
   | { op: 'codex:new-thread'; agentId: string }
@@ -140,7 +142,18 @@ export type DaemonMessage =
   | { kind: 'event'; event: 'org:changed' }
   | { kind: 'event'; event: 'supervisor:update'; payload: { agentId: string; projectId: string; classification: string; summary: string; ts: string } }
   | { kind: 'event'; event: 'groupchat:message'; payload: any }
+  | { kind: 'event'; event: 'gate:triggered'; agentId: string; projectId: string; prompt: string; source: 'regex' | 'supervisor'; options?: string[] }
+  | { kind: 'event'; event: 'gate:resolved'; agentId: string }
   | { kind: 'event'; event: 'codex:item'; agentId: string; item: CodexItem };
+
+/** Payload of a `gate:triggered` event. */
+export interface GateEvent {
+  agentId: string;
+  projectId: string;
+  prompt: string;
+  source: 'regex' | 'supervisor';
+  options?: string[];
+}
 
 /** Result shapes for each RPC op (for type-safe clients). */
 export interface DaemonRpcResults {
@@ -153,6 +166,7 @@ export interface DaemonRpcResults {
   'agent:preview': { preview: string };
   'agent:runningIds': { ids: string[] };
   'agent:statuses': { statuses: Record<string, string> };
+  'agent:replay': { text?: string; items?: CodexItem[] };
   'brain:state': BrainState;
   'codex:models': { models: string[] };
 }

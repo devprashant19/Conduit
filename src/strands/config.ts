@@ -1,18 +1,24 @@
-import { BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import dotenv from 'dotenv';
-import path from 'path';
 
 // Ensure .env is loaded
 dotenv.config();
 
-const region = process.env.AWS_REGION || 'us-east-1';
-export const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-5-sonnet-20240620-v1:0';
+export const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
 
-// Use the standard credential chain:
-// It will automatically pick up AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY from env vars
-// OR fall back to the EC2 Instance Profile / ECS task role if running in AWS.
-export const bedrockClient = new BedrockRuntimeClient({
-  region,
-  credentials: fromNodeProviderChain(),
-});
+/**
+ * Bedrock model the Supervisor runs on. Keep this in sync with the IAM policy
+ * in the README — the role must allow InvokeModel on exactly this id.
+ */
+export const BEDROCK_MODEL_ID =
+  process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-5-sonnet-20240620-v1:0';
+
+/** True when the Supervisor is switched off (no AWS access, or by choice). */
+export function supervisorDisabled(): boolean {
+  const v = (process.env.CONDUIT_SUPERVISOR || '').trim().toLowerCase();
+  return v === '0' || v === 'off' || v === 'false';
+}
+
+// Credentials: the Strands BedrockModel builds its own BedrockRuntimeClient,
+// which uses the standard AWS SDK provider chain — AWS_ACCESS_KEY_ID /
+// AWS_SECRET_ACCESS_KEY from the environment or .env, ~/.aws/credentials, or
+// an EC2 / ECS instance role when running on AWS.

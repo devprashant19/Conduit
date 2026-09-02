@@ -14,7 +14,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import type { Agent } from '../types.js';
 import type { CodexItem } from './protocol.js';
-import { updateAgent, getProjectData, SHARED_CONTENT_DIR, WIKI_DIR } from '../storage.js';
+import { updateAgent, getProjectData, sharedDirFor, wikiDirFor } from '../storage.js';
 import { CodexAppServer } from './codex-server.js';
 
 type StatusFn = (agentId: string, status: string) => void;
@@ -41,8 +41,9 @@ const MAX_ITEMS = 500;
 function buildAgentEnv(agent: Agent): { developerInstructions: string; config: Record<string, unknown> } {
   const data = getProjectData(agent.projectId);
   const projectName = data?.project.name || 'this project';
-  const wikiPath = path.join(WIKI_DIR, projectName);
-  const sharedPath = path.join(SHARED_CONTENT_DIR, projectName);
+  const wikiPath = wikiDirFor(projectName);
+  const sharedPath = sharedDirFor(projectName);
+  try { fs.mkdirSync(wikiPath, { recursive: true }); } catch { /* best-effort */ }
   try { fs.mkdirSync(sharedPath, { recursive: true }); } catch { /* best-effort */ }
 
   const teammates = (data?.agents || []).filter((a) => a.id !== agent.id);
@@ -458,6 +459,10 @@ export async function startAgent(agent: Agent, statusFn: StatusFn): Promise<bool
   }
 
   const cwd = expandHome(agent.cwd);
+  if (!fs.existsSync(cwd)) {
+    console.error(`[codex-agents] cwd does not exist for ${agent.name}: ${cwd}`);
+    return false;
+  }
   const env = buildAgentEnv(agent);
   const baseParams = {
     cwd,
@@ -689,6 +694,34 @@ export function subscribeItems(agentId: string, listener: ItemListener): () => v
   if (!s) return () => { /* nothing */ };
   s.listeners.add(listener);
   return () => { sessions.get(agentId)?.listeners.delete(listener); };
+}
+
+/**
+ * Subscribe to a plain-text rendering of the agent's activity — one string per
+ * finished item (message, command + output, error, file edit). This is what
+ * the Supervisor watches for Codex agents, since they have no PTY stream.
+ */
+export function subscribeText(agentId: string, listener: (text: string) => void): () => void {
+  const s = sessions.get(agentId);
+  if (!s) return () => { /* nothing */ };
+  const emitted = new Set<string>();
+  const l: ItemListener = (it) => {
+    if (it.status === 'running') return;
+    if (emitted.has(it.id)) return;
+    let text = '';
+    if (it.kind === 'message' && it.role === 'agent') text = it.text || '';
+    else if (it.kind === 'command') {
+      const out = (it.output || '').slice(-2000);
+      text = `$ ${it.command || ''}\n${out}\n(exit ${it.exitCode ?? '?'})`;
+    } else if (it.kind === 'error') text = 'ERROR: ' + (it.text || '');
+    else if (it.kind === 'file') text = `edited file: ${it.path || ''}`;
+    if (!text.trim()) return;
+    emitted.add(it.id);
+    if (emitted.size > 2000) emitted.clear();
+    listener(text + '\n');
+  };
+  s.listeners.add(l);
+  return () => { sessions.get(agentId)?.listeners.delete(l); };
 }
 
 export function getAgentPreview(agentId: string): string {

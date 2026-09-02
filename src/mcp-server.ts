@@ -41,11 +41,18 @@ function parseArgs(): Args {
   };
 }
 
+/** Basic-auth header when the hub is password-protected (CONDUIT_AUTH=user:pass). */
+function authHeaders(): Record<string, string> {
+  const raw = process.env.CONDUIT_AUTH || process.env.AGENT_ORG_AUTH || '';
+  if (!raw.includes(':')) return {};
+  return { Authorization: 'Basic ' + Buffer.from(raw).toString('base64') };
+}
+
 async function hubFetch(args: Args, path: string, init?: RequestInit): Promise<Response> {
   const url = `${args.hubUrl}${path}`;
   return fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
     ...init,
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers as Record<string, string> | undefined) },
   });
 }
 

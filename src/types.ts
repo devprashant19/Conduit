@@ -77,7 +77,8 @@ export type WSClientMessage =
   | { type: 'brain:new' }
   | { type: 'brain:abort' }
   | { type: 'brain:switch'; conversationId: string }
-  | { type: 'brain:delete'; conversationId: string };
+  | { type: 'brain:delete'; conversationId: string }
+  | { type: 'ping' };
 
 export interface ActivityEvent {
   id: string;
@@ -103,6 +104,8 @@ export interface AgentMessage {
 }
 
 export type WSServerMessage =
+  | { type: 'hello'; daemon: boolean }
+  | { type: 'pong' }
   | { type: 'terminal:output'; agentId: string; data: string }
   | { type: 'agent:status'; agentId: string; status: string }
   | { type: 'content:updated'; projectId: string; filename: string }

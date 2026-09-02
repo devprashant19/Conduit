@@ -20,6 +20,7 @@ import { hookEventToStatus } from '../hook-config.js';
 import { cleanStaleCodexMcp } from '../mcp-config.js';
 import { Orchestrator } from './orchestrator.js';
 import { hookEvents } from './hook-events.js';
+import { attachWatcher, detachWatcher } from '../strands/watcher.js';
 import {
   orgSnapshot,
   askAgentDispatch,
@@ -48,6 +49,9 @@ const clients = new Set<WebSocket>();
 
 /** Per-client attach teardown fns, keyed by agentId, for clean teardown. */
 const clientListeners = new WeakMap<WebSocket, Map<string, () => void>>();
+/** Agents each client wants to watch — so an attach that arrives before the
+ *  agent is running (or across a restart) is bound the moment it comes up. */
+const clientWanted = new WeakMap<WebSocket, Set<string>>();
 
 function send(ws: WebSocket, msg: DaemonMessage) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
@@ -99,18 +103,27 @@ function setStatus(agentId: string, status: string) {
   }
 }
 
-import { attachWatcher, detachWatcher } from '../strands/watcher.js';
-
-/** Status callback handed to pty-manager — 'running' on spawn, 'stopped' on exit. */
+/** Status callback handed to the runtimes — 'running' on spawn, 'stopped' on exit. */
 function onAgentStatus(agentId: string, status: string) {
   setStatus(agentId, status);
-  if (status === 'running') {
-    const projId = findAgentProject(agentId);
-    if (projId) {
-      attachWatcher(agentId, projId, broadcast);
-    }
-  } else if (status === 'stopped') {
+  if (status === 'stopped') {
     detachWatcher(agentId);
+    // Drop dead listeners so a later attach binds to the fresh process.
+    for (const ws of clients) {
+      const teardowns = clientListeners.get(ws);
+      const t = teardowns?.get(agentId);
+      if (t) { t(); teardowns!.delete(agentId); }
+    }
+    return;
+  }
+  // Any live status — attachWatcher is idempotent per agent.
+  const projId = findAgentProject(agentId);
+  if (projId) attachWatcher(agentId, projId, broadcast);
+  // Bind viewers that asked for this agent before it was running.
+  for (const ws of clients) {
+    if (clientWanted.get(ws)?.has(agentId) && !clientListeners.get(ws)?.has(agentId)) {
+      attachTerminal(ws, agentId);
+    }
   }
 }
 
@@ -157,8 +170,12 @@ function emitAgentDispatch(d: AgentDispatch) {
 function attachTerminal(ws: WebSocket, agentId: string) {
   const teardowns = clientListeners.get(ws);
   if (!teardowns) return;
+  clientWanted.get(ws)?.add(agentId);
   const existing = teardowns.get(agentId);
-  if (existing) existing();
+  if (existing) { existing(); teardowns.delete(agentId); }
+
+  // Not running yet — onAgentStatus binds us when it starts.
+  if (!runtime.isAgentRunning(agentId)) return;
 
   // PTY agents stream text; Codex agents stream structured items.
   const teardown = runtime.attach(agentId, {
@@ -169,6 +186,7 @@ function attachTerminal(ws: WebSocket, agentId: string) {
 }
 
 function detachTerminal(ws: WebSocket, agentId: string) {
+  clientWanted.get(ws)?.delete(agentId);
   const teardowns = clientListeners.get(ws);
   const teardown = teardowns?.get(agentId);
   if (teardown) {
@@ -184,7 +202,10 @@ async function handleRequest(ws: WebSocket, req: DaemonRequest): Promise<void> {
     switch (req.op) {
       case 'terminal:attach': attachTerminal(ws, req.agentId); return;
       case 'terminal:detach': detachTerminal(ws, req.agentId); return;
-      case 'terminal:input': runtime.writeToAgent(req.agentId, req.data); return;
+      case 'terminal:input':
+        if (typeof req.data === 'string') runtime.writeToAgent(req.agentId, req.data);
+        return;
+      case 'terminal:interrupt': runtime.interruptAgent(req.agentId); return;
       case 'terminal:resize': runtime.resizeAgent(req.agentId, req.cols, req.rows); return;
       case 'codex:send':
         runtime.sendCodexTurn(req.agentId, req.text, req.model, req.effort);
@@ -221,6 +242,7 @@ async function handleRequest(ws: WebSocket, req: DaemonRequest): Promise<void> {
       }
       case 'agent:stop': {
         const ok = runtime.stopAgent(req.agentId);
+        detachWatcher(req.agentId);
         setStatus(req.agentId, 'stopped');
         return reply({ ok });
       }
@@ -261,6 +283,8 @@ async function handleRequest(ws: WebSocket, req: DaemonRequest): Promise<void> {
         for (const [id, s] of agentStatus) statuses[id] = s;
         return reply({ statuses });
       }
+      case 'agent:replay':
+        return reply(runtime.getReplay(req.agentId));
       case 'brain:state':
         return reply(orchestrator.getState());
       case 'codex:models':
@@ -590,6 +614,7 @@ const wss = new WebSocketServer({ server: httpServer });
 wss.on('connection', (ws) => {
   clients.add(ws);
   clientListeners.set(ws, new Map());
+  clientWanted.set(ws, new Set());
   console.log(`[daemon] web client connected (${clients.size} total)`);
 
   send(ws, { kind: 'hello', pid: process.pid, startedAt });
@@ -626,8 +651,12 @@ httpServer.listen(DAEMON_PORT, DAEMON_HOST, () => {
   console.log(`[daemon]   http://${DAEMON_HOST}:${DAEMON_PORT}/hook/:agentId/:event  — lifecycle hooks`);
 });
 
-httpServer.on('error', (err) => {
-  console.error('[daemon] server error:', err);
+httpServer.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[daemon] port ${DAEMON_PORT} is already in use — is another conduit-daemon running? (set CONDUIT_DAEMON_PORT to change it)`);
+  } else {
+    console.error('[daemon] server error:', err);
+  }
   process.exit(1);
 });
 
@@ -639,6 +668,14 @@ function shutdown(signal: string) {
   }
   process.exit(0);
 }
+
+// Never let one bad event take the whole daemon (and every agent) down.
+process.on('uncaughtException', (err) => {
+  console.error('[daemon] uncaught exception:', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('[daemon] unhandled rejection:', err);
+});
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGHUP', () => shutdown('SIGHUP'));

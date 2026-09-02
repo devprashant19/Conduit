@@ -16,6 +16,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import type { Agent } from './types.js';
+import { getAuthConfig } from './auth.js';
 
 /** Directory holding per-agent Claude MCP config JSON files. */
 export function getClaudeMcpConfigDir(): string {
@@ -35,19 +36,12 @@ export interface McpWriteContext {
 }
 
 /**
- * Unique MCP server key per agent (used in Codex where config is global).
- * Claude Code is per-project scope so we use a single key.
- */
-export function mcpServerKeyForCodex(agentId: string): string {
-  return `conduit_${agentId.slice(0, 8)}`;
-}
-
-/**
- * Build the command + args array used by both Claude and Codex configs.
+ * Build the command + args array for the per-agent MCP server. Uses the same
+ * node binary that runs the daemon, so a PATH without `node` still works.
  */
 function buildInvocation(ctx: McpWriteContext): { command: string; args: string[] } {
   return {
-    command: 'node',
+    command: process.execPath,
     args: [
       ctx.mcpServerPath,
       '--hub', ctx.hubUrl,
@@ -70,63 +64,23 @@ export function writeClaudeMcpConfig(ctx: McpWriteContext): string {
 
   const invocation = buildInvocation(ctx);
   const configPath = getClaudeMcpConfigPath(ctx.agent.id);
+  // When the web server is password-protected, the MCP server needs the same
+  // credential to call back into it.
+  const auth = getAuthConfig();
+  const env: Record<string, string> = {};
+  if (auth) env.CONDUIT_AUTH = `${auth.user}:${auth.pass}`;
   const config = {
     mcpServers: {
       conduit: {
         type: 'stdio',
         command: invocation.command,
         args: invocation.args,
+        ...(Object.keys(env).length ? { env } : {}),
       },
     },
   };
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
   return configPath;
-}
-
-/**
- * Write Conduit MCP config into Codex CLI's ~/.codex/config.toml.
- * Codex MCP config is global (not per-project), so we use a per-agent key
- * to avoid collisions across multiple agents.
- */
-export function writeCodexMcpConfig(ctx: McpWriteContext): void {
-  const codexDir = path.join(os.homedir(), '.codex');
-  const configPath = path.join(codexDir, 'config.toml');
-  fs.mkdirSync(codexDir, { recursive: true });
-
-  const invocation = buildInvocation(ctx);
-  const key = mcpServerKeyForCodex(ctx.agent.id);
-
-  // Serialize a TOML section for this MCP server.
-  // Codex expects: [mcp_servers.<key>] with command (string) + args (array of strings)
-  const argsArray = '[' + invocation.args.map(a => tomlString(a)).join(', ') + ']';
-  const section = [
-    `[mcp_servers.${key}]`,
-    `command = ${tomlString(invocation.command)}`,
-    `args = ${argsArray}`,
-    '',
-  ].join('\n');
-
-  let existing = '';
-  if (fs.existsSync(configPath)) {
-    existing = fs.readFileSync(configPath, 'utf-8');
-  }
-
-  // Remove any existing Conduit-owned section for this agent, then append
-  const sectionRegex = new RegExp(
-    `(?:^|\\n)\\[mcp_servers\\.${escapeRegex(key)}\\][\\s\\S]*?(?=\\n\\[|$)`,
-    'g'
-  );
-  const cleaned = existing.replace(sectionRegex, '').trimEnd();
-
-  const header = '# Conduit MCP servers — managed by Conduit, do not edit this section manually\n';
-  const hasConduitHeader = cleaned.includes('# Conduit MCP servers');
-
-  const newContent =
-    (cleaned.length > 0 ? cleaned + '\n\n' : '') +
-    (hasConduitHeader ? '' : header) +
-    section;
-
-  fs.writeFileSync(configPath, newContent, 'utf-8');
 }
 
 /**
@@ -138,20 +92,6 @@ export function removeClaudeMcpConfig(agentId: string): void {
   if (fs.existsSync(configPath)) {
     try { fs.unlinkSync(configPath); } catch { /* ignore */ }
   }
-}
-
-export function removeCodexMcpConfig(agentId: string): void {
-  const configPath = path.join(os.homedir(), '.codex', 'config.toml');
-  if (!fs.existsSync(configPath)) return;
-
-  const key = mcpServerKeyForCodex(agentId);
-  const existing = fs.readFileSync(configPath, 'utf-8');
-  const sectionRegex = new RegExp(
-    `(?:^|\\n)\\[mcp_servers\\.${escapeRegex(key)}\\][\\s\\S]*?(?=\\n\\[|$)`,
-    'g'
-  );
-  const cleaned = existing.replace(sectionRegex, '').trimEnd();
-  fs.writeFileSync(configPath, cleaned + (cleaned.length > 0 ? '\n' : ''), 'utf-8');
 }
 
 /**
@@ -189,19 +129,3 @@ export function cleanStaleCodexMcp(): number {
   return count;
 }
 
-// --- TOML helpers (hand-rolled; keep scope minimal to avoid adding @iarna/toml) ---
-
-function tomlString(s: string): string {
-  // Use basic string with backslash escaping (TOML spec)
-  const escaped = s
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r')
-    .replace(/\t/g, '\\t');
-  return `"${escaped}"`;
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}

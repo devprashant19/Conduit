@@ -41,6 +41,12 @@ export function injectMessage(agentId: string, fromName: string, message: string
     : pty.injectMessage(agentId, fromName, message);
 }
 
+/** Interrupt whatever the agent is doing (Escape for PTY CLIs; no-op for Codex). */
+export function interruptAgent(agentId: string): boolean {
+  if (isCodex(agentId)) return false;
+  return pty.interruptAgent(agentId);
+}
+
 export function resizeAgent(agentId: string, cols: number, rows: number): void {
   if (isCodex(agentId)) codex.resizeAgent(agentId, cols, rows);
   else pty.resizeAgent(agentId, cols, rows);
@@ -61,6 +67,23 @@ export function attach(
   }
   pty.addOutputListener(agentId, handlers.onText);
   return () => pty.removeOutputListener(agentId, handlers.onText);
+}
+
+/**
+ * Observe an agent's activity as plain text, without a history replay. PTY
+ * agents deliver raw output chunks; Codex agents deliver one string per
+ * finished item. Used by the Supervisor watcher.
+ */
+export function subscribeOutput(agentId: string, listener: (text: string) => void): () => void {
+  if (isCodex(agentId)) return codex.subscribeText(agentId, listener);
+  pty.addOutputListener(agentId, listener, { replay: false });
+  return () => pty.removeOutputListener(agentId, listener);
+}
+
+/** Snapshot of an agent's history for a viewer that attaches late. */
+export function getReplay(agentId: string): { text?: string; items?: CodexItem[] } {
+  if (isCodex(agentId)) return { items: codex.getItems(agentId) };
+  return { text: pty.getBufferText(agentId) };
 }
 
 export function getAgentPreview(agentId: string): string {

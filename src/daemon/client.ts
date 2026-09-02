@@ -14,6 +14,7 @@ import {
   type BrainEvent,
   type AgentDispatch,
   type CodexItem,
+  type GateEvent,
 } from './protocol.js';
 
 type OutputListener = (agentId: string, data: string) => void;
@@ -24,6 +25,8 @@ type OrgChangedListener = () => void;
 type CodexItemListener = (agentId: string, item: CodexItem) => void;
 type SupervisorUpdateListener = (payload: any) => void;
 type GroupChatMsgListener = (payload: any) => void;
+type GateListener = (ev: { kind: 'triggered'; gate: GateEvent } | { kind: 'resolved'; agentId: string }) => void;
+type ConnectListener = () => void;
 
 interface Pending {
   resolve: (value: unknown) => void;
@@ -43,8 +46,11 @@ export class DaemonClient {
   private readonly codexItemListeners = new Set<CodexItemListener>();
   private readonly supervisorUpdateListeners = new Set<SupervisorUpdateListener>();
   private readonly groupChatMsgListeners = new Set<GroupChatMsgListener>();
+  private readonly gateListeners = new Set<GateListener>();
+  private readonly connectListeners = new Set<ConnectListener>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly outbox: string[] = []; // queued while disconnected
+  private warnedDown = false;
 
   constructor(private readonly url: string = DAEMON_URL) {}
 
@@ -55,11 +61,13 @@ export class DaemonClient {
 
     ws.on('open', () => {
       this.connected = true;
+      this.warnedDown = false;
       console.log('[daemon-client] connected to daemon');
       // Flush anything queued while we were down
       for (const msg of this.outbox.splice(0)) {
         ws.send(msg);
       }
+      for (const l of this.connectListeners) l();
     });
 
     ws.on('message', (raw) => {
@@ -79,7 +87,11 @@ export class DaemonClient {
     });
 
     ws.on('error', (err) => {
-      console.warn('[daemon-client] socket error:', err.message);
+      // Log once per outage — the reconnect loop would otherwise spam every second.
+      if (!this.warnedDown) {
+        this.warnedDown = true;
+        console.warn(`[daemon-client] daemon unreachable (${err.message}) — retrying in the background. Start it with: npm run daemon`);
+      }
       // 'close' will follow and trigger reconnect
     });
   }
@@ -123,6 +135,14 @@ export class DaemonClient {
           for (const l of this.supervisorUpdateListeners) l(msg.payload);
         } else if (msg.event === 'groupchat:message') {
           for (const l of this.groupChatMsgListeners) l(msg.payload);
+        } else if (msg.event === 'gate:triggered') {
+          const gate: GateEvent = {
+            agentId: msg.agentId, projectId: msg.projectId, prompt: msg.prompt,
+            source: msg.source, options: msg.options,
+          };
+          for (const l of this.gateListeners) l({ kind: 'triggered', gate });
+        } else if (msg.event === 'gate:resolved') {
+          for (const l of this.gateListeners) l({ kind: 'resolved', agentId: msg.agentId });
         }
         break;
     }
@@ -132,6 +152,8 @@ export class DaemonClient {
     if (this.connected && this.ws) {
       this.ws.send(json);
     } else {
+      // Don't let the outbox grow without bound while the daemon is down.
+      if (this.outbox.length >= 500) this.outbox.shift();
       this.outbox.push(json);
       this.connect();
     }
@@ -206,6 +228,15 @@ export class DaemonClient {
   onGroupChatMessage(listener: GroupChatMsgListener): () => void {
     this.groupChatMsgListeners.add(listener);
     return () => this.groupChatMsgListeners.delete(listener);
+  }
+  onGate(listener: GateListener): () => void {
+    this.gateListeners.add(listener);
+    return () => this.gateListeners.delete(listener);
+  }
+  /** Fires on every (re)connect — used to re-attach terminal subscriptions. */
+  onConnect(listener: ConnectListener): () => void {
+    this.connectListeners.add(listener);
+    return () => this.connectListeners.delete(listener);
   }
 
   /** Send a user message to the orchestrator brain (fire-and-forget). */

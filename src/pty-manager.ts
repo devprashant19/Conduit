@@ -3,10 +3,11 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { Agent } from './types.js';
-import { updateAgent, getProjectData, SHARED_CONTENT_DIR, WIKI_DIR } from './storage.js';
-import { writeClaudeMcpConfig, writeCodexMcpConfig, removeClaudeMcpConfig, removeCodexMcpConfig, getClaudeMcpConfigPath } from './mcp-config.js';
+import { updateAgent, getProjectData, sharedDirFor, wikiDirFor } from './storage.js';
+import { writeClaudeMcpConfig, removeClaudeMcpConfig } from './mcp-config.js';
 import { writeClaudeHookConfig, removeClaudeHookConfig } from './hook-config.js';
 import { DAEMON_HOST, DAEMON_PORT } from './daemon/protocol.js';
+import { stripAnsi } from './gatePatterns.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname_ = path.dirname(__filename);
@@ -40,11 +41,19 @@ function expandHome(p: string): string {
   return p;
 }
 
-/** Normalize for path equality — case-insensitive + forward slashes on Windows. */
-function normalizePath(p: string): string {
-  let n = path.resolve(p).replace(/\\/g, '/');
-  if (process.platform === 'win32') n = n.toLowerCase();
-  return n;
+/**
+ * Quote one argument for the shell we type the CLI command into. cmd.exe on
+ * Windows, bash elsewhere. Paths with spaces (project names!) must survive.
+ */
+function shellQuote(arg: string): string {
+  if (process.platform === 'win32') {
+    if (arg === '') return '""';
+    if (!/[ \t"&|<>()^%]/.test(arg)) return arg;
+    return '"' + arg.replace(/"/g, '""') + '"';
+  }
+  if (arg === '') return "''";
+  if (/^[A-Za-z0-9_\-./=:@,+]+$/.test(arg)) return arg;
+  return "'" + arg.replace(/'/g, "'\\''") + "'";
 }
 
 /**
@@ -59,60 +68,6 @@ function hasClaudeSessionFor(cwd: string): boolean {
     const dir = path.join(os.homedir(), '.claude', 'projects', slug);
     if (!fs.existsSync(dir)) return false;
     return fs.readdirSync(dir).some((f) => f.endsWith('.jsonl'));
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Codex CLI stores session rollout files at
- *   ~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<uuid>.jsonl
- * The cwd is embedded inside each file's first line (type:"session_meta").
- * We scan the 30 most recent rollouts and return true if any was recorded for
- * this cwd → `codex resume --last` is safe and will pick it up.
- *
- * `codex resume` is already cwd-filtered by default (the `--all` flag is what
- * disables that filtering), so `--last` will pick the most recent session for
- * the current working directory — exactly like `claude -c`.
- */
-function hasCodexSessionFor(cwd: string): boolean {
-  try {
-    const root = path.join(os.homedir(), '.codex', 'sessions');
-    if (!fs.existsSync(root)) return false;
-
-    const files: string[] = [];
-    const walk = (dir: string) => {
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) walk(full);
-        else if (
-          entry.isFile() &&
-          entry.name.startsWith('rollout-') &&
-          entry.name.endsWith('.jsonl')
-        ) {
-          files.push(full);
-        }
-      }
-    };
-    walk(root);
-
-    // Filename carries the timestamp, so descending name sort == newest first
-    files.sort((a, b) => b.localeCompare(a));
-
-    const target = normalizePath(cwd);
-    for (const f of files.slice(0, 30)) {
-      try {
-        // Only need the first line (session_meta)
-        const firstLine = fs.readFileSync(f, 'utf-8').split('\n', 1)[0];
-        if (!firstLine) continue;
-        const obj = JSON.parse(firstLine);
-        const sessionCwd = obj?.payload?.cwd || obj?.cwd;
-        if (sessionCwd && normalizePath(sessionCwd) === target) return true;
-      } catch {
-        /* skip malformed file */
-      }
-    }
-    return false;
   } catch {
     return false;
   }
@@ -139,17 +94,10 @@ const sessions = new Map<string, PtySession>();
 const MAX_BUFFER = 5000;
 
 /**
- * Get the shared content directory path for a project.
- */
-function getSharedPath(projectName: string): string {
-  return path.join(SHARED_CONTENT_DIR, projectName);
-}
-
-/**
  * Ensure the shared content directory exists with a README.
  */
 function ensureSharedDir(projectName: string): string {
-  const sharedPath = getSharedPath(projectName);
+  const sharedPath = sharedDirFor(projectName);
   fs.mkdirSync(sharedPath, { recursive: true });
   const readmePath = path.join(sharedPath, 'README.md');
   if (!fs.existsSync(readmePath)) {
@@ -206,8 +154,10 @@ function buildConduitSection(
     );
   }
 
-  // Teammates section — only emitted for CLIs that have MCP support (claude, codex)
-  const mcpSupported = currentAgent.cli === 'claude' || currentAgent.cli === 'codex';
+  // Teammates section — only emitted for CLIs that load the Conduit MCP server.
+  // Codex agents run on app-server (no per-session MCP yet); Gemini / OpenCode
+  // have no MCP hookup either. They still see the shared dir + wiki above.
+  const mcpSupported = currentAgent.cli === 'claude';
   if (mcpSupported) {
     lines.push(
       '',
@@ -227,7 +177,7 @@ function buildConduitSection(
       lines.push(
         '',
         'To send a message to a teammate, use the `message_agent` MCP tool:',
-        '- When the user says things like "tell backend I finished the API" or "跟後端說我做完了",',
+        '- When the user says things like "tell backend I finished the API",',
         '  call `message_agent(target="<teammate name>", message="<what to say>")`.',
         '- The teammate will see your message in their terminal.',
         '- Use `list_teammates` if you need to look up who is available.',
@@ -281,25 +231,20 @@ function getCliCommand(agent: Agent, sharedPath: string, wikiPath: string, mcpCo
       // Lifecycle hooks → daemon status engine (additive to user's settings)
       if (hookConfigPath) args.push('--settings', hookConfigPath);
       return { cmd: 'claude', args };
-    case 'codex':
-      // Same idea for Codex: `codex resume --last` is cwd-filtered by default
-      // (use `--all` to disable), so it picks the most recent session recorded
-      // from this cwd. Only add it when we find such a session.
-      if (hasCodexSessionFor(cwd)) args.push('resume', '--last');
-      // Codex's --add-dir adds *writable* roots, which requires sandbox mode
-      // to be at least workspace-write. Default to workspace-write so shared
-      // content / wiki are actually writable by the agent.
-      args.push('-s', 'workspace-write');
-      args.push('--add-dir', sharedPath);
-      args.push('--add-dir', wikiPath);
-      return { cmd: 'codex', args };
     case 'gemini':
       args.push('--include-directories', sharedPath);
       args.push('--include-directories', wikiPath);
       return { cmd: 'gemini', args };
     case 'opencode':
-      if (agent.flags?.dangerouslySkipPermissions) args.push('--dangerously-skip-permissions');
       return { cmd: 'opencode', args };
+    case 'codex':
+      // Codex agents run on `codex app-server` (see daemon/codex-agents.ts) —
+      // the daemon's runtime router never sends them here. Kept as a fallback
+      // so a misrouted start still opens a usable terminal.
+      args.push('-s', 'workspace-write');
+      args.push('--add-dir', sharedPath);
+      args.push('--add-dir', wikiPath);
+      return { cmd: 'codex', args };
   }
 }
 
@@ -315,14 +260,19 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
 
   const projectName = projectData.project.name;
   const sharedPath = ensureSharedDir(projectName);
-  const wikiPath = path.join(WIKI_DIR, projectName);
+  const wikiPath = wikiDirFor(projectName);
+  try { fs.mkdirSync(wikiPath, { recursive: true }); } catch { /* best-effort */ }
 
   const cwd = expandHome(agent.cwd);
+  if (!fs.existsSync(cwd)) {
+    console.error(`[pty-manager] cwd does not exist for ${agent.name}: ${cwd}`);
+    return false;
+  }
 
   // Resolve teammates (all other agents in the same project)
   const teammates = projectData.agents.filter(a => a.id !== agent.id);
 
-  // Register MCP server for agent-to-agent messaging (Claude + Codex only for now)
+  // Register MCP server for agent-to-agent messaging (Claude only for now)
   let claudeMcpConfigPath: string | null = null;
   try {
     const mcpCtx = {
@@ -333,8 +283,6 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
     };
     if (agent.cli === 'claude') {
       claudeMcpConfigPath = writeClaudeMcpConfig(mcpCtx);
-    } else if (agent.cli === 'codex') {
-      writeCodexMcpConfig(mcpCtx);
     }
   } catch (err) {
     console.warn(`[pty-manager] Failed to write MCP config for ${agent.name}:`, err);
@@ -360,10 +308,14 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
     opencode: 'AGENTS.md',
   };
   const instrFile = path.join(cwd, instructionFiles[agent.cli]);
-  ensureInstructionFile(instrFile, projectName, sharedPath, wikiPath, agent, teammates);
+  try {
+    ensureInstructionFile(instrFile, projectName, sharedPath, wikiPath, agent, teammates);
+  } catch (err) {
+    console.warn(`[pty-manager] Could not write ${instrFile}:`, err);
+  }
 
   const { cmd, args } = getCliCommand(agent, sharedPath, wikiPath, claudeMcpConfigPath, claudeHookConfigPath, cwd);
-  const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
+  const shell = process.platform === 'win32' ? 'cmd.exe' : (process.env.SHELL || '/bin/bash');
 
   let proc: IPty;
   try {
@@ -387,8 +339,8 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
   };
   sessions.set(agent.id, session);
 
-  // Send the CLI command to the shell
-  proc.write(`${cmd} ${args.join(' ')}\r`);
+  // Send the CLI command to the shell (quoted — project names may have spaces)
+  proc.write(`${cmd} ${args.map(shellQuote).join(' ')}\r`);
 
   proc.onData((data: string) => {
     session.buffer.push(data);
@@ -401,8 +353,10 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
   });
 
   proc.onExit(({ exitCode }) => {
-    sessions.delete(agent.id);
-    updateAgent(agent.projectId, agent.id, { status: 'stopped', pid: undefined });
+    if (sessions.get(agent.id) === session) sessions.delete(agent.id);
+    console.log(`[pty-manager] ${agent.name} exited (code ${exitCode})`);
+    try { updateAgent(agent.projectId, agent.id, { status: 'stopped', pid: undefined, pendingGate: undefined }); }
+    catch { /* project may have been deleted */ }
     onStatus(agent.id, 'stopped');
   });
 
@@ -414,8 +368,18 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
 export function stopAgent(agentId: string): boolean {
   const session = sessions.get(agentId);
   if (!session) return false;
-  session.pty.kill();
   sessions.delete(agentId);
+  try { session.pty.kill(); } catch (err) { console.warn('[pty-manager] kill failed:', err); }
+  try { updateAgent(session.agent.projectId, agentId, { status: 'stopped', pid: undefined, pendingGate: undefined }); }
+  catch { /* ignore */ }
+  return true;
+}
+
+/** Send an interrupt (Escape) to the CLI — used when a human rejects an action. */
+export function interruptAgent(agentId: string): boolean {
+  const session = sessions.get(agentId);
+  if (!session) return false;
+  session.pty.write('\x1b');
   return true;
 }
 
@@ -457,8 +421,6 @@ export function cleanupMcpConfig(agent: Agent) {
     if (agent.cli === 'claude') {
       removeClaudeMcpConfig(agent.id);
       removeClaudeHookConfig(agent.id);
-    } else if (agent.cli === 'codex') {
-      removeCodexMcpConfig(agent.id);
     }
   } catch (err) {
     console.warn(`[pty-manager] Failed to clean up MCP config for ${agent.name}:`, err);
@@ -471,13 +433,28 @@ export function resizeAgent(agentId: string, cols: number, rows: number) {
   session.pty.resize(cols, rows);
 }
 
-export function addOutputListener(agentId: string, listener: (data: string) => void) {
+/**
+ * Subscribe to an agent's raw PTY output. By default the scroll buffer is
+ * replayed first (so a freshly attached terminal shows history); pass
+ * `replay: false` for observers that only want new output (the Supervisor).
+ */
+export function addOutputListener(agentId: string, listener: (data: string) => void, opts: { replay?: boolean } = {}) {
   const session = sessions.get(agentId);
   if (!session) return;
-  for (const line of session.buffer) {
-    listener(line);
+  if (opts.replay !== false) {
+    for (const line of session.buffer) {
+      listener(line);
+    }
   }
   session.listeners.add(listener);
+}
+
+/** The scroll buffer as one string (capped) — for late-attaching viewers. */
+export function getBufferText(agentId: string, maxChars = 400_000): string {
+  const session = sessions.get(agentId);
+  if (!session) return '';
+  const text = session.buffer.join('');
+  return text.length > maxChars ? text.slice(-maxChars) : text;
 }
 
 export function removeOutputListener(agentId: string, listener: (data: string) => void) {
@@ -490,15 +467,7 @@ export function getAgentPreview(agentId: string): string {
   const session = sessions.get(agentId);
   if (!session || session.buffer.length === 0) return '';
   const tail = session.buffer.slice(-30).join('');
-  // Strip all ANSI/VT escape sequences
-  const stripped = tail
-    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')    // CSI sequences (including private ? mode)
-    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '') // OSC sequences
-    .replace(/\x1b[()][A-Z0-9]/g, '')            // charset switches
-    .replace(/\x1b[>=<]/g, '')                    // keypad modes
-    .replace(/\x1b\[\?[0-9;]*[a-z]/g, '')        // private mode set/reset
-    .replace(/\r/g, '')                           // carriage returns
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, ''); // control chars
+  const stripped = stripAnsi(tail);
   const lines = stripped.split('\n').map(l => l.trim()).filter(l => l.length > 2);
   // Skip common noise lines
   const meaningful = lines.filter(l =>
