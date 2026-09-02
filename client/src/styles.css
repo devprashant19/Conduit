@@ -2664,3 +2664,267 @@ input, select, textarea { font-family: inherit; }
   box-shadow: 0 12px 32px rgba(0,0,0,0.4); font-size: 12.5px; cursor: pointer;
 }
 .cmd-err code, .cmd-system code { font-family: var(--ff-mono, monospace); font-size: 11px; }
+
+/* ==========================================================
+   Scrollable Landing Page & Hero Section (Reference Exact)
+   ========================================================== */
+
+.landing-page {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--bg-0);
+  color: var(--text-0);
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Landing Navigation */
+.landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 40px;
+  background: rgba(250, 248, 245, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(15, 15, 17, 0.05);
+}
+
+.landing-nav-brand .brand-title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f0f11;
+}
+
+.landing-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.landing-nav-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-1);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.landing-nav-link:hover { color: #0f0f11; }
+
+.landing-btn-black {
+  height: 36px;
+  padding: 0 18px;
+  background: #0f0f11;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(15, 15, 17, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.landing-btn-black:hover {
+  background: #27272a;
+  transform: translateY(-1.5px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(15, 15, 17, 0.3);
+}
+
+/* Hero Section */
+.landing-hero {
+  position: relative;
+  min-height: 86vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+}
+
+/* Outer Bounding Dashed Frame with Anchor Dots */
+.hero-bounding-frame {
+  position: absolute;
+  inset: 24px 32px;
+  border: 1px dashed rgba(15, 15, 17, 0.12);
+  border-radius: 28px;
+  pointer-events: none;
+}
+.frame-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c4c1ba;
+}
+.frame-dot.t-l { top: -4px; left: 15%; }
+.frame-dot.t-m { top: -4px; left: 50%; transform: translateX(-50%); }
+.frame-dot.t-r { top: -4px; right: 15%; }
+.frame-dot.b-l { bottom: -4px; left: 20%; }
+.frame-dot.b-m { bottom: -4px; left: 50%; transform: translateX(-50%); }
+.frame-dot.b-r { bottom: -4px; right: 20%; }
+.frame-dot.l-m { left: -4px; top: 50%; transform: translateY(-50%); }
+.frame-dot.r-m { right: -4px; top: 50%; transform: translateY(-50%); }
+
+/* Center Hero Typography */
+.hero-center-content {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hero-pill-badge {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  margin-bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.yc-orange {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  background: #ff6600;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 2px;
+}
+
+.hero-title {
+  font-size: 52px;
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #0f0f11;
+  margin-bottom: 18px;
+}
+
+.highlight-pill {
+  display: inline-block;
+  background: rgba(255, 185, 175, 0.45);
+  padding: 2px 14px;
+  border-radius: 12px;
+  color: #0f0f11;
+}
+
+.hero-subtitle {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-width: 480px;
+  margin-bottom: 30px;
+  letter-spacing: -0.015em;
+}
+
+.hero-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-cta-button {
+  height: 44px;
+  padding: 0 24px;
+  background: #0f0f11;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(15, 15, 17, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hero-cta-button:hover {
+  background: #27272a;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(15, 15, 17, 0.35);
+}
+.hero-cta-subtext {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* Floating Agent Mascot Badges */
+.hero-floating-badge {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 260px;
+  animation: badge-float 4s ease-in-out infinite alternate;
+}
+@keyframes badge-float {
+  0% { transform: translateY(0px); }
+  100% { transform: translateY(-6px); }
+}
+
+.badge-top-left { top: 60px; left: 60px; animation-delay: 0s; }
+.badge-top-right { top: 70px; right: 70px; animation-delay: 1.2s; }
+.badge-mid-left { top: 48%; left: 50px; animation-delay: 0.6s; }
+.badge-mid-right { top: 46%; right: 60px; animation-delay: 1.8s; }
+.badge-bot-left { bottom: 60px; left: 120px; animation-delay: 2.4s; }
+.badge-bot-right { bottom: 70px; right: 120px; animation-delay: 0.9s; }
+
+.floating-user-bubble {
+  align-self: flex-start;
+  background: #ebe6dc;
+  color: var(--text-1);
+  padding: 6px 12px;
+  border-radius: 12px;
+  border-bottom-left-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.floating-agent-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 15, 17, 0.08);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px -4px rgba(15, 15, 17, 0.08), 0 2px 6px rgba(15, 15, 17, 0.02);
+}
+.floating-agent-card.compact { padding: 8px 12px; }
+
+.mascot-avatar {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.agent-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.agent-msg {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #0f0f11;
+  line-height: 1.35;
+}
+.agent-tools {
+  font-size: 10px;
+  color: var(--text-3);
+  font-family: var(--ff-mono);
+}
