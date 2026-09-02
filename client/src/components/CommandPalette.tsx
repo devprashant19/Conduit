@@ -8,7 +8,6 @@ import Ic, { MOD } from './Icons';
 import type { Agent } from '../api';
 import type { GridLayout } from './AgentGrid';
 
-type Theme = 'dark' | 'light' | 'amber' | 'mono';
 
 interface Command {
   group: string;
@@ -25,7 +24,7 @@ interface Props {
   agents: Agent[];
   onSelectAgent: (id: string) => void;
   onLayout: (v: GridLayout) => void;
-  onTheme: (v: Theme) => void;
+
   onNewProject: () => void;
   onNewAgent: () => void;
   onStartAll?: () => void;
@@ -34,7 +33,7 @@ interface Props {
 
 export default function CommandPalette({
   open, onClose, agents,
-  onSelectAgent, onLayout, onTheme,
+  onSelectAgent, onLayout,
   onNewProject, onNewAgent, onStartAll, onStopAll,
 }: Props) {
   const [q, setQ] = useState('');
@@ -64,10 +63,7 @@ export default function CommandPalette({
     { group: 'Layout', icon: <Ic.threeup size={13} />, label: '3-up dashboard', run: () => { onLayout('3up'); onClose(); } },
     { group: 'Layout', icon: <Ic.grid size={13} />, label: 'Grid (splits & resize)', run: () => { onLayout('grid'); onClose(); } },
     { group: 'Layout', icon: <Ic.canvas size={13} />, label: 'Canvas (drag & resize)', run: () => { onLayout('canvas'); onClose(); } },
-    { group: 'Theme', icon: <Ic.moon size={13} />, label: 'Dark', run: () => { onTheme('dark'); onClose(); } },
-    { group: 'Theme', icon: <Ic.sun size={13} />, label: 'Light', run: () => { onTheme('light'); onClose(); } },
-    { group: 'Theme', icon: <Ic.sparkles size={13} />, label: 'Amber conduit', run: () => { onTheme('amber'); onClose(); } },
-    { group: 'Theme', icon: <Ic.hash size={13} />, label: 'Monochrome', run: () => { onTheme('mono'); onClose(); } },
+
     { group: 'Project', icon: <Ic.plus size={13} />, label: 'New project…', run: () => { onNewProject(); onClose(); } },
     { group: 'Project', icon: <Ic.plus size={13} />, label: 'New agent…', run: () => { onNewAgent(); onClose(); } },
   ];

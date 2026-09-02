@@ -27,7 +27,6 @@ import * as api from './api';
 import type { Project, Agent, Plan } from './api';
 
 type MainTab = 'terminals' | 'messages' | 'groupchat' | 'shared' | 'wiki' | 'activity' | 'usage';
-type Theme = 'dark' | 'light' | 'amber' | 'mono';
 
 const LAYOUT_ICONS: { v: GridLayout; Icon: (p: { size?: number }) => JSX.Element; title: string }[] = [
   { v: 'single', Icon: Ic.single, title: 'Single' },
@@ -75,9 +74,6 @@ export default function App() {
   }, [toast]);
   const showError = (err: unknown) => setToast(err instanceof Error ? err.message : String(err));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('conduit:theme') as Theme) || 'dark';
-  });
   const [layout, setLayout] = useState<GridLayout>(() => {
     const saved = localStorage.getItem('conduit:layout') as GridLayout | null;
     // Migrate the old 'focus' value away
@@ -132,11 +128,7 @@ export default function App() {
     sidebarDragCancel.current = up;
   };
 
-  // Theme persistence
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('conduit:theme', theme);
-  }, [theme]);
+
   useEffect(() => {
     localStorage.setItem('conduit:layout', layout);
   }, [layout]);
@@ -562,7 +554,7 @@ export default function App() {
     localStorage.setItem('conduit:wake-phrase', wakePhrase);
   }, [wakePhrase]);
 
-  const logoImg = theme === 'light' ? logoLight : logoDark;
+  const logoImg = logoDark;
 
   const appCls = ['app'];
   if (sidebarCollapsed) appCls.push('sb-hidden');
@@ -659,15 +651,6 @@ export default function App() {
             onClick={() => setSettingsOpen(true)}
           >
             <Ic.settings size={13} />
-          </button>
-          <button
-            className="hbtn"
-            title="Toggle theme"
-            onClick={() =>
-              setTheme((t) => (t === 'dark' ? 'light' : t === 'light' ? 'amber' : t === 'amber' ? 'mono' : 'dark'))
-            }
-          >
-            {theme === 'light' ? <Ic.sun size={13} /> : <Ic.moon size={13} />}
           </button>
           {selectedProject && (
             <button className="hbtn danger" title="Delete project" onClick={handleDeleteProject}>
@@ -859,7 +842,6 @@ export default function App() {
         agents={projectAgents}
         onSelectAgent={setSelectedAgentId}
         onLayout={setLayout}
-        onTheme={setTheme}
         onNewProject={() => setShowNewProject(true)}
         onNewAgent={() => setShowNewAgent(true)}
         onStartAll={selectedProjectId ? () => handleStartAll() : undefined}
