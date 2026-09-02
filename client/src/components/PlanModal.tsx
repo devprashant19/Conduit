@@ -44,7 +44,7 @@ export default function PlanModal({ project, plan, queued = 0, onClose, onResolv
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <h2 id="plan-title"><Ic.sparkles size={12} /> Supervisor plan awaiting approval</h2>
+          <h2 id="plan-title"><Ic.sparkles size={14} style={{ color: 'var(--accent)' }} /> Supervisor plan awaiting approval</h2>
           <button className="hbtn" onClick={onClose} aria-label="Dismiss for now" title="Dismiss for now (Esc)"><Ic.x size={14} /></button>
         </div>
 
