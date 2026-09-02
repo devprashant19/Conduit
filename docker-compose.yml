@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  conduit:
+    build: .
+    container_name: conduit
+    ports:
+      - "3200:3200"
+    volumes:
+      - conduit-data:/root/.conduit
+    restart: always
+
+volumes:
+  conduit-data:

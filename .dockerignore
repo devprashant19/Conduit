@@ -1,0 +1,8 @@
+node_modules
+.git
+.conduit
+.termhive
+.DS_Store
+dist
+*.log
+docker-compose.yml
