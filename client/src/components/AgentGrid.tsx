@@ -179,10 +179,18 @@ function AgentPane({
               </div>
             </div>
           </div>
-          <span className={'pane-status-chip ' + agent.status}>
-            <span className={'sdot ' + agent.status} style={{ width: 6, height: 6 }} />
-            {statusLabel(agent.status)}
-          </span>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {agent.pendingGate && (
+              <span className="pane-status-chip" style={{ background: 'var(--err-dim)', color: 'var(--err)', borderColor: 'var(--err)' }}>
+                <span className="sdot" style={{ width: 6, height: 6, background: 'var(--err)' }} />
+                Gate Pending
+              </span>
+            )}
+            <span className={'pane-status-chip ' + agent.status}>
+              <span className={'sdot ' + agent.status} style={{ width: 6, height: 6 }} />
+              {statusLabel(agent.status)}
+            </span>
+          </div>
         </div>
         <div className="pane-head-r">
           <div style={{ display: 'flex', gap: 2 }}>

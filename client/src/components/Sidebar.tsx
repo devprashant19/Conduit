@@ -168,7 +168,13 @@ export default function Sidebar({
                 onClick={() => handleSelectAgent(a.projectId, a.id)}
                 style={{ '--accent-color': hue } as React.CSSProperties}
               >
-                <span className="st"><span className={'sdot ' + a.status} /></span>
+                <span className="st">
+                  {a.pendingGate ? (
+                    <span className="sdot" style={{ background: 'var(--err)', boxShadow: '0 0 4px var(--err)' }} title="Gate Pending" />
+                  ) : (
+                    <span className={'sdot ' + a.status} />
+                  )}
+                </span>
                 <span className="nm">
                   <span>{a.name}</span>
                   <span className="cli-tag" style={{ color: hue, background: `color-mix(in oklab, ${hue} 14%, transparent)` }}>

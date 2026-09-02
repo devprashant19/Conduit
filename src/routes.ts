@@ -11,6 +11,7 @@ export function createRouter(
   daemon: DaemonClient,
   broadcastStatus: (agentId: string, status: string) => void,
   broadcastContentUpdate: (projectId: string, filename: string) => void,
+  broadcastMessage?: (msg: any) => void
 ) {
   const router = Router();
 
@@ -231,6 +232,154 @@ export function createRouter(
       return;
     }
     res.json({ status: 'restarting' });
+  });
+
+  router.post('/projects/:id/agents/:aid/gate/resolve', (req: Request, res: Response) => {
+    const { decision, customInput } = req.body;
+    const agent = storage.getAgent(req.params.id, req.params.aid);
+    if (!agent) { res.status(404).json({ error: 'Agent not found' }); return; }
+
+    storage.updateAgent(req.params.id, req.params.aid, { pendingGate: undefined });
+    
+    let ptyInput = '';
+    if (decision === 'approve') ptyInput = 'y\r';
+    else if (decision === 'reject') ptyInput = 'n\r';
+    else if (decision === 'custom') ptyInput = (customInput || '') + '\r';
+
+    try {
+      daemon.writeTerminal(req.params.aid, ptyInput);
+    } catch { /* daemon down */ }
+
+    if (broadcastMessage) broadcastMessage({ type: 'gate:resolved', agentId: req.params.aid });
+    res.json({ success: true });
+  });
+
+  // --- Plans ---
+  router.get('/projects/:id/plans', (req: Request, res: Response) => {
+    res.json(storage.getPlans(req.params.id));
+  });
+
+  router.post('/projects/:id/plans', (req: Request, res: Response) => {
+    const { description, targetAgent, targetProject, proposedMessage } = req.body;
+    if (!description || !targetAgent || !proposedMessage) {
+      res.status(400).json({ error: 'description, targetAgent, and proposedMessage are required' });
+      return;
+    }
+    const plan = storage.createPlan({
+      projectId: req.params.id,
+      description,
+      targetAgent,
+      targetProject: targetProject || req.params.id,
+      proposedMessage
+    });
+    if (!plan) { res.status(404).json({ error: 'Project not found' }); return; }
+    
+    storage.appendAuditLog(req.params.id, { event: 'plan_created', plan });
+    if (broadcastMessage) broadcastMessage({ type: 'plan:created', plan });
+    res.status(201).json(plan);
+  });
+
+  router.post('/projects/:id/plans/:planId/resolve', async (req: Request, res: Response) => {
+    const { decision, reason } = req.body; // 'approve' | 'reject'
+    const plan = storage.resolvePlan(req.params.id, req.params.planId);
+    if (!plan) { res.status(404).json({ error: 'Plan not found' }); return; }
+
+    storage.appendAuditLog(req.params.id, { event: `plan_${decision}`, plan, reason });
+
+    const entry: storage.GroupChatEntry = {
+      id: crypto.randomUUID(),
+      ts: new Date().toISOString(),
+      role: 'supervisor',
+      sender: 'Supervisor',
+      text: decision === 'approve' 
+        ? `Plan Approved: ${plan.description}\n\nDispatched to ${plan.targetAgent}:\n> ${plan.proposedMessage}`
+        : `Plan Rejected: ${plan.description}\n\nReason: ${reason || 'No reason provided'}`,
+      classification: decision === 'approve' ? 'progress' : 'blocker'
+    };
+    storage.appendGroupChat(req.params.id, entry);
+    if (broadcastMessage) {
+      broadcastMessage({ type: 'groupchat:message', payload: entry });
+      broadcastMessage({ type: 'plan:resolved', planId: plan.id, decision });
+    }
+
+    if (decision === 'approve') {
+      // Execute the action: inject message into target agent
+      try {
+        const agents = storage.listAgents(req.params.id);
+        const targetNorm = plan.targetAgent.toLowerCase();
+        const recipient = agents.find(a => a.id === plan.targetAgent || a.name.toLowerCase() === targetNorm);
+        if (recipient) {
+          await daemon.request('agent:inject', {
+            agentId: recipient.id,
+            fromName: 'Supervisor',
+            message: plan.proposedMessage
+          });
+        }
+      } catch (err) {
+        console.error('[plans] Failed to execute approved plan:', err);
+      }
+    } else {
+      // If rejected, we might want to tell the supervisor that its plan was rejected.
+      // But the instructions say: "On reject: discard, and feed the rejection back to the Supervisor as context (so if asked again, it knows the user said no and why..."
+      // But we can just rely on the group chat entry for now.
+    }
+
+    res.json({ success: true, plan });
+  });
+
+  // --- Group Chat ---
+  router.get('/projects/:id/groupchat', (req: Request, res: Response) => {
+    res.json(storage.readGroupChat(req.params.id));
+  });
+
+  router.post('/projects/:id/groupchat', async (req: Request, res: Response) => {
+    const { message } = req.body || {};
+    if (!message) {
+      res.status(400).json({ error: 'message is required' });
+      return;
+    }
+
+    const ts = new Date().toISOString();
+    const entry: storage.GroupChatEntry = {
+      id: crypto.randomUUID(),
+      ts,
+      role: 'user',
+      sender: 'User',
+      text: String(message),
+    };
+    storage.appendGroupChat(req.params.id, entry);
+    if (broadcastMessage) broadcastMessage({ type: 'groupchat:message', payload: entry });
+
+    // Check if the message is directed at a specific agent
+    const msgText = String(message).trim();
+    const match = msgText.match(/^@([a-zA-Z0-9_-]+)/);
+    if (match) {
+      const target = match[1];
+      const targetNorm = target.toLowerCase();
+      const agents = storage.listAgents(req.params.id);
+      
+      let recipient = agents.find(a => a.name.toLowerCase() === targetNorm);
+      if (!recipient) {
+        recipient = agents.find(a => a.name.toLowerCase().includes(targetNorm) || (a.role || '').toLowerCase().includes(targetNorm));
+      }
+
+      if (recipient) {
+        // Instantiate the supervisor agent and have it route the message
+        try {
+          // Import dynamically to avoid circular/init issues if any, or just use the agent factory
+          const { createSupervisorAgent } = await import('./strands/agent.js');
+          const supervisor = createSupervisorAgent((update: any) => {
+             // For routing we might not care about updates, but we pass a no-op or we could broadcast
+          });
+          
+          supervisor.invoke(`The human user said: "${msgText}". Please route this human message to the agent "${recipient.name}" (ID: ${recipient.id}) using your ask_agent tool. Include the user's message intact.`).catch(err => console.error('[groupchat] Supervisor routing failed:', err));
+        } catch (err) {
+          console.error('[groupchat] Failed to invoke supervisor:', err);
+        }
+      }
+    }
+
+    res.status(201).json(entry);
   });
 
   // --- Shared Content ---

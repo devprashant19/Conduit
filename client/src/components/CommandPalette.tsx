@@ -66,7 +66,7 @@ export default function CommandPalette({
     { group: 'Layout', icon: <Ic.canvas size={13} />, label: 'Canvas (drag & resize)', run: () => { onLayout('canvas'); onClose(); } },
     { group: 'Theme', icon: <Ic.moon size={13} />, label: 'Dark', run: () => { onTheme('dark'); onClose(); } },
     { group: 'Theme', icon: <Ic.sun size={13} />, label: 'Light', run: () => { onTheme('light'); onClose(); } },
-    { group: 'Theme', icon: <Ic.sparkles size={13} />, label: 'Amber hive', run: () => { onTheme('amber'); onClose(); } },
+    { group: 'Theme', icon: <Ic.sparkles size={13} />, label: 'Amber conduit', run: () => { onTheme('amber'); onClose(); } },
     { group: 'Theme', icon: <Ic.hash size={13} />, label: 'Monochrome', run: () => { onTheme('mono'); onClose(); } },
     { group: 'Project', icon: <Ic.plus size={13} />, label: 'New project…', run: () => { onNewProject(); onClose(); } },
     { group: 'Project', icon: <Ic.plus size={13} />, label: 'New agent…', run: () => { onNewAgent(); onClose(); } },

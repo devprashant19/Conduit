@@ -31,6 +31,11 @@ export interface Agent {
     dangerouslySkipPermissions?: boolean;
     remoteControl?: boolean;
   };
+  pendingGate?: {
+    prompt: string;
+    source: 'regex' | 'supervisor';
+    options?: string[];
+  };
 }
 
 export interface SharedContent {
@@ -42,9 +47,20 @@ export interface SharedContent {
   updatedAt: string;
 }
 
+export interface Plan {
+  id: string;
+  projectId: string;
+  description: string;
+  targetAgent: string;
+  targetProject: string;
+  proposedMessage: string;
+  createdAt: string;
+}
+
 export interface ProjectData {
   project: Project;
   agents: Agent[];
+  pendingPlans?: Plan[];
 }
 
 import type { BrainEvent, CodexItem } from './daemon/protocol.js';
@@ -93,4 +109,10 @@ export type WSServerMessage =
   | { type: 'activity'; event: ActivityEvent }
   | { type: 'brain:event'; payload: BrainEvent }
   | { type: 'org:changed' }
-  | { type: 'codex:item'; agentId: string; item: CodexItem };
+  | { type: 'codex:item'; agentId: string; item: CodexItem }
+  | { type: 'supervisor:update'; payload: any }
+  | { type: 'groupchat:message'; payload: any }
+  | { type: 'gate:triggered'; agentId: string; projectId: string; prompt: string; source: 'regex' | 'supervisor'; options?: string[] }
+  | { type: 'gate:resolved'; agentId: string }
+  | { type: 'plan:created'; plan: Plan }
+  | { type: 'plan:resolved'; planId: string; decision: string };

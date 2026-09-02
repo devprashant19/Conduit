@@ -1,7 +1,17 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuid } from 'uuid';
-import type { Project, Agent, ProjectData, SharedContent } from './types.js';
+import type { Project, Agent, ProjectData, SharedContent, Plan } from './types.js';
+
+export interface GroupChatEntry {
+  id: string;
+  ts: string;
+  role: 'supervisor' | 'user' | 'agent';
+  sender: string;
+  text: string;
+  classification?: 'progress' | 'blocker' | 'question' | 'risky_action' | 'noise';
+}
+
 
 const BASE_DIR = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.conduit');
 const PROJECTS_DIR = path.join(BASE_DIR, 'projects');
@@ -67,7 +77,7 @@ export function createProject(name: string, cwd: string, description?: string): 
     cwd,
     createdAt: new Date().toISOString(),
   };
-  saveProjectData({ project, agents: [] });
+  saveProjectData({ project, agents: [], pendingPlans: [] });
   // Auto-init shared content + wiki
   ensureDir(sharedDir(name));
   initializeWiki(project.id);
@@ -147,6 +157,37 @@ export function deleteAgent(projectId: string, agentId: string): boolean {
   data.agents.splice(idx, 1);
   saveProjectData(data);
   return true;
+}
+
+// --- Plans ---
+
+export function getPlans(projectId: string): Plan[] {
+  const data = getProjectData(projectId);
+  return data?.pendingPlans || [];
+}
+
+export function createPlan(plan: Omit<Plan, 'id' | 'createdAt'>): Plan | null {
+  const data = getProjectData(plan.projectId);
+  if (!data) return null;
+  const newPlan: Plan = {
+    ...plan,
+    id: uuid(),
+    createdAt: new Date().toISOString(),
+  };
+  if (!data.pendingPlans) data.pendingPlans = [];
+  data.pendingPlans.push(newPlan);
+  saveProjectData(data);
+  return newPlan;
+}
+
+export function resolvePlan(projectId: string, planId: string): Plan | null {
+  const data = getProjectData(projectId);
+  if (!data || !data.pendingPlans) return null;
+  const idx = data.pendingPlans.findIndex(p => p.id === planId);
+  if (idx === -1) return null;
+  const [resolved] = data.pendingPlans.splice(idx, 1);
+  saveProjectData(data);
+  return resolved;
 }
 
 // --- Shared Content (stored in ~/.conduit/shared_content/[project_name]/) ---
@@ -250,6 +291,40 @@ export function deleteContent(projectId: string, filename: string): boolean {
   if (!fs.existsSync(filePath)) return false;
   fs.unlinkSync(filePath);
   return true;
+}
+
+// --- Group Chat ---
+
+export function readGroupChat(projectId: string): GroupChatEntry[] {
+  const dir = projectDir(projectId);
+  const file = path.join(dir, 'groupchat.jsonl');
+  if (!fs.existsSync(file)) return [];
+  
+  const entries: GroupChatEntry[] = [];
+  const lines = fs.readFileSync(file, 'utf-8').split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      entries.push(JSON.parse(line));
+    } catch { /* ignore bad lines */ }
+  }
+  return entries;
+}
+
+export function appendGroupChat(projectId: string, entry: GroupChatEntry): void {
+  const dir = projectDir(projectId);
+  ensureDir(dir);
+  const file = path.join(dir, 'groupchat.jsonl');
+  fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf-8');
+}
+
+// --- Audit Log ---
+
+export function appendAuditLog(projectId: string, entry: any): void {
+  const dir = projectDir(projectId);
+  ensureDir(dir);
+  const file = path.join(dir, 'audit.jsonl');
+  fs.appendFileSync(file, JSON.stringify({ ...entry, timestamp: new Date().toISOString() }) + '\n', 'utf-8');
 }
 
 // --- Project Wiki (stored in ~/.conduit/memory/[project_name]/) ---

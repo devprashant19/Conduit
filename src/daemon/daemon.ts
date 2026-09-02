@@ -31,7 +31,7 @@ import {
   createProjectDispatch,
   createAgentDispatch,
   stopAgentDispatch,
-} from './hive.js';
+} from './conduit.js';
 import {
   DAEMON_HOST,
   DAEMON_PORT,
@@ -276,8 +276,8 @@ async function handleRequest(ws: WebSocket, req: DaemonRequest): Promise<void> {
 // ─────────────────────────── HTTP endpoints ───────────────────────────
 // Two HTTP surfaces on the daemon port:
 //   POST /hook/:agentId/:event   — Claude lifecycle hooks → status engine
-//   GET  /org/snapshot           — Hive MCP: whole-hive view
-//   POST /org/ask-agent          — Hive MCP: dispatch a message to an agent
+//   GET  /org/snapshot           — Conduit MCP: whole-conduit view
+//   POST /org/ask-agent          — Conduit MCP: dispatch a message to an agent
 //   GET  /health
 
 /** Collect a request body (capped to guard against runaway uploads). */
@@ -320,7 +320,7 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
     return;
   }
 
-  // GET /org/snapshot — whole-hive view for the Hive Orchestrator MCP
+  // GET /org/snapshot — whole-conduit view for the Conduit Orchestrator MCP
   if (httpReq.method === 'GET' && route === '/org/snapshot') {
     sendJson(res, 200, orgSnapshot(liveStatus));
     return;
@@ -346,7 +346,7 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
           projectId: result.projectId,
           projectName: result.projectName || '',
           agentName: result.agentName,
-          fromName: 'Hive Orchestrator',
+          fromName: 'Conduit Orchestrator',
           message,
           status: result.status,
           reply: result.reply ?? null,
@@ -431,7 +431,7 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
           projectId: r.projectId,
           projectName: r.projectName,
           agentName: r.agentName,
-          fromName: 'Hive Orchestrator',
+          fromName: 'Conduit Orchestrator',
           message,
           status: r.status,
           reply: r.reply ?? null,

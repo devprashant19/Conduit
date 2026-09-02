@@ -5,13 +5,18 @@ import SharedContentView from './components/SharedContent';
 import ActivityFeed from './components/ActivityFeed';
 import ProjectWiki from './components/ProjectWiki';
 import MessagesPanel from './components/MessagesPanel';
+import GroupChat from './components/GroupChat';
 import CommandPalette from './components/CommandPalette';
 import CommandPanel from './components/CommandPanel';
 import NotificationCenter from './components/NotificationCenter';
 import JarvisHud from './components/JarvisHud';
 import CreateProjectModal from './components/CreateProjectModal';
 import CreateAgentModal from './components/CreateAgentModal';
+import GateModal from './components/GateModal';
+import PlanModal from './components/PlanModal';
+import UsagePanel from './components/UsagePanel';
 import Ic, { MOD } from './components/Icons';
+import type { Plan } from '../../src/types';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useSpeechInput } from './hooks/useSpeechInput';
 import { useWakeWord } from './hooks/useWakeWord';
@@ -22,7 +27,7 @@ import logoLight from './assets/logo_light_sm.jpg';
 import * as api from './api';
 import type { Project, Agent } from './api';
 
-type MainTab = 'terminals' | 'messages' | 'shared' | 'wiki' | 'activity';
+type MainTab = 'terminals' | 'messages' | 'groupchat' | 'shared' | 'wiki' | 'activity' | 'usage';
 type Theme = 'dark' | 'light' | 'amber' | 'mono';
 
 const LAYOUT_ICONS: { v: GridLayout; Icon: (p: { size?: number }) => JSX.Element; title: string }[] = [
@@ -72,6 +77,8 @@ export default function App() {
   });
   const [showNewProject, setShowNewProject] = useState(false);
   const [showNewAgent, setShowNewAgent] = useState(false);
+  const [activeGateAgent, setActiveGateAgent] = useState<{ projectId: string; agentId: string } | null>(null);
+  const [activePlan, setActivePlan] = useState<Plan | null>(null);
   const [contentRefresh, setContentRefresh] = useState(0);
 
   // Sidebar collapse + resize state
@@ -165,6 +172,41 @@ export default function App() {
         return next;
       });
     }
+    if (msg.type === 'gate:triggered') {
+      const p = msg as any;
+      setAgents((prev) => {
+        const next = new Map(prev);
+        const list = next.get(p.projectId) || [];
+        const updated = list.map((a) =>
+          a.id === p.agentId ? { ...a, pendingGate: { prompt: p.prompt, source: p.source, options: p.options } } : a
+        );
+        next.set(p.projectId, updated);
+        return next;
+      });
+      setActiveGateAgent({ projectId: p.projectId, agentId: p.agentId });
+    }
+    if (msg.type === 'gate:resolved') {
+      const p = msg as any;
+      setAgents((prev) => {
+        const next = new Map(prev);
+        for (const [pid, list] of next) {
+          const updated = list.map((a) =>
+            a.id === p.agentId ? { ...a, pendingGate: undefined } : a
+          );
+          next.set(pid, updated);
+        }
+        return next;
+      });
+      setActiveGateAgent(current => current?.agentId === p.agentId ? null : current);
+    }
+    if (msg.type === 'plan:created') {
+      const p = msg as { plan: Plan };
+      if (!activePlan) setActivePlan(p.plan);
+    }
+    if (msg.type === 'plan:resolved') {
+      const p = msg as { planId: string; decision: string };
+      setActivePlan(current => current?.id === p.planId ? null : current);
+    }
   });
 
   const loadProjects = useCallback(async () => {
@@ -218,7 +260,7 @@ export default function App() {
   }, [projects, agents]);
   const notifUnread = awaitingNotifs.filter((n) => !notifSeen.has(n.agentId)).length;
 
-  // Hive-wide running / idle counts for the Keeper HUD.
+  // Conduit-wide running / idle counts for the Keeper HUD.
   const globalCounts = useMemo(() => {
     let running = 0;
     let idle = 0;
@@ -321,7 +363,36 @@ export default function App() {
     if (!confirm(`Delete agent "${agent.name}"?`)) return;
     await api.deleteAgent(agent.projectId, agent.id);
     if (selectedAgentId === agent.id) setSelectedAgentId(null);
+    if (activeGateAgent?.agentId === agent.id) setActiveGateAgent(null);
     await loadAgents(agent.projectId);
+  };
+
+  const handleResolveGate = async (decision: 'approve' | 'reject' | 'custom', customInput?: string) => {
+    if (!activeGateAgent) return;
+    try {
+      await fetch(`/api/projects/${activeGateAgent.projectId}/agents/${activeGateAgent.agentId}/gate/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, customInput })
+      });
+      setActiveGateAgent(null);
+    } catch (err) {
+      console.error('Failed to resolve gate', err);
+    }
+  };
+
+  const handleResolvePlan = async (decision: 'approve' | 'reject', reason?: string) => {
+    if (!activePlan) return;
+    try {
+      await fetch(`/api/projects/${activePlan.projectId}/plans/${activePlan.id}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, reason })
+      });
+      setActivePlan(null);
+    } catch (err) {
+      console.error('Failed to resolve plan', err);
+    }
   };
 
   const handleDeleteProject = async () => {
@@ -539,7 +610,13 @@ export default function App() {
                   className={'gr-tab' + (mainTab === 'messages' ? ' active' : '')}
                   onClick={() => setMainTab('messages')}
                 >
-                  <Ic.message size={12} /> Messages
+                  <Ic.message size={12} /> MCP Messages
+                </button>
+                <button
+                  className={'gr-tab' + (mainTab === 'groupchat' ? ' active' : '')}
+                  onClick={() => setMainTab('groupchat')}
+                >
+                  <Ic.message size={12} /> Group Chat
                 </button>
                 <button
                   className={'gr-tab' + (mainTab === 'shared' ? ' active' : '')}
@@ -558,6 +635,12 @@ export default function App() {
                   onClick={() => setMainTab('activity')}
                 >
                   <Ic.activity size={12} /> Activity
+                </button>
+                <button
+                  className={'gr-tab' + (mainTab === 'usage' ? ' active' : '')}
+                  onClick={() => setMainTab('usage')}
+                >
+                  <Ic.activity size={12} /> Usage
                 </button>
               </div>
               <div className="gr-subbar-r">
@@ -603,11 +686,15 @@ export default function App() {
             {mainTab === 'messages' && (
               <MessagesPanel projectId={selectedProjectId} agents={projectAgents} wsRef={wsRef} />
             )}
+            {mainTab === 'groupchat' && (
+              <GroupChat projectId={selectedProjectId} agents={projectAgents} wsRef={wsRef} />
+            )}
             {mainTab === 'shared' && (
               <SharedContentView projectId={selectedProjectId} refreshTrigger={contentRefresh} />
             )}
             {mainTab === 'wiki' && <ProjectWiki projectId={selectedProjectId} />}
             {mainTab === 'activity' && <ActivityFeed projectId={selectedProjectId} wsRef={wsRef} />}
+            {mainTab === 'usage' && <UsagePanel />}
           </>
         ) : (
           <div className="panel-empty" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
@@ -713,6 +800,23 @@ export default function App() {
           projectCwd={selectedProject.cwd}
           onClose={() => setShowNewAgent(false)}
           onCreate={handleCreateAgent}
+        />
+      )}
+      {activeGateAgent && (
+        <GateModal
+          project={projects.find(p => p.id === activeGateAgent.projectId)}
+          agent={agents.get(activeGateAgent.projectId)?.find(a => a.id === activeGateAgent.agentId)}
+          gate={agents.get(activeGateAgent.projectId)?.find(a => a.id === activeGateAgent.agentId)?.pendingGate!}
+          onClose={() => setActiveGateAgent(null)}
+          onResolve={handleResolveGate}
+        />
+      )}
+      {activePlan && (
+        <PlanModal
+          project={projects.find(p => p.id === activePlan.projectId)}
+          plan={activePlan}
+          onClose={() => setActivePlan(null)}
+          onResolve={handleResolvePlan}
         />
       )}
     </div>

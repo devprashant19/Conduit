@@ -2,7 +2,7 @@
  * The Keeper — Conduit's orchestrator brain.
  *
  * A long-lived conversational agent hosted inside the daemon. The user talks
- * to it from the Command panel; it inspects the hive through the Hive
+ * to it from the Command panel; it inspects the conduit through the Conduit
  * Orchestrator MCP and reports back.
  *
  * Runtime: **Codex**. Each turn is a `codex exec` invocation that resumes the
@@ -57,10 +57,10 @@ const AGENTS_MD = `# The Keeper — Conduit Orchestrator Brain
 
 You are **The Keeper**, the orchestrator brain of Conduit — a command center
 for a team of coding CLI agents. The user talks to you in plain language; you
-inspect the hive and report back. Act like a sharp chief-of-staff: concise,
+inspect the conduit and report back. Act like a sharp chief-of-staff: concise,
 accurate, and proactive about what needs the user's attention.
 
-## Your tools (MCP server \`hive\`)
+## Your tools (MCP server \`conduit\`)
 
 - \`list_projects\` — every project and its agents, with live status.
 - \`list_agents\` — the agents of one project, in detail.
@@ -88,7 +88,7 @@ accurate, and proactive about what needs the user's attention.
    prior context. Starting agents is safe and pre-approved: never ask the user
    for permission first, and never answer with just "the agent is stopped".
    If you started an agent only to check on it, offer to \`stop_agent\` it
-   again afterwards so the hive isn't left cluttered with processes the user
+   again afterwards so the conduit isn't left cluttered with processes the user
    didn't intend to keep running.
 4. To set up a new team, use \`create_project\` — it needs a working directory,
    so if the user didn't give one, ask. To add a team member, use
@@ -118,7 +118,7 @@ accurate, and proactive about what needs the user's attention.
 - Never create a project or agent the user didn't ask for.
 - Relay an instruction that changes code or deploys only when the user
   explicitly asks. Do not invent work on your own.
-- Do not run shell commands. Use only the \`hive\` tools.
+- Do not run shell commands. Use only the \`conduit\` tools.
 - Never pretend you reached an agent you didn't.
 `;
 
@@ -160,7 +160,7 @@ export class Orchestrator {
    *  Stop presses from spamming "Cancelled by user" messages. */
   private aborting = false;
 
-  private readonly hiveMcpPath = path.resolve(__dirname_, '../hive-mcp-server.js');
+  private readonly conduitMcpPath = path.resolve(__dirname_, '../conduit-mcp-server.js');
 
   constructor(private readonly emit: (ev: BrainEvent) => void) {
     this.load();
@@ -312,7 +312,7 @@ export class Orchestrator {
     // prompts — and under the default `never` policy every gated call (which
     // includes MCP tool calls) is auto-cancelled. `--dangerously-bypass-...`
     // is Codex's supported flag for headless automation. It is safe here: the
-    // brain's only capability is the Hive MCP toolset (its AGENTS.md forbids
+    // brain's only capability is the Conduit MCP toolset (its AGENTS.md forbids
     // shell use), and real write-actions still flow through sandboxed agents.
     const turnArgs = [
       '--dangerously-bypass-approvals-and-sandbox',
@@ -476,14 +476,14 @@ export class Orchestrator {
 
     fs.writeFileSync(AGENTS_MD_PATH, AGENTS_MD, 'utf-8');
 
-    // Dedicated Codex config — only the Hive MCP server + the user's model.
+    // Dedicated Codex config — only the Conduit MCP server + the user's model.
     const config = [
       '# Conduit Orchestrator brain — managed by Conduit. Do not edit.',
       this.userCodexModelConfig(),
       '',
-      '[mcp_servers.hive]',
+      '[mcp_servers.conduit]',
       `command = ${tomlStr(process.execPath)}`,
-      `args = [${[this.hiveMcpPath, '--daemon', DAEMON_HTTP_URL].map(tomlStr).join(', ')}]`,
+      `args = [${[this.conduitMcpPath, '--daemon', DAEMON_HTTP_URL].map(tomlStr).join(', ')}]`,
       '',
     ].filter((l) => l !== '').join('\n') + '\n';
     fs.writeFileSync(path.join(CODEX_HOME, 'config.toml'), config, 'utf-8');

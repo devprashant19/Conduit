@@ -22,6 +22,8 @@ type BrainListener = (payload: BrainEvent) => void;
 type DispatchListener = (payload: AgentDispatch) => void;
 type OrgChangedListener = () => void;
 type CodexItemListener = (agentId: string, item: CodexItem) => void;
+type SupervisorUpdateListener = (payload: any) => void;
+type GroupChatMsgListener = (payload: any) => void;
 
 interface Pending {
   resolve: (value: unknown) => void;
@@ -39,6 +41,8 @@ export class DaemonClient {
   private readonly dispatchListeners = new Set<DispatchListener>();
   private readonly orgChangedListeners = new Set<OrgChangedListener>();
   private readonly codexItemListeners = new Set<CodexItemListener>();
+  private readonly supervisorUpdateListeners = new Set<SupervisorUpdateListener>();
+  private readonly groupChatMsgListeners = new Set<GroupChatMsgListener>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly outbox: string[] = []; // queued while disconnected
 
@@ -115,6 +119,10 @@ export class DaemonClient {
           for (const l of this.orgChangedListeners) l();
         } else if (msg.event === 'codex:item') {
           for (const l of this.codexItemListeners) l(msg.agentId, msg.item);
+        } else if (msg.event === 'supervisor:update') {
+          for (const l of this.supervisorUpdateListeners) l(msg.payload);
+        } else if (msg.event === 'groupchat:message') {
+          for (const l of this.groupChatMsgListeners) l(msg.payload);
         }
         break;
     }
@@ -190,6 +198,14 @@ export class DaemonClient {
   onCodexItem(listener: CodexItemListener): () => void {
     this.codexItemListeners.add(listener);
     return () => this.codexItemListeners.delete(listener);
+  }
+  onSupervisorUpdate(listener: SupervisorUpdateListener): () => void {
+    this.supervisorUpdateListeners.add(listener);
+    return () => this.supervisorUpdateListeners.delete(listener);
+  }
+  onGroupChatMessage(listener: GroupChatMsgListener): () => void {
+    this.groupChatMsgListeners.add(listener);
+    return () => this.groupChatMsgListeners.delete(listener);
   }
 
   /** Send a user message to the orchestrator brain (fire-and-forget). */

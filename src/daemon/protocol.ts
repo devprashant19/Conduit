@@ -9,7 +9,7 @@
 export const DAEMON_HOST = '127.0.0.1';
 export const DAEMON_PORT = parseInt(process.env.CONDUIT_DAEMON_PORT || '3210', 10);
 export const DAEMON_URL = `ws://${DAEMON_HOST}:${DAEMON_PORT}`;
-/** HTTP base — the daemon serves hook callbacks and the Hive org API here. */
+/** HTTP base — the daemon serves hook callbacks and the Conduit org API here. */
 export const DAEMON_HTTP_URL = `http://${DAEMON_HOST}:${DAEMON_PORT}`;
 
 // ─────────────────────────── Orchestrator brain ───────────────────────────
@@ -21,7 +21,7 @@ export interface BrainMessage {
   role: 'user' | 'assistant' | 'tool' | 'reasoning' | 'system' | 'error';
   text: string;
   ts: string;
-  /** For role === 'tool': the tool name (e.g. "hive/ask_agent"). */
+  /** For role === 'tool': the tool name (e.g. "conduit/ask_agent"). */
   tool?: string;
 }
 
@@ -139,6 +139,7 @@ export type DaemonMessage =
   | { kind: 'event'; event: 'agent:dispatch'; payload: AgentDispatch }
   | { kind: 'event'; event: 'org:changed' }
   | { kind: 'event'; event: 'supervisor:update'; payload: { agentId: string; projectId: string; classification: string; summary: string; ts: string } }
+  | { kind: 'event'; event: 'groupchat:message'; payload: any }
   | { kind: 'event'; event: 'codex:item'; agentId: string; item: CodexItem };
 
 /** Result shapes for each RPC op (for type-safe clients). */

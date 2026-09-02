@@ -1,5 +1,5 @@
 /**
- * Hive dispatch — the org-level operations behind the Hive Orchestrator MCP.
+ * Conduit dispatch — the org-level operations behind the Conduit Orchestrator MCP.
  *
  *  - `orgSnapshot`  builds the projects + agents + live-status view the brain
  *    reads through `list_projects` / `list_agents` / `get_agent_status`.
@@ -46,7 +46,7 @@ export interface OrgSnapshot {
 }
 
 /**
- * Full hive view. `liveStatus` resolves the daemon's fine-grained status for
+ * Full conduit view. `liveStatus` resolves the daemon's fine-grained status for
  * an agent id (the daemon owns the status engine, so it injects this).
  */
 export function orgSnapshot(liveStatus: (agentId: string) => string): OrgSnapshot {
@@ -328,7 +328,7 @@ export async function askAgentDispatch(
   if (agent.cli === 'claude') {
     // Claude → PTY injection + status-engine turn detection + transcript read.
     const turnEnded = waitForTurnEnd(agent.id, TURN_TIMEOUT_MS);
-    const injected = runtime.injectMessage(agent.id, 'Hive Orchestrator', message);
+    const injected = runtime.injectMessage(agent.id, 'Conduit Orchestrator', message);
     if (!injected) {
       return { ok: false, status: 'not-running', ...base, reply: null };
     }
@@ -363,7 +363,7 @@ export async function askAgentDispatch(
     await sleep(800); // let the final transcript line flush to disk
     // The text injectMessage wrote — used to locate our exact turn in the
     // transcript so the reply is read from the right conversation branch.
-    const injectedText = `[Message from Hive Orchestrator]: ${message.replace(/\r/g, '').trim()}`;
+    const injectedText = `[Message from Conduit Orchestrator]: ${message.replace(/\r/g, '').trim()}`;
     const reply = readClaudeReply(expandHome(agent.cwd), since, injectedText);
     return { ok: true, status: reply ? 'replied' : 'no-reply', ...base, reply };
   }
@@ -381,7 +381,7 @@ export async function askAgentDispatch(
   }
 
   // Gemini / OpenCode — deliver the message; reply capture not supported.
-  const injected = runtime.injectMessage(agent.id, 'Hive Orchestrator', message);
+  const injected = runtime.injectMessage(agent.id, 'Conduit Orchestrator', message);
   return {
     ok: injected,
     status: injected ? 'delivered' : 'not-running',
@@ -603,7 +603,7 @@ export interface BroadcastResult {
 /**
  * Ask every running agent at once — optionally scoped to one project. Stopped
  * agents are skipped (not auto-started: a broadcast should not spin up the
- * whole hive); the brain can start specific ones if it needs them.
+ * whole conduit); the brain can start specific ones if it needs them.
  */
 export async function broadcastDispatch(
   projectRef: string | undefined,

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Conduit Hive Orchestrator MCP Server
+ * Conduit Conduit Orchestrator MCP Server
  *
  * Gives the orchestrator brain ("The Keeper") org-level tools to see and
- * command the whole hive. Spawned as a stdio MCP server by the brain's CLI
+ * command the whole conduit. Spawned as a stdio MCP server by the brain's CLI
  * process; forwards every tool call to the conduit-daemon over HTTP.
  *
  * Unlike the per-agent `mcp-server.ts` (agent-to-agent messaging), this server
@@ -181,7 +181,7 @@ async function main() {
   const args = parseArgs();
 
   const server = new Server(
-    { name: 'conduit-hive', version: '0.1.0' },
+    { name: 'conduit-core', version: '0.1.0' },
     { capabilities: { tools: {} } },
   );
 
@@ -190,7 +190,7 @@ async function main() {
       {
         name: 'list_projects',
         description:
-          'List every project in the hive with its agents and their live status. ' +
+          'List every project in the conduit with its agents and their live status. ' +
           'Call this first when you need an overview of the teams you can command.',
         inputSchema: { type: 'object', properties: {} },
       },
@@ -379,7 +379,7 @@ async function main() {
         description:
           'Ask every running agent the same question at once and collect all ' +
           'their replies. Optionally scope to one project. Stopped agents are ' +
-          'skipped (not started). Use this for hive-wide status checks like ' +
+          'skipped (not started). Use this for conduit-wide status checks like ' +
           '"what is everyone working on right now".',
         inputSchema: {
           type: 'object',
@@ -407,7 +407,7 @@ async function main() {
       if (name === 'list_projects') {
         const snap = await getSnapshot(args);
         if (snap.projects.length === 0) {
-          return text('No projects in the hive yet.');
+          return text('No projects in the conduit yet.');
         }
         const lines: string[] = [];
         for (const p of snap.projects) {
@@ -740,10 +740,10 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`[hive-mcp] connected — daemon ${args.daemonUrl}`);
+  console.error(`[conduit-mcp] connected — daemon ${args.daemonUrl}`);
 }
 
 main().catch((e) => {
-  console.error('[hive-mcp] fatal:', e);
+  console.error('[conduit-mcp] fatal:', e);
   process.exit(1);
 });

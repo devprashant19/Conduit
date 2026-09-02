@@ -1,5 +1,5 @@
 /**
- * Icon set for the Conduit Hive Dashboard redesign.
+ * Icon set for the Conduit Conduit Dashboard redesign.
  * Stroke-based, inherits currentColor. Use <Ic.name size={...} />.
  */
 
@@ -211,7 +211,7 @@ const Ic = {
       <path d="M8 12v2.4M5.6 14.4h4.8" />
     </svg>
   ),
-  // Conduit brand mark — a hive hexagon with a >_ terminal prompt.
+  // Conduit brand mark — a conduit hexagon with a >_ terminal prompt.
   logo: (p: IconProps = {}) => (
     <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.5} strokeLinecap="round" strokeLinejoin="round" style={p.style} className={p.className}>
       <path d="M8 1.4L13.7 4.8L13.7 11.2L8 14.6L2.3 11.2L2.3 4.8Z" />

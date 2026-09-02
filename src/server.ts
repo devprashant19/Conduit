@@ -72,6 +72,14 @@ daemon.onCodexItem((agentId, item) => {
   broadcast({ type: 'codex:item', agentId, item });
 });
 
+// Supervisor updates and group chat messages
+daemon.onSupervisorUpdate((payload) => {
+  broadcast({ type: 'supervisor:update', payload });
+});
+daemon.onGroupChatMessage((payload) => {
+  broadcast({ type: 'groupchat:message', payload });
+});
+
 // Orchestrator brain events from the daemon → broadcast to all browsers
 daemon.onBrain((payload) => {
   broadcast({ type: 'brain:event', payload });

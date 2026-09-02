@@ -4,7 +4,7 @@
  *   Claude / Gemini / OpenCode → PTY            (pty-manager)
  *   Codex                      → app-server thread (codex-agents)
  *
- * The daemon and the Hive dispatch layer talk only to this module, so they
+ * The daemon and the Conduit dispatch layer talk only to this module, so they
  * never branch on CLI themselves.
  */
 
