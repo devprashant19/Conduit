@@ -13,7 +13,7 @@ export async function transcribeOpenAI(
 
   const ext = mime.split('/')[1]?.split(';')[0] || 'webm';
   const form = new FormData();
-  form.append('file', new Blob([audio], { type: mime }), `audio.${ext}`);
+  form.append('file', new Blob([new Uint8Array(audio)], { type: mime }), `audio.${ext}`);
   form.append('model', model || 'gpt-4o-transcribe');
   if (language) form.append('language', language);
 

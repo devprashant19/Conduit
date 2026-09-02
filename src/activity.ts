@@ -15,15 +15,25 @@ export function setBroadcast(fn: (event: ActivityEvent) => void) {
   broadcastFn = fn;
 }
 
-export function pushEvent(event: Omit<ActivityEvent, 'id' | 'timestamp'>) {
+export function pushEvent(detail: Omit<ActivityEvent, 'id' | 'timestamp'>) {
   const full: ActivityEvent = {
-    ...event,
+    ...detail,
     id: uuid(),
     timestamp: new Date().toISOString(),
   };
   events.push(full);
   if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
   broadcastFn?.(full);
+
+  // Append to the global activity log
+  try {
+    const logPath = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.conduit', 'activity.jsonl');
+    fs.appendFile(logPath, JSON.stringify(full) + '\n', (err: NodeJS.ErrnoException | null) => {
+      if (err) console.error('[activity] Error writing to log:', err);
+    });
+  } catch (err: unknown) {
+    console.error('[activity] Error appending to log:', err);
+  }
 }
 
 export function getEvents(projectId?: string): ActivityEvent[] {
@@ -89,7 +99,7 @@ export function watchProject(projectId: string, projectName: string) {
     });
   });
 
-  watcher.on('error', (err: Error) => {
+  watcher.on('error', (err: any) => {
     console.error(`[activity] Watcher error for ${projectName}:`, err);
   });
 
