@@ -218,31 +218,133 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
 
           {/* Pill Tabs */}
           <div className="showcase-pill-tabs">
-            <button className="showcase-tab-btn active">Real Terminals</button>
-            <button className="showcase-tab-btn">5 Persistent Layouts</button>
-            <button className="showcase-tab-btn">Group Chat</button>
-            <button className="showcase-tab-btn">MCP Inter-agent Messaging</button>
-            <button className="showcase-tab-btn">The Keeper</button>
-            <button className="showcase-tab-btn">Voice Control</button>
+            {[
+              'Real Terminals',
+              '5 Persistent Layouts',
+              'Group Chat',
+              'MCP Inter-agent Messaging',
+              'The Keeper',
+              'Voice Control',
+            ].map((name, i) => (
+              <button
+                key={name}
+                className={'showcase-tab-btn' + (activeTab === i ? ' active' : '')}
+                onClick={() => setActiveTab(i)}
+              >
+                {name}
+              </button>
+            ))}
           </div>
 
-          {/* Showcase Feature Card */}
+          {/* Showcase Feature Card - Dynamically Updated */}
           <div className="showcase-card-container">
-            <div className="showcase-feature-card">
-              <div className="feature-header-row">
-                <span className="feature-step-tag">01</span>
-                <span className="feature-step-name">Side-by-side terminal supervision</span>
-                <span className="feature-tools-badge">Single · 2-up · 3-up · Tmux Grid · Freeform Canvas</span>
+            {activeTab === 0 && (
+              <div className="showcase-feature-card">
+                <div className="feature-header-row">
+                  <span className="feature-step-tag">01</span>
+                  <span className="feature-step-name">Side-by-side terminal supervision</span>
+                  <span className="feature-tools-badge">xterm.js · node-pty · WebSocket</span>
+                </div>
+                <p className="feature-step-desc">
+                  Every agent runs in a real pseudo-terminal you can watch and type into. Scrollback replay allows late browser viewers to reconnect seamlessly with full process output preservation.
+                </p>
+                <div className="feature-action-row">
+                  <button className="preview-action-pill" onClick={onOpenConsole}>
+                    Open Live Terminals →
+                  </button>
+                </div>
               </div>
-              <p className="feature-step-desc">
-                Every agent runs in a real pseudo-terminal you can watch and type into. Scrollback replay allows late browser viewers to reconnect seamlessly with full process output preservation.
-              </p>
-              <div className="feature-action-row">
-                <button className="preview-action-pill" onClick={onOpenConsole}>
-                  Open Live Dashboard →
-                </button>
+            )}
+
+            {activeTab === 1 && (
+              <div className="showcase-feature-card">
+                <div className="feature-header-row">
+                  <span className="feature-step-tag">02</span>
+                  <span className="feature-step-name">5 Multi-agent persistent layouts</span>
+                  <span className="feature-tools-badge">Single · 2-up · 3-up · Tmux Grid · Canvas</span>
+                </div>
+                <p className="feature-step-desc">
+                  Tile your coding agents your way: 1-to-3 agent splits, tmux-style draggable dividers with proportional resizing, or freeform movable window cards persisted per project.
+                </p>
+                <div className="feature-action-row">
+                  <button className="preview-action-pill" onClick={onOpenConsole}>
+                    Explore Layouts in Console →
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {activeTab === 2 && (
+              <div className="showcase-feature-card">
+                <div className="feature-header-row">
+                  <span className="feature-step-tag">03</span>
+                  <span className="feature-step-name">Universal project Group Chat</span>
+                  <span className="feature-tools-badge">Broadcast · @agent mention · ANSI strip</span>
+                </div>
+                <p className="feature-step-desc">
+                  Broadcast instructions to all running agents at once or target a specific one with `@agent-name`. The Supervisor automatically posts real-time progress summaries and blocker warnings here.
+                </p>
+                <div className="feature-action-row">
+                  <button className="preview-action-pill" onClick={onOpenConsole}>
+                    Try Group Chat →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 3 && (
+              <div className="showcase-feature-card">
+                <div className="feature-header-row">
+                  <span className="feature-step-tag">04</span>
+                  <span className="feature-step-name">MCP inter-agent messaging</span>
+                  <span className="feature-tools-badge">message_agent · list_teammates</span>
+                </div>
+                <p className="feature-step-desc">
+                  Claude Code agents running in the same project discover each other and coordinate autonomously via session-scoped Model Context Protocol (MCP) server endpoints.
+                </p>
+                <div className="feature-action-row">
+                  <button className="preview-action-pill" onClick={onOpenConsole}>
+                    View MCP Configs →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 4 && (
+              <div className="showcase-feature-card">
+                <div className="feature-header-row">
+                  <span className="feature-step-tag">05</span>
+                  <span className="feature-step-name">The Keeper (Codex orchestrator)</span>
+                  <span className="feature-tools-badge">⌘J Command Panel · codex app-server</span>
+                </div>
+                <p className="feature-step-desc">
+                  A headless Codex CLI orchestrator answering repository-wide architecture questions, verifying progress across all agents, and coordinating multi-phase tasks on command.
+                </p>
+                <div className="feature-action-row">
+                  <button className="preview-action-pill" onClick={onOpenConsole}>
+                    Launch The Keeper →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 5 && (
+              <div className="showcase-feature-card">
+                <div className="feature-header-row">
+                  <span className="feature-step-tag">06</span>
+                  <span className="feature-step-name">Push-to-talk voice pipeline</span>
+                  <span className="feature-tools-badge">⌘; Hotkey · Optional Wake Word · TTS</span>
+                </div>
+                <p className="feature-step-desc">
+                  Speak naturally to your agents using browser Web Speech APIs or optional OpenAI/Gemini cloud endpoints. The Keeper answers with concise spoken audio summaries.
+                </p>
+                <div className="feature-action-row">
+                  <button className="preview-action-pill" onClick={onOpenConsole}>
+                    Configure Voice Settings →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
