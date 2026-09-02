@@ -598,32 +598,33 @@ input, select, textarea { font-family: inherit; }
 .gr-body.layout-single   { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr; }
 .gr-body.layout-row {
   display: flex; flex-direction: row; align-items: stretch;
+  gap: 12px;
 }
-.gr-body.layout-grid { display: flex; padding: 0; gap: 0; overflow: hidden; }
+.gr-body.layout-grid { display: flex; padding: 0; gap: 4px; overflow: hidden; }
 
 .pane-wrap { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .gr-body.layout-row > .pane-wrap { flex: 1 1 0; }
 .gr-body.layout-row .pane { width: 100%; height: 100%; }
 
 /* ---- Grid = tmux-style recursive splits ---- */
-.tmux-split { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.tmux-split { display: flex; flex: 1; min-width: 0; min-height: 0; gap: 4px; }
 .tmux-split.horiz { flex-direction: row; }
 .tmux-split.vert { flex-direction: column; }
 .tmux-side { display: flex; min-width: 0; min-height: 0; overflow: hidden; }
 .tmux-side > * { flex: 1; min-width: 0; min-height: 0; }
-/* 2px padding gives the focused pane's border + glow room to breathe without
+/* 4px padding gives the focused pane's border + glow room to breathe without
    being clipped by neighbouring panes. */
-.tmux-leaf { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; padding: 2px; }
+.tmux-leaf { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; padding: 4px; }
 .tmux-leaf > .pane {
   flex: 1; min-width: 0; min-height: 0;
-  border-radius: 6px;
-  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
 }
 .tmux-leaf.is-focused { z-index: 2; }
 .tmux-leaf.is-focused > .pane,
 .tmux-leaf.is-focused > .pane.focused {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-soft), 0 2px 16px rgba(0,0,0,0.35);
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: var(--shadow-md), var(--glow-primary);
 }
 
 .tmux-leaf.is-dragging > .pane { opacity: 0.45; }
@@ -688,8 +689,8 @@ input, select, textarea { font-family: inherit; }
   position: relative;
   overflow: auto;
   background:
-    radial-gradient(circle, var(--border) 1px, transparent 1px) 0 0 / 24px 24px,
-    var(--bg-0);
+    radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px) 0 0 / 24px 24px,
+    transparent;
   padding: 0;
   gap: 0;
   display: block;
@@ -703,27 +704,30 @@ input, select, textarea { font-family: inherit; }
   position: sticky; top: 0; left: 0; right: 0;
   z-index: 10000;
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px;
-  background: color-mix(in oklch, var(--bg-0) 88%, transparent);
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
   pointer-events: auto;
-  height: 36px;
+  height: 38px;
 }
 .canvas-toolbar .pane-btn { display: inline-flex; align-items: center; padding: 4px 8px; width: auto; }
 .canvas-hint { font-size: 11px; color: var(--text-3); }
 .canvas-card {
   position: absolute;
-  background: var(--bg-1);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px -12px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.2);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 40px -12px rgba(0,0,0,0.7), var(--shadow-sm);
   overflow: hidden;
-  transition: box-shadow 120ms ease;
+  transition: box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .canvas-card.focused {
-  border-color: var(--accent);
-  box-shadow: 0 12px 32px -10px rgba(0,0,0,0.65), 0 0 0 1px var(--accent);
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 20px 48px -10px rgba(0,0,0,0.8), var(--glow-primary);
 }
 .canvas-card-inner { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .canvas-card-inner > .pane { flex: 1; min-height: 0; width: 100%; border: none; border-radius: 0; box-shadow: none; }
