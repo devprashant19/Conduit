@@ -134,6 +134,63 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           </div>
         </div>
       </section>
+
+      {/* Section 2: How It Works (Image 2) */}
+      <section id="how-it-works" className="landing-section how-it-works-sec">
+        <h2 className="section-title">How it works</h2>
+
+        <div className="how-it-works-grid">
+          {/* Step 01 */}
+          <div className="how-step-row">
+            <div className="how-step-text">
+              <span className="step-num">01</span>
+              <h3 className="step-title">Say what you want done.</h3>
+              <p className="step-desc">
+                Conduit plans the steps and works on its own. Follow along anytime.
+              </p>
+            </div>
+            <div className="how-step-preview">
+              <div className="preview-container-box">
+                <div className="preview-prompt-card">
+                  <span className="preview-prompt-text">
+                    Merge the two lead exports into one clean tracker and flag anything that does not reconcile.
+                  </span>
+                  <span className="preview-submit-arrow">↑</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 02 */}
+          <div className="how-step-row">
+            <div className="how-step-text">
+              <span className="step-num">02</span>
+              <h3 className="step-title">Review and sign-off.</h3>
+              <p className="step-desc">
+                Finished work comes back to the same chat. Nothing goes out without your OK.
+              </p>
+            </div>
+            <div className="how-step-preview">
+              <div className="preview-container-box">
+                <div className="preview-result-card">
+                  <div className="preview-user-query">
+                    Merge the two lead exports into one clean tracker and flag anything that does not reconcile.
+                  </div>
+                  <div className="preview-status-tag">
+                    <span className="check-icon">✓</span> DONE
+                  </div>
+                  <div className="preview-summary-text">
+                    One tracker, 482 rows, dupes collapsed. Six rows would not reconcile, flagged with reasons.
+                  </div>
+                  <button className="preview-action-pill" onClick={onOpenConsole}>
+                    Open the tracker
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
