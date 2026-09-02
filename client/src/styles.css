@@ -1182,13 +1182,11 @@ input, select, textarea { font-family: inherit; }
 .st {
   grid-area: st;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 16px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-top: 1px solid var(--glass-border);
+  padding: 0 18px;
+  background: var(--bg-1);
+  border-top: 1px solid var(--border);
   font-family: var(--ff-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-2);
   gap: 14px;
   overflow: hidden;
