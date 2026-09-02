@@ -2593,27 +2593,44 @@ input, select, textarea { font-family: inherit; }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   background: var(--bg-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-top: 6px;
   font-size: 13px;
   font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+.checklist-item:hover {
+  background: var(--bg-2);
+  border-color: var(--border-strong);
+  transform: translateX(2px);
 }
 .checklist-circle {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   border: 1.5px solid var(--border-strong);
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.checklist-item:hover .checklist-circle {
+  border-color: #0f0f11;
 }
 .checklist-circle.checked {
   background: #0f0f11;
   border-color: #0f0f11;
   color: #ffffff;
+  transform: scale(1.08);
+}
+.checklist-item.done {
+  color: var(--text-2);
+  text-decoration: line-through;
+  opacity: 0.8;
 }
 
 .gc-compose { padding: 14px 20px; border-top: 1px solid var(--border); background: var(--bg-1); }
