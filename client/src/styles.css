@@ -944,28 +944,26 @@ input, select, textarea { font-family: inherit; }
 .pane.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
 
 .pane {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   display: flex; flex-direction: column;
   overflow: hidden;
   min-height: 0;
   position: relative;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 20px -2px rgba(15, 15, 17, 0.05);
   transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .pane.focused {
-  border-color: rgba(59, 130, 246, 0.6);
-  box-shadow: var(--shadow-md), var(--glow-primary);
+  border-color: #0f0f11;
+  box-shadow: 0 8px 30px -4px rgba(15, 15, 17, 0.12), 0 0 0 1px #0f0f11;
 }
 
 .pane-head {
   display: flex; align-items: center; justify-content: flex-start;
-  padding: 8px 12px 8px 8px;
-  border-bottom: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 14px 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
   flex-shrink: 0;
   gap: 8px;
 }

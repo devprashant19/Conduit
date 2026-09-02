@@ -165,6 +165,11 @@ function AgentPane({
         onDragStart={dragHandlers?.onDragStart}
         onMouseDown={headMouseDown}
       >
+        <div className="mac-traffic-lights" style={{ marginRight: 6 }}>
+          <span className="mac-traffic-dot red" />
+          <span className="mac-traffic-dot yellow" />
+          <span className="mac-traffic-dot green" />
+        </div>
         <span className="pane-drag" title="Drag"><Ic.dots size={12} /></span>
         <div className="pane-head-l">
           <div className="pane-agent">
