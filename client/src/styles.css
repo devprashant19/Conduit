@@ -6,61 +6,72 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root, [data-theme="dark"] {
-  --bg-0: #000000;
-  --bg-1: #09090b;
-  --bg-2: #121214;
-  --bg-3: #18181b;
-  --bg-4: #27272a;
-  --bg-hover: rgba(255, 255, 255, 0.05);
-  --bg-active: rgba(255, 255, 255, 0.1);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.15);
-  --text-0: #ffffff;
-  --text-1: rgba(255, 255, 255, 0.85);
-  --text-2: rgba(255, 255, 255, 0.55);
-  --text-3: rgba(255, 255, 255, 0.35);
+  /* Warm minimalist palette */
+  --bg-0: #faf8f5;            /* Canvas warm sand / cream */
+  --bg-1: #ffffff;            /* Card / panel pure white */
+  --bg-2: #f4f1ea;            /* Secondary warm neutral */
+  --bg-3: #eee9df;            /* Tertiary subtle container */
+  --bg-4: #e2ddd2;            /* Borders and divider fills */
+  --bg-hover: rgba(15, 15, 17, 0.04);
+  --bg-active: rgba(15, 15, 17, 0.08);
+  --border: rgba(15, 15, 17, 0.08);
+  --border-strong: rgba(15, 15, 17, 0.16);
+  --text-0: #0f0f11;          /* High-contrast deep charcoal */
+  --text-1: #3f3f46;          /* Secondary dark text */
+  --text-2: #71717a;          /* Muted supporting text */
+  --text-3: #a1a1aa;          /* Subtle metadata / placeholder */
 
-  /* signal colors */
-  --accent: #3b82f6;
-  --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  --accent-glow: 0 0 20px rgba(139, 92, 246, 0.3);
-  --accent-soft: rgba(59, 130, 246, 0.15);
-  --accent-hover: #60a5fa;
+  /* Signal & highlight tokens */
+  --accent: #0f0f11;          /* Solid high-contrast black primary */
+  --accent-hover: #27272a;
+  --accent-soft: rgba(15, 15, 17, 0.06);
+  --accent-text: #ffffff;     /* Text on primary buttons */
 
-  /* glassmorphism tokens */
-  --glass-bg: rgba(18, 18, 20, 0.65);
-  --glass-bg-strong: rgba(18, 18, 20, 0.85);
-  --glass-bg-hover: rgba(24, 24, 27, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: blur(16px);
+  /* Pastel peach / coral highlight (Agent FM signature) */
+  --highlight-peach: rgba(255, 185, 175, 0.45);
+  --highlight-peach-strong: #fbd5ce;
+  --highlight-coral: #e05d44;
 
-  /* shadow and glow tokens */
-  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
-  --glow-primary: 0 0 15px rgba(59, 130, 246, 0.4), 0 0 30px rgba(59, 130, 246, 0.2);
-  --glow-hover: 0 0 20px rgba(59, 130, 246, 0.6), 0 0 40px rgba(59, 130, 246, 0.3);
+  /* Card and glass tokens */
+  --glass-bg: rgba(255, 255, 255, 0.88);
+  --glass-bg-strong: #ffffff;
+  --glass-bg-hover: #ffffff;
+  --glass-border: rgba(15, 15, 17, 0.08);
+  --glass-blur: blur(12px);
 
-  --attn: oklch(72% 0.13 75);
-  --attn-soft: oklch(72% 0.13 75 / 0.14);
-  --ok: oklch(68% 0.11 155);
-  --ok-soft: oklch(68% 0.11 155 / 0.14);
-  --err: oklch(64% 0.19 25);
-  --err-soft: oklch(64% 0.19 25 / 0.14);
-  --idle: oklch(62% 0.03 260);
-  --idle-soft: oklch(62% 0.03 260 / 0.14);
+  /* Soft warm drop-shadows */
+  --shadow-sm: 0 2px 8px rgba(15, 15, 17, 0.04);
+  --shadow-md: 0 8px 24px rgba(15, 15, 17, 0.06);
+  --shadow-lg: 0 20px 48px rgba(15, 15, 17, 0.08);
+  --glow-primary: 0 0 0 1px rgba(15, 15, 17, 0.08), 0 8px 28px rgba(15, 15, 17, 0.06);
+  --glow-hover: 0 0 0 2px rgba(15, 15, 17, 0.85);
+
+  /* Traffic light window controls */
+  --mac-red: #ff5f56;
+  --mac-yellow: #ffbd2e;
+  --mac-green: #27c93f;
+
+  --attn: #d97706;
+  --attn-soft: rgba(217, 119, 6, 0.12);
+  --ok: #16a34a;
+  --ok-soft: rgba(22, 163, 74, 0.12);
+  --err: #dc2626;
+  --err-soft: rgba(220, 38, 38, 0.12);
+  --idle: #71717a;
+  --idle-soft: rgba(113, 113, 122, 0.12);
 
   /* agent identity hues */
-  --h-frontend: oklch(68% 0.12 260);
-  --h-backend:  oklch(68% 0.12 155);
-  --h-qa:       oklch(72% 0.12 75);
-  --h-docs:     oklch(66% 0.12 310);
-  --h-devops:   oklch(66% 0.13 25);
-  --h-default:  oklch(65% 0.10 220);
+  --h-frontend: #3b82f6;
+  --h-backend:  #10b981;
+  --h-qa:       #f59e0b;
+  --h-docs:     #8b5cf6;
+  --h-devops:   #ec4899;
+  --h-default:  #6366f1;
 
-  --radius-sm: 4px;
-  --radius: 6px;
-  --radius-lg: 10px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
 
   --ff-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --ff-mono: 'JetBrains Mono', 'Consolas', 'SF Mono', monospace;
@@ -104,10 +115,9 @@ input, select, textarea { font-family: inherit; }
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background:
-    radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
-    radial-gradient(circle at 85% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 50% 80%, rgba(236, 72, 153, 0.04) 0%, transparent 55%);
+  background-color: var(--bg-0);
+  background-image: radial-gradient(rgba(15, 15, 17, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 .app {
