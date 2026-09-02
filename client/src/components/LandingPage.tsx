@@ -191,6 +191,64 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           </div>
         </div>
       </section>
+
+      {/* Section 3: Works with your existing tools & 10x Faster Showcase (Image 3) */}
+      <section id="tools" className="landing-section tools-sec">
+        <h2 className="section-title">Works with your existing tools</h2>
+
+        {/* Integration Logo Grid */}
+        <div className="tools-logo-cloud">
+          <div className="tool-logo-pill" title="Slack"><span className="logo-emoji">💬</span> Slack</div>
+          <div className="tool-logo-pill" title="GitHub"><span className="logo-emoji">🐙</span> GitHub</div>
+          <div className="tool-logo-pill" title="Google Drive"><span className="logo-emoji">📁</span> Google Drive</div>
+          <div className="tool-logo-pill" title="Gmail"><span className="logo-emoji">✉️</span> Gmail</div>
+          <div className="tool-logo-pill" title="Notion"><span className="logo-emoji">📝</span> Notion</div>
+          <div className="tool-logo-pill" title="HubSpot"><span className="logo-emoji">🟧</span> HubSpot</div>
+          <div className="tool-logo-pill" title="Google Sheets"><span className="logo-emoji">📊</span> Sheets</div>
+          <div className="tool-logo-pill" title="Linear"><span className="logo-emoji">📐</span> Linear</div>
+          <div className="tool-logo-pill" title="Zoom"><span className="logo-emoji">📹</span> Zoom</div>
+          <div className="tool-logo-pill" title="Calendar"><span className="logo-emoji">📅</span> Calendar</div>
+          <div className="tool-logo-pill" title="Stripe"><span className="logo-emoji">💳</span> Stripe</div>
+          <div className="tool-logo-pill" title="QuickBooks"><span className="logo-emoji">📗</span> QuickBooks</div>
+        </div>
+
+        {/* 10x Faster Showcase */}
+        <div className="faster-showcase-wrap">
+          <h2 className="section-title faster-title">
+            Do your best work <span className="highlight-pill">10x faster</span>
+          </h2>
+
+          {/* Pill Tabs */}
+          <div className="showcase-pill-tabs">
+            <button className="showcase-tab-btn active">Data</button>
+            <button className="showcase-tab-btn">Email</button>
+            <button className="showcase-tab-btn">Research</button>
+            <button className="showcase-tab-btn">Sales</button>
+            <button className="showcase-tab-btn">Orders & billing</button>
+            <button className="showcase-tab-btn">Monitoring</button>
+            <button className="showcase-tab-btn">Recruiting</button>
+          </div>
+
+          {/* Showcase Feature Card */}
+          <div className="showcase-card-container">
+            <div className="showcase-feature-card">
+              <div className="feature-header-row">
+                <span className="feature-step-tag">01</span>
+                <span className="feature-step-name">Stalled-thread nudges</span>
+                <span className="feature-tools-badge">Gmail · Sheets</span>
+              </div>
+              <p className="feature-step-desc">
+                Find every thread waiting on a reply for <span className="param-pill">[days]+</span> days and draft a polite nudge on each.
+              </p>
+              <div className="feature-action-row">
+                <button className="preview-action-pill" onClick={onOpenConsole}>
+                  Run this flow in Console →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

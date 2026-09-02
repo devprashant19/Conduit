@@ -3092,3 +3092,155 @@ input, select, textarea { font-family: inherit; }
   background: #27272a;
   transform: translateY(-1px);
 }
+
+/* ==========================================================
+   Section 3: Tools Logo Cloud & 10x Faster Showcase
+   ========================================================== */
+
+.tools-sec {
+  text-align: center;
+}
+
+.tools-logo-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 860px;
+  margin: 0 auto 100px;
+}
+
+.tool-logo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 15, 17, 0.08);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-0);
+  box-shadow: 0 4px 12px rgba(15, 15, 17, 0.03);
+  transition: all 0.15s ease;
+}
+.tool-logo-pill:hover {
+  transform: translateY(-2px);
+  border-color: rgba(15, 15, 17, 0.16);
+  box-shadow: 0 8px 20px rgba(15, 15, 17, 0.06);
+}
+
+.logo-emoji {
+  font-size: 15px;
+}
+
+.faster-showcase-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.faster-title {
+  margin-bottom: 24px;
+}
+
+.showcase-pill-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #f4eee5;
+  border: 1px solid rgba(15, 15, 17, 0.06);
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 36px;
+}
+
+.showcase-tab-btn {
+  height: 30px;
+  padding: 0 14px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.showcase-tab-btn:hover { color: var(--text-0); }
+.showcase-tab-btn.active {
+  background: #ffffff;
+  color: #0f0f11;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(15, 15, 17, 0.08);
+}
+
+.showcase-card-container {
+  width: 100%;
+  max-width: 780px;
+  background: #f4eee5;
+  border: 1px solid rgba(15, 15, 17, 0.06);
+  border-radius: 20px;
+  padding: 32px;
+}
+
+.showcase-feature-card {
+  background: #ffffff;
+  border: 1px solid rgba(15, 15, 17, 0.08);
+  border-radius: 16px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+  box-shadow: 0 8px 24px -6px rgba(15, 15, 17, 0.06);
+}
+
+.feature-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.feature-step-tag {
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #e05d44;
+}
+
+.feature-step-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f0f11;
+  letter-spacing: -0.015em;
+}
+
+.feature-tools-badge {
+  margin-left: auto;
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+  background: var(--bg-0);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+}
+
+.feature-step-desc {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-1);
+}
+
+.param-pill {
+  color: #e05d44;
+  font-weight: 600;
+}
+
+.feature-action-row {
+  margin-top: 6px;
+}
