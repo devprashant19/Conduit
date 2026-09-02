@@ -680,6 +680,7 @@ export default function App() {
       <div className="sb-resizer" onMouseDown={onSidebarResizeDown} title="Drag to resize sidebar" />
 
       <section className="gr">
+        <div className="canvas-frame" aria-hidden="true" />
         {selectedProjectId ? (
           <>
             <div className="gr-subbar">

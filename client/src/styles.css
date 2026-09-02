@@ -613,6 +613,7 @@ input, select, textarea { font-family: inherit; }
 
 .gr {
   grid-area: gr;
+  position: relative;
   display: flex; flex-direction: column;
   overflow: hidden;
   background: transparent;
