@@ -681,12 +681,16 @@ input, select, textarea { font-family: inherit; }
   font-size: 12px; font-weight: 600;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease;
 }
 .batch-btn:hover {
   background: var(--bg-2);
   border-color: var(--border-strong);
-  transform: translateY(-1px);
+  transform: translateY(-1.5px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(15, 15, 17, 0.08);
+}
+.batch-btn:active {
+  transform: translateY(0) scale(0.98);
 }
 .batch-btn.primary {
   background: #0f0f11;
@@ -697,8 +701,11 @@ input, select, textarea { font-family: inherit; }
 .batch-btn.primary:hover {
   background: #27272a;
   border-color: #27272a;
-  box-shadow: 0 4px 12px rgba(15, 15, 17, 0.3);
-  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(15, 15, 17, 0.35);
+  transform: translateY(-2px) scale(1.03);
+}
+.batch-btn.primary:active {
+  transform: translateY(0) scale(0.98);
 }
 .batch-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
@@ -718,12 +725,15 @@ input, select, textarea { font-family: inherit; }
   letter-spacing: -0.01em;
   box-shadow: 0 4px 14px rgba(15, 15, 17, 0.25);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease;
 }
 .pill-btn-black:hover {
   background: #27272a;
-  transform: translateY(-1px) scale(1.01);
-  box-shadow: 0 6px 20px rgba(15, 15, 17, 0.35);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 8px 24px rgba(15, 15, 17, 0.38);
+}
+.pill-btn-black:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .pill-badge {
