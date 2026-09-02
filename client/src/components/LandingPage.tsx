@@ -14,14 +14,14 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           <span className="brand-title">CONDUIT</span>
         </div>
         <div className="landing-nav-links">
-          <a href="#use-cases" className="landing-nav-link">Use Cases</a>
           <a href="#how-it-works" className="landing-nav-link">How it works</a>
-          <a href="#tools" className="landing-nav-link">Integrations</a>
+          <a href="#agents" className="landing-nav-link">Supported Agents</a>
+          <a href="#features" className="landing-nav-link">Features</a>
           <a href="#faq" className="landing-nav-link">FAQ</a>
         </div>
         <div className="landing-nav-actions">
           <button className="landing-btn-black" onClick={onOpenConsole}>
-            Launch Console <Ic.chevR size={12} />
+            Open Control Center <Ic.chevR size={12} />
           </button>
         </div>
       </header>
@@ -39,74 +39,74 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           <span className="frame-dot r-m" />
         </div>
 
-        {/* Floating Agent Mascot Badges */}
-        {/* Top Left: Sprout */}
+        {/* Floating Real Agent Cards */}
+        {/* Top Left: Claude Code */}
         <div className="hero-floating-badge badge-top-left">
-          <div className="floating-user-bubble">Can you chase the 9 overdue invoices?</div>
+          <div className="floating-user-bubble">Fix the race condition in the WebSocket handler</div>
           <div className="floating-agent-card">
-            <span className="mascot-avatar sprout">🌱</span>
+            <span className="mascot-avatar sprout">🤖</span>
             <div className="agent-text">
-              <div className="agent-msg">Drafted reminders for all 9. Review before I send?</div>
-              <div className="agent-tools">QuickBooks · Gmail</div>
+              <div className="agent-msg">Claude Code resolved socket race & passes all smoke tests.</div>
+              <div className="agent-tools">Claude 3.5 Sonnet · node-pty</div>
             </div>
           </div>
         </div>
 
-        {/* Top Right: Bunny */}
+        {/* Top Right: Codex Orchestrator */}
         <div className="hero-floating-badge badge-top-right">
-          <div className="floating-user-bubble">Triage my inbox before standup</div>
+          <div className="floating-user-bubble">The Keeper, what are all running agents working on?</div>
           <div className="floating-agent-card">
-            <span className="mascot-avatar bunny">🐰</span>
+            <span className="mascot-avatar bunny">🧠</span>
             <div className="agent-text">
-              <div className="agent-msg">42 sorted. Only 3 actually need you.</div>
-              <div className="agent-tools">Gmail · Calendar</div>
+              <div className="agent-msg">Agent 1 refactoring CSS, Agent 2 running migrations.</div>
+              <div className="agent-tools">The Keeper · Codex CLI</div>
             </div>
           </div>
         </div>
 
-        {/* Mid Left: Cat / Bear */}
+        {/* Mid Left: Approval Gate */}
         <div className="hero-floating-badge badge-mid-left">
-          <div className="floating-user-bubble">Update the CRM from today's calls</div>
+          <div className="floating-user-bubble">Run database migration on staging</div>
           <div className="floating-agent-card">
-            <span className="mascot-avatar bear">🐻</span>
+            <span className="mascot-avatar bear">🛡️</span>
             <div className="agent-text">
-              <div className="agent-msg">6 records updated, next steps logged.</div>
-              <div className="agent-tools">HubSpot · Docs</div>
+              <div className="agent-msg">Approval Gate: Destructive SQL detected. Awaiting OK.</div>
+              <div className="agent-tools">Bedrock Supervisor · Safety Gate</div>
             </div>
           </div>
         </div>
 
-        {/* Mid Right: Kitten */}
+        {/* Mid Right: Gemini CLI */}
         <div className="hero-floating-badge badge-mid-right">
-          <div className="floating-user-bubble">Pull last week's metrics into the deck</div>
+          <div className="floating-user-bubble">Generate comprehensive test coverage for auth routes</div>
           <div className="floating-agent-card">
-            <span className="mascot-avatar kitten">🐱</span>
+            <span className="mascot-avatar kitten">✨</span>
             <div className="agent-text">
-              <div className="agent-msg">Slides 4-7 refreshed with fresh numbers.</div>
-              <div className="agent-tools">HubSpot · Sheets · Slides</div>
+              <div className="agent-msg">18 integration tests generated and verified.</div>
+              <div className="agent-tools">Gemini CLI · PTY Terminal</div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Left: Blob */}
+        {/* Bottom Left: OpenCode */}
         <div className="hero-floating-badge badge-bot-left">
-          <div className="floating-user-bubble">Reconcile the team's May expenses</div>
+          <div className="floating-user-bubble">Sync project wiki with new architectural changes</div>
           <div className="floating-agent-card compact">
-            <span className="mascot-avatar blob">🌸</span>
+            <span className="mascot-avatar blob">📖</span>
             <div className="agent-text">
-              <div className="agent-msg">Matching receipts in QuickBooks…</div>
+              <div className="agent-msg">Updated project wiki & shared content folder.</div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Right: Peach */}
+        {/* Bottom Right: Voice Pipeline */}
         <div className="hero-floating-badge badge-bot-right">
-          <div className="floating-user-bubble">Book travel for the offsite</div>
+          <div className="floating-user-bubble">"Jarvis, summarize blocker on agent 2"</div>
           <div className="floating-agent-card">
-            <span className="mascot-avatar peach">🍑</span>
+            <span className="mascot-avatar peach">🎙️</span>
             <div className="agent-text">
-              <div className="agent-msg">Flights + hotel held for your approval.</div>
-              <div className="agent-tools">Browser · Gmail · Calendar</div>
+              <div className="agent-msg">Spoken audio briefing generated via speech synthesis.</div>
+              <div className="agent-tools">Voice Pipeline · Push-to-talk (⌘;)</div>
             </div>
           </div>
         </div>
@@ -114,44 +114,44 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         {/* Center Hero Content */}
         <div className="hero-center-content">
           <h1 className="hero-title">
-            AI teammates to hand off<br />
-            your <span className="highlight-pill">busywork</span>
+            The multi-agent control center<br />
+            for <span className="highlight-pill">engineers</span>
           </h1>
 
           <p className="hero-subtitle">
-            Describe the outcome. Conduit completes the work across your files, browser, and inbox.
+            Run Claude Code, Codex, Gemini CLI, and OpenCode side by side. Supervised by Amazon Bedrock with human-in-the-loop approval gates.
           </p>
 
           <div className="hero-actions">
             <button className="hero-cta-button" onClick={onOpenConsole}>
               Launch Conduit Console ↓
             </button>
-            <span className="hero-cta-subtext">Start free. No credit card required.</span>
+            <span className="hero-cta-subtext">Real terminals · Full human supervision · MIT License</span>
           </div>
         </div>
       </section>
 
-      {/* Section 2: How It Works (Image 2) */}
+      {/* Section 2: How the Safety Loop Works */}
       <section id="how-it-works" className="landing-section how-it-works-sec">
-        <h2 className="section-title">How it works</h2>
+        <h2 className="section-title">How the human-in-the-loop safety loop works</h2>
 
         <div className="how-it-works-grid">
           {/* Step 01 */}
           <div className="how-step-row">
             <div className="how-step-text">
               <span className="step-num">01</span>
-              <h3 className="step-title">Say what you want done.</h3>
+              <h3 className="step-title">Watch and classify in real time.</h3>
               <p className="step-desc">
-                Conduit plans the steps and works on its own. Follow along anytime.
+                The daemon strips ANSI from every agent's terminal output and runs fast regex checks (destructive commands, force pushes, rm -rf) plus an AWS Strands Supervisor call on Bedrock every 10–20 seconds.
               </p>
             </div>
             <div className="how-step-preview">
               <div className="preview-container-box">
                 <div className="preview-prompt-card">
                   <span className="preview-prompt-text">
-                    Merge the two lead exports into one clean tracker and flag anything that does not reconcile.
+                    Supervisor classifies agent output: reports progress, blockers, questions, and flags risky commands.
                   </span>
-                  <span className="preview-submit-arrow">↑</span>
+                  <span className="preview-submit-arrow">⚡</span>
                 </div>
               </div>
             </div>
@@ -161,25 +161,25 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           <div className="how-step-row">
             <div className="how-step-text">
               <span className="step-num">02</span>
-              <h3 className="step-title">Review and sign-off.</h3>
+              <h3 className="step-title">Gate & Plan approval.</h3>
               <p className="step-desc">
-                Finished work comes back to the same chat. Nothing goes out without your OK.
+                Nothing is auto-answered. Risky commands pause the agent and surface an Approval Gate. Supervisor instructions must go through `plan_action` and require your explicit sign-off before anything is sent.
               </p>
             </div>
             <div className="how-step-preview">
               <div className="preview-container-box">
                 <div className="preview-result-card">
                   <div className="preview-user-query">
-                    Merge the two lead exports into one clean tracker and flag anything that does not reconcile.
+                    claude: git push origin main --force
                   </div>
-                  <div className="preview-status-tag">
-                    <span className="check-icon">✓</span> DONE
+                  <div className="preview-status-tag" style={{ color: '#dc2626' }}>
+                    <span className="check-icon">⚠️</span> APPROVAL GATE REQUIRED
                   </div>
                   <div className="preview-summary-text">
-                    One tracker, 482 rows, dupes collapsed. Six rows would not reconcile, flagged with reasons.
+                    Destructive action detected on branch 'main'. The agent is paused until you approve, reject, or type a custom reply.
                   </div>
                   <button className="preview-action-pill" onClick={onOpenConsole}>
-                    Open the tracker
+                    Review in Console
                   </button>
                 </div>
               </div>
@@ -188,41 +188,40 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Section 3: Works with your existing tools & 10x Faster Showcase (Image 3) */}
-      <section id="tools" className="landing-section tools-sec">
-        <h2 className="section-title">Works with your existing tools</h2>
+      {/* Section 3: Supported AI Agents & Multi-vendor Tools */}
+      <section id="agents" className="landing-section tools-sec">
+        <h2 className="section-title">Multi-vendor agent support</h2>
 
-        {/* Integration Logo Grid */}
+        {/* Real Tool & CLI Grid */}
         <div className="tools-logo-cloud">
-          <div className="tool-logo-pill" title="Slack"><span className="logo-emoji">💬</span> Slack</div>
-          <div className="tool-logo-pill" title="GitHub"><span className="logo-emoji">🐙</span> GitHub</div>
-          <div className="tool-logo-pill" title="Google Drive"><span className="logo-emoji">📁</span> Google Drive</div>
-          <div className="tool-logo-pill" title="Gmail"><span className="logo-emoji">✉️</span> Gmail</div>
-          <div className="tool-logo-pill" title="Notion"><span className="logo-emoji">📝</span> Notion</div>
-          <div className="tool-logo-pill" title="HubSpot"><span className="logo-emoji">🟧</span> HubSpot</div>
-          <div className="tool-logo-pill" title="Google Sheets"><span className="logo-emoji">📊</span> Sheets</div>
-          <div className="tool-logo-pill" title="Linear"><span className="logo-emoji">📐</span> Linear</div>
-          <div className="tool-logo-pill" title="Zoom"><span className="logo-emoji">📹</span> Zoom</div>
-          <div className="tool-logo-pill" title="Calendar"><span className="logo-emoji">📅</span> Calendar</div>
-          <div className="tool-logo-pill" title="Stripe"><span className="logo-emoji">💳</span> Stripe</div>
-          <div className="tool-logo-pill" title="QuickBooks"><span className="logo-emoji">📗</span> QuickBooks</div>
+          <div className="tool-logo-pill" title="Claude Code"><span className="logo-emoji">🤖</span> Claude Code</div>
+          <div className="tool-logo-pill" title="Codex CLI"><span className="logo-emoji">💻</span> Codex CLI</div>
+          <div className="tool-logo-pill" title="Gemini CLI"><span className="logo-emoji">♊</span> Gemini CLI</div>
+          <div className="tool-logo-pill" title="OpenCode"><span className="logo-emoji">🔓</span> OpenCode</div>
+          <div className="tool-logo-pill" title="AWS Bedrock"><span className="logo-emoji">☁️</span> AWS Bedrock</div>
+          <div className="tool-logo-pill" title="Strands Agents SDK"><span className="logo-emoji">🧬</span> Strands SDK</div>
+          <div className="tool-logo-pill" title="xterm.js"><span className="logo-emoji">⌨️</span> xterm.js PTY</div>
+          <div className="tool-logo-pill" title="node-pty"><span className="logo-emoji">⚙️</span> node-pty</div>
+          <div className="tool-logo-pill" title="MCP Messaging"><span className="logo-emoji">🔌</span> Model Context Protocol</div>
+          <div className="tool-logo-pill" title="Project Wiki"><span className="logo-emoji">📚</span> LLM Project Wiki</div>
+          <div className="tool-logo-pill" title="WebSocket"><span className="logo-emoji">⚡</span> WebSocket Replay</div>
+          <div className="tool-logo-pill" title="Voice"><span className="logo-emoji">🎙️</span> Speech Engine</div>
         </div>
 
-        {/* 10x Faster Showcase */}
-        <div className="faster-showcase-wrap">
+        {/* Features Tabs Showcase */}
+        <div className="faster-showcase-wrap" id="features">
           <h2 className="section-title faster-title">
-            Do your best work <span className="highlight-pill">10x faster</span>
+            Built for serious <span className="highlight-pill">engineering workflows</span>
           </h2>
 
           {/* Pill Tabs */}
           <div className="showcase-pill-tabs">
-            <button className="showcase-tab-btn active">Data</button>
-            <button className="showcase-tab-btn">Email</button>
-            <button className="showcase-tab-btn">Research</button>
-            <button className="showcase-tab-btn">Sales</button>
-            <button className="showcase-tab-btn">Orders & billing</button>
-            <button className="showcase-tab-btn">Monitoring</button>
-            <button className="showcase-tab-btn">Recruiting</button>
+            <button className="showcase-tab-btn active">Real Terminals</button>
+            <button className="showcase-tab-btn">5 Persistent Layouts</button>
+            <button className="showcase-tab-btn">Group Chat</button>
+            <button className="showcase-tab-btn">MCP Inter-agent Messaging</button>
+            <button className="showcase-tab-btn">The Keeper</button>
+            <button className="showcase-tab-btn">Voice Control</button>
           </div>
 
           {/* Showcase Feature Card */}
@@ -230,15 +229,15 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
             <div className="showcase-feature-card">
               <div className="feature-header-row">
                 <span className="feature-step-tag">01</span>
-                <span className="feature-step-name">Stalled-thread nudges</span>
-                <span className="feature-tools-badge">Gmail · Sheets</span>
+                <span className="feature-step-name">Side-by-side terminal supervision</span>
+                <span className="feature-tools-badge">Single · 2-up · 3-up · Tmux Grid · Freeform Canvas</span>
               </div>
               <p className="feature-step-desc">
-                Find every thread waiting on a reply for <span className="param-pill">[days]+</span> days and draft a polite nudge on each.
+                Every agent runs in a real pseudo-terminal you can watch and type into. Scrollback replay allows late browser viewers to reconnect seamlessly with full process output preservation.
               </p>
               <div className="feature-action-row">
                 <button className="preview-action-pill" onClick={onOpenConsole}>
-                  Run this flow in Console →
+                  Open Live Dashboard →
                 </button>
               </div>
             </div>
@@ -246,77 +245,56 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Section 4: Team Demo & Calendar Booking Card (Image 4) */}
+      {/* Section 4: Architecture Overview */}
       <section className="landing-section demo-sec">
         <h2 className="section-title">
-          See what Conduit can do for<br />
-          your whole team.
+          Two brains, two distinct roles.<br />
+          Always with human oversight.
         </h2>
         <p className="section-subtitle">
-          Get help with pricing and plans, schedule a walkthrough, explore use-cases for your team, and more.
+          The Supervisor watches and flags risks on Bedrock. The Keeper answers questions about your whole project via Codex CLI.
         </p>
 
         <div className="calendar-card-wrap">
-          <div className="calendar-card">
-            {/* Left sidebar: Host details */}
-            <div className="cal-host-col">
-              <div className="cal-host-avatar">👨‍💻</div>
+          <div className="calendar-card" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            {/* The Supervisor */}
+            <div className="cal-host-col" style={{ borderRight: '1px solid rgba(15, 15, 17, 0.06)' }}>
+              <div className="cal-host-avatar">🛡️</div>
               <div className="cal-host-meta">
-                <span className="cal-host-name">Conduit Founders</span>
-                <h3 className="cal-meeting-title">30 min with Conduit team</h3>
+                <span className="cal-host-name">AWS Strands Agents SDK + Bedrock</span>
+                <h3 className="cal-meeting-title">The Supervisor</h3>
               </div>
               <p className="cal-meeting-desc">
-                Set up Conduit for your team. Get help with pricing and plans, schedule a demo, explore use-cases, and more.
+                Watches agent terminal outputs, classifies progress and blockers, detects destructive commands, and proposes plans via `plan_action`.
               </p>
               <div className="cal-meeting-details">
-                <div className="cal-detail-item">⏱ 30m</div>
-                <div className="cal-detail-item">📹 Google Meet</div>
-                <div className="cal-detail-item">🌐 Asia/Kolkata</div>
+                <div className="cal-detail-item">🔒 Can act without you? <strong>No — requires approval</strong></div>
+                <div className="cal-detail-item">⚡ Engine: Claude 3.5 Sonnet on Amazon Bedrock</div>
+                <div className="cal-detail-item">📝 Audit log: Saved to ~/.conduit/audit.jsonl</div>
               </div>
             </div>
 
-            {/* Middle: Month Date Grid */}
+            {/* The Keeper */}
             <div className="cal-grid-col">
-              <div className="cal-month-header">
-                <span className="cal-month-name">September 2026</span>
-                <div className="cal-nav-arrows">
-                  <span className="arrow">‹</span>
-                  <span className="arrow">›</span>
-                </div>
+              <div className="cal-host-avatar">🧠</div>
+              <div className="cal-host-meta">
+                <span className="cal-host-name">Codex CLI App-Server</span>
+                <h3 className="cal-meeting-title">The Keeper</h3>
               </div>
-              <div className="cal-days-header">
-                <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
-              </div>
-              <div className="cal-dates-grid">
-                <span className="dim">30</span><span className="dim">31</span>
-                <span>1</span><span>2</span><span className="active-date">3</span><span>4</span><span>5</span>
-                <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span>
-                <span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span>
-                <span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span>
-                <span>27</span><span>28</span><span>29</span><span>30</span>
-              </div>
-            </div>
-
-            {/* Right: Time Slots */}
-            <div className="cal-slots-col">
-              <div className="cal-slots-header">
-                <span className="cal-day-label">Thu 3rd</span>
-                <div className="time-format-toggle">
-                  <span className="active">12h</span>
-                  <span>24h</span>
-                </div>
-              </div>
-              <div className="cal-slot-list">
-                <button className="cal-slot-btn" onClick={onOpenConsole}>10:30pm</button>
-                <button className="cal-slot-btn" onClick={onOpenConsole}>11:00pm</button>
-                <button className="cal-slot-btn" onClick={onOpenConsole}>11:30pm</button>
+              <p className="cal-meeting-desc">
+                The global project orchestrator in the Command Panel (⌘J). Answers questions about the entire repository and relays instructions to specific agents on demand.
+              </p>
+              <div className="cal-meeting-details">
+                <div className="cal-detail-item">💬 Interaction: Command palette & Group Chat</div>
+                <div className="cal-detail-item">🎙️ Voice: Spoken summaries & push-to-talk (⌘;)</div>
+                <div className="cal-detail-item">🛠️ Scope: Operates only on user explicit instructions</div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Section 5: FAQ & Bottom Mascot Sign-off (Image 5) */}
+      {/* Section 5: Real FAQ & Bottom Sign-off */}
       <section id="faq" className="landing-section faq-sec">
         <h2 className="section-title">Frequently asked questions</h2>
 
@@ -324,35 +302,44 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           {/* FAQ 1 */}
           <div className="faq-item open">
             <div className="faq-question">
-              <span>Who is Conduit for?</span>
+              <span>What is Conduit and who is it built for?</span>
               <span className="faq-toggle">×</span>
             </div>
             <div className="faq-answer">
-              Anyone whose work sprawls across tabs, files, and tools. Founders, chiefs of staff, operations and sales teams, team leads, and product and engineering managers are our power users. We are onboarding more professionals every day. If repetitive computer work eats your week, Conduit is for you.
+              Conduit is a multi-agent control center for professional software engineers who want to run multiple AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode) side by side in real terminals while retaining full visibility and veto power over actions.
             </div>
           </div>
 
           {/* FAQ 2 */}
           <div className="faq-item">
             <div className="faq-question">
-              <span>How does Conduit work?</span>
+              <span>How do approval gates protect my codebase?</span>
               <span className="faq-toggle">+</span>
+            </div>
+            <div className="faq-answer">
+              Conduit uses two layers of protection: instant regex pattern detection for dangerous shell commands (like force pushes, rm -rf, drop tables) and periodic Bedrock classification. When a gate triggers, the agent is paused and surfaced in an approval modal—nothing is sent without your confirmation.
             </div>
           </div>
 
           {/* FAQ 3 */}
           <div className="faq-item">
             <div className="faq-question">
-              <span>Does it work with the tools I already use?</span>
+              <span>Can agents collaborate and talk to each other?</span>
               <span className="faq-toggle">+</span>
+            </div>
+            <div className="faq-answer">
+              Yes. Agents in the same project can share context via the Project Wiki (Karpathy's LLM-wiki pattern), access shared folders (`shared_content/`), and communicate directly via MCP tools (`message_agent`, `list_teammates`).
             </div>
           </div>
 
           {/* FAQ 4 */}
           <div className="faq-item">
             <div className="faq-question">
-              <span>Is my data secure and private?</span>
+              <span>Is my data private and can I run it locally?</span>
               <span className="faq-toggle">+</span>
+            </div>
+            <div className="faq-answer">
+              Yes. Conduit runs entirely on your local machine or private EC2 instance. All project data, agent transcripts, and audit logs are stored locally under `~/.conduit/`. HTTP Basic Auth (`CONDUIT_AUTH`) protects the dashboard when deployed remotely.
             </div>
           </div>
         </div>
@@ -360,15 +347,15 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         {/* Bottom Mascot Parade & Final Hero Sign-off */}
         <div className="footer-signoff-wrap">
           <div className="mascot-parade-row">
-            <span className="parade-mascot">👾</span>
-            <span className="parade-mascot">🐻</span>
-            <span className="parade-mascot">🌱</span>
-            <span className="parade-mascot">🐰</span>
-            <span className="parade-mascot">🌸</span>
-            <span className="parade-mascot">🍑</span>
+            <span className="parade-mascot">🤖</span>
+            <span className="parade-mascot">💻</span>
+            <span className="parade-mascot">♊</span>
+            <span className="parade-mascot">🔓</span>
+            <span className="parade-mascot">🛡️</span>
+            <span className="parade-mascot">🧠</span>
           </div>
           <h2 className="signoff-title">
-            Consider it <span className="highlight-pill">done.</span>
+            Always in the <span className="highlight-pill">driver's seat.</span>
           </h2>
           <button className="landing-btn-black signoff-btn" onClick={onOpenConsole}>
             Launch Conduit Console <Ic.chevR size={12} />
