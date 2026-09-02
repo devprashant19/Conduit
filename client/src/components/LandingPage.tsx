@@ -113,10 +113,6 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
 
         {/* Center Hero Content */}
         <div className="hero-center-content">
-          <div className="hero-pill-badge">
-            Backed by <span className="yc-orange">Y</span> Combinator
-          </div>
-
           <h1 className="hero-title">
             AI teammates to hand off<br />
             your <span className="highlight-pill">busywork</span>

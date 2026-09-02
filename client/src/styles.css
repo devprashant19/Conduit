@@ -90,7 +90,13 @@
 
 
 
-html, body, #root { height: 100%; }
+html, body, #root {
+  min-height: 100%;
+}
+html:has(.app), body:has(.app), #root:has(.app) {
+  height: 100%;
+  overflow: hidden;
+}
 
 body {
   font-family: var(--ff-sans);
@@ -101,6 +107,9 @@ body {
   letter-spacing: -0.02em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body:has(.app) {
   overflow: hidden;
 }
 
