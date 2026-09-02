@@ -197,6 +197,28 @@ input, select, textarea { font-family: inherit; }
   background-size: 24px 24px;
 }
 
+/* Reference signature: Subtle rounded dashed frame with anchor dots */
+.canvas-frame {
+  position: absolute;
+  inset: 16px;
+  border: 1.5px dashed rgba(15, 15, 17, 0.12);
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.canvas-frame::before,
+.canvas-frame::after {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.canvas-frame::before { top: -3px; left: 50%; transform: translateX(-50%); }
+.canvas-frame::after { bottom: -3px; left: 50%; transform: translateX(-50%); }
+
 .app {
   position: relative;
   display: grid;
