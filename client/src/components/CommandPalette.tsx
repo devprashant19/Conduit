@@ -88,7 +88,7 @@ export default function CommandPalette({
     <div className="palette-scrim" onClick={onClose}>
       <div className="palette" onClick={(e) => e.stopPropagation()}>
         <div className="palette-in">
-          <Ic.search size={15} style={{ color: 'var(--text-2)' }} />
+          <Ic.search size={18} style={{ color: 'var(--text-2)' }} />
           <input
             ref={inputRef}
             value={q}
