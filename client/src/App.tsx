@@ -21,6 +21,7 @@ import { useSpeechInput } from './hooks/useSpeechInput';
 import { useWakeWord } from './hooks/useWakeWord';
 import { useVoiceConfig } from './hooks/useVoiceConfig';
 import SettingsModal from './components/SettingsModal';
+import LandingPage from './components/LandingPage';
 import logoDark from './assets/logo_dark_sm.jpg';
 import logoLight from './assets/logo_light_sm.jpg';
 import * as api from './api';
@@ -42,6 +43,9 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState<MainTab>('terminals');
+  const [inConsole, setInConsole] = useState<boolean>(() => {
+    return window.location.hash === '#console';
+  });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   // Orchestrator-brain completion cue — shown when the brain finishes a task
@@ -559,6 +563,17 @@ export default function App() {
   const appCls = ['app'];
   if (sidebarCollapsed) appCls.push('sb-hidden');
 
+  if (!inConsole) {
+    return (
+      <LandingPage
+        onOpenConsole={() => {
+          window.location.hash = '#console';
+          setInConsole(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className={appCls.join(' ')} style={{ '--sidebar-w': sidebarW + 'px' } as React.CSSProperties}>
       <div className="ambient-mesh" aria-hidden="true" />
@@ -646,6 +661,17 @@ export default function App() {
               </button>
             ))}
           </div>
+          <button
+            className="hbtn"
+            title="Website & Overview"
+            onClick={() => {
+              window.location.hash = '';
+              setInConsole(false);
+            }}
+            style={{ fontWeight: 600, color: 'var(--text-0)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            Website
+          </button>
           <button
             className="hbtn"
             title="Voice settings"
