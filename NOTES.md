@@ -24,8 +24,6 @@ Currently, testing the `/api/strands/ping` endpoint locally yields:
 
 This is because the local development environment does not currently have AWS credentials set in the `.env` file or environment variables. 
 
-**Next Steps:**
-To complete the verification step as requested, please add valid AWS credentials with Bedrock access to your `.env` file. Once added, I can re-run the smoke test and capture the actual model response here.
 
 ## Bedrock Deployment Path Decision (AgentCore vs Direct)
 

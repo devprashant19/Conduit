@@ -1,37 +1,34 @@
+# ── Build stage ─────────────────────────────────────────────────────────
 FROM node:20 AS builder
-
 WORKDIR /app
-
-# Copy package files and install dependencies
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci
-
-# Copy the rest of the application
 COPY . .
-
-# Build both frontend and backend
 RUN npm run build
 
+# ── Runtime stage ───────────────────────────────────────────────────────
 FROM node:20-slim
-
 WORKDIR /app
 
-# Install dependencies needed for node-pty (if required by agents) and concurrently
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+# node-pty needs a toolchain to build; curl is used by the Claude Code
+# lifecycle hooks; git is what the coding agents actually work with.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ curl git ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy package files and install production dependencies
-COPY package*.json ./
-# Install concurrently explicitly so we can use npm run start:all
-RUN npm ci --omit=dev && npm install concurrently
+COPY package*.json .npmrc ./
+RUN npm ci --omit=dev && npm install --no-save concurrently
 
-# Copy built artifacts from the builder stage
+# The coding-agent CLIs Conduit drives. Each one still needs to be logged in:
+# mount ~/.claude / ~/.codex from the host (see docker-compose.yml) or run
+# `docker compose exec conduit claude login` once.
+RUN npm install -g @anthropic-ai/claude-code @openai/codex @google/gemini-cli opencode-ai \
+  || echo "WARN: one or more agent CLIs failed to install — agents of that type will not start"
+
 COPY --from=builder /app/dist ./dist
+COPY scripts ./scripts
 
-# Create the data directory
 RUN mkdir -p /root/.conduit
-
-# Expose only the web UI port (daemon port 3210 remains internal)
 EXPOSE 3200
-
-# Start both daemon and server using the existing script
+ENV HOST=0.0.0.0 PORT=3200
 CMD ["npm", "run", "start:all"]

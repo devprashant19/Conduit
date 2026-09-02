@@ -1,7 +1,8 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
-const HOME = process.env.HOME || process.env.USERPROFILE || '.';
+const HOME = os.homedir();
 const CLAUDE_CREDS = path.join(HOME, '.claude', '.credentials.json');
 const CODEX_AUTH = path.join(HOME, '.codex', 'auth.json');
 const POLL_INTERVAL = 5 * 60 * 1000;
@@ -121,6 +122,8 @@ export async function getUsage(): Promise<AllUsage> {
   return { claude, codex };
 }
 
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+
 export function startPolling() {
   const poll = async () => {
     const claude = await fetchClaudeUsage();
@@ -128,8 +131,13 @@ export function startPolling() {
     if (claude) console.log('[usage] Claude: session ' + claude.session?.utilization + '%, week ' + claude.week?.utilization + '%');
     if (codex) console.log('[usage] Codex: session ' + codex.session?.utilization + '%, week ' + codex.week?.utilization + '%');
   };
-  poll();
-  setInterval(poll, POLL_INTERVAL);
+  poll().catch(() => { /* logged inside */ });
+  if (!pollTimer) {
+    pollTimer = setInterval(() => { poll().catch(() => { /* ignore */ }); }, POLL_INTERVAL);
+    pollTimer.unref();
+  }
 }
 
-export function stopPolling() {}
+export function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}

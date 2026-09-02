@@ -2,201 +2,86 @@
 
 ## What This Is
 
-A web-based management platform for coding CLI agents (Claude Code, Codex CLI, Gemini CLI). NOT a multi-agent coordination framework — this is a **human-driven dashboard** where the user manually manages multiple agent sessions organized by project teams.
+A web dashboard for running and supervising several coding CLI agents (Claude Code, Codex, Gemini CLI, OpenCode) in parallel, organised by project. Every agent runs in a real terminal the user can see and type into. A Supervisor (AWS Strands Agents SDK on Amazon Bedrock) watches agent output, summarises it into a per-project Group Chat, raises **approval gates** for risky actions, and can only *propose* instructions (plans) that the human approves.
 
-Think of it as **tmux for coding agents** with a web UI, team organization, and shared content.
+Human-driven: the user decides. The Supervisor never sends an instruction to an agent without an approved plan.
 
-## Why It Exists
+## Processes and ports
 
-When running 3-7 coding agents simultaneously across different projects, the user currently:
-- Has 7+ terminal windows open, can't find which is which
-- Can't easily share context between agents (copy-paste between windows)
-- Has no overview of what each agent is working on
-- Can't manage agents from mobile/remote
+| Process | Entry | Port | Owns |
+|---|---|---|---|
+| Web server | `src/server.ts` | `:3200` (`PORT`, `HOST`) | React UI, REST, browser WebSocket, voice proxy, optional Basic auth (`CONDUIT_AUTH=user:pass`) |
+| Daemon | `src/daemon/daemon.ts` | `:3210` loopback | Every agent process, status engine, Supervisor watcher, The Keeper |
+| Per-agent MCP server | `src/mcp-server.ts` | stdio | `message_agent` / `list_teammates` for Claude agents |
+| Keeper MCP server | `src/conduit-mcp-server.ts` | stdio | Org-level tools for the Codex-based orchestrator |
 
-## Core Architecture
+The web server never owns processes; it relays to the daemon over a local WebSocket (`src/daemon/protocol.ts`) and auto-reconnects. Restarting the web server does not kill agents.
 
-```
-┌─────────────────────────────────────────────┐
-│              Web UI (React)                  │
-│  ┌─────────┐ ┌─────────┐ ┌──────────────┐  │
-│  │ Project  │ │ Agent   │ │   Shared     │  │
-│  │ Sidebar  │ │Terminals│ │  Content     │  │
-│  └─────────┘ └─────────┘ └──────────────┘  │
-└──────────────────┬──────────────────────────┘
-                   │ REST + WebSocket
-┌──────────────────▼──────────────────────────┐
-│           Express Server                     │
-│  ┌──────────┐ ┌──────────┐ ┌─────────────┐ │
-│  │ PTY Mgr  │ │ Content  │ │  Project/   │ │
-│  │(terminals)│ │  Store   │ │  Team Store │ │
-│  └──────────┘ └──────────┘ └─────────────┘ │
-└─────────────────────────────────────────────┘
-```
-
-## Tech Stack
-
-- **Backend**: Node.js + Express + TypeScript
-- **Frontend**: React + Vite + xterm.js (terminal rendering)
-- **PTY**: node-pty (spawn real CLI processes)
-- **Communication**: WebSocket (terminal I/O streaming) + REST (CRUD)
-- **Storage**: JSON files on disk (no database needed)
-- **Build**: tsup (backend) + vite (frontend)
-
-## Data Model
-
-```typescript
-interface Project {
-  id: string;
-  name: string;           // e.g. "DexlessAI", "MedVault"
-  description?: string;
-  cwd: string;            // project root directory
-  createdAt: string;
-}
-
-interface Agent {
-  id: string;
-  projectId: string;
-  name: string;           // e.g. "Frontend", "Backend", "Alex"
-  role?: string;          // optional label
-  cli: 'claude' | 'codex' | 'gemini';
-  cwd: string;            // working directory
-  status: 'stopped' | 'running' | 'idle';
-  pid?: number;
-}
-
-interface SharedContent {
-  id: string;
-  projectId: string;
-  filename: string;       // e.g. "api-spec.md", "design-notes.md"
-  content: string;
-  createdBy: string;      // agent name or "user"
-  updatedAt: string;
-}
-```
-
-## Storage
-
-All data stored in `~/.conduit/`:
-```
-~/.conduit/
-├── config.json           # Global settings
-├── projects/
-│   ├── <project-id>/
-│   │   ├── project.json  # Project metadata + agents list
-│   │   └── content/      # Shared content files
-│   │       ├── api-spec.md
-│   │       └── design-notes.md
-```
-
-## Key Features (Priority Order)
-
-### P0: Must Have
-1. **Project Management** — CRUD projects with name, description, root directory
-2. **Agent Terminals** — Spawn/stop/restart CLI agents (claude, codex, gemini) with real PTY
-3. **Terminal Streaming** — xterm.js in browser, real-time I/O via WebSocket
-4. **Agent Organization** — See all agents grouped by project, with status indicators
-5. **Shared Content** — Per-project shared content store (create/read/update/delete markdown files)
-
-### P1: Important
-6. **Agent Input** — Type commands/prompts to any agent from the web UI
-7. **Multi-terminal View** — Split view showing multiple agent terminals side by side
-8. **Mobile Responsive** — Usable from phone (single-column layout)
-9. **Auth** — Simple password protection (env var `AGENT_ORG_AUTH=user:pass`)
-
-### P2: Nice to Have
-10. **Agent Templates** — Save and reuse agent configurations
-11. **Content Notifications** — Toast when shared content is updated
-12. **Search** — Search across all shared content
-
-## API Design
-
-### REST Endpoints
+## Source map
 
 ```
-# Projects
-GET    /api/projects                    # List all projects
-POST   /api/projects                    # Create project
-PUT    /api/projects/:id                # Update project
-DELETE /api/projects/:id                # Delete project
-
-# Agents
-GET    /api/projects/:id/agents         # List agents in project
-POST   /api/projects/:id/agents         # Create agent
-PUT    /api/projects/:id/agents/:aid    # Update agent
-DELETE /api/projects/:id/agents/:aid    # Delete agent
-POST   /api/projects/:id/agents/:aid/start   # Start agent (spawn PTY)
-POST   /api/projects/:id/agents/:aid/stop    # Stop agent (kill PTY)
-POST   /api/projects/:id/agents/:aid/restart # Restart agent
-
-# Shared Content
-GET    /api/projects/:id/content              # List shared content
-GET    /api/projects/:id/content/:filename    # Read content
-POST   /api/projects/:id/content              # Create content
-PUT    /api/projects/:id/content/:filename    # Update content
-DELETE /api/projects/:id/content/:filename    # Delete content
+src/
+  server.ts            Express + WS relay, auth, voice, health
+  routes.ts            REST: projects, agents, gates, plans, group chat, content, wiki
+  auth.ts              CONDUIT_AUTH Basic auth (HTTP + WS upgrade + helper header)
+  storage.ts           ~/.conduit JSON/JSONL storage; path-traversal-safe helpers
+  pty-manager.ts       PTY agents (claude/gemini/opencode): spawn, buffer, inject, quoting
+  gatePatterns.ts      stripAnsi + regex gates (y/N prompts, destructive commands)
+  activity.ts, usage.ts, hook-config.ts, mcp-config.ts
+  daemon/
+    daemon.ts          WS/HTTP server, status engine, terminal attach, org HTTP API
+    runtime.ts         routes ops to PTY vs Codex runtime; subscribeOutput/getReplay
+    codex-agents.ts    Codex agents as `codex app-server` threads (structured items)
+    codex-server.ts    JSON-RPC client for app-server
+    orchestrator.ts    The Keeper (codex exec loop, conversations)
+    conduit.ts         ask_agent / start_agent / broadcast dispatch
+  strands/
+    agent.ts           Supervisor agent (BedrockModel + report_update / plan_action tools)
+    watcher.ts         per-agent watchdog: fast regex gates + batched Supervisor calls
+    tools.ts, config.ts
+  voice/               STT/TTS providers + settings
+client/src/
+  App.tsx              state owner; ws events → agents/gates/plans; modals
+  hooks/useWebSocket   reconnecting socket; subscribe(); ws:open/ws:close frames
+  components/          AgentGrid (layouts), Terminal, CodexAgentView, GroupChat,
+                       GateModal, PlanModal, CommandPanel, JarvisHud, …
+  utils/md.ts          marked + DOMPurify (all model/agent markdown goes through this)
+scripts/
+  smoke.mjs            end-to-end test against a running instance (npm run smoke)
+  test-gates.mjs       unit checks for gate patterns (npm test)
 ```
 
-### WebSocket
+## Data model (src/types.ts)
 
-```
-ws://localhost:3200/ws
+- `Project { id, name, description?, cwd, createdAt }` — `name` doubles as the folder name under `shared_content/` and `wiki/` (sanitised; rename moves folders).
+- `Agent { id, projectId, name, role?, cli, cwd, status, pid?, codexThreadId?, flags?, pendingGate? }` — status is `stopped | running | awaiting_input | idle`, derived live by the daemon (Claude lifecycle hooks; Codex events; process liveness).
+- `Plan { id, projectId, description, targetAgent, targetProject, proposedMessage, createdAt }` — pending plans live in `project.json`; decisions go to `audit.jsonl`.
+- Group chat entries: `{ id, ts, role: 'user'|'supervisor'|'agent', sender, text, classification? }` in `groupchat.jsonl`.
 
-Client → Server:
-  { type: "terminal:attach", agentId: "..." }     // Start receiving terminal output
-  { type: "terminal:input", agentId: "...", data: "..." }  // Send input to terminal
-  { type: "terminal:detach", agentId: "..." }      // Stop receiving
-  { type: "terminal:resize", agentId: "...", cols: N, rows: N }
+## Event flow that must keep working
 
-Server → Client:
-  { type: "terminal:output", agentId: "...", data: "..." }  // Terminal output
-  { type: "agent:status", agentId: "...", status: "..." }   // Status change
-  { type: "content:updated", projectId: "...", filename: "..." }  // Content changed
-```
+- Daemon → web: `agent:status`, `terminal:output`, `codex:item`, `groupchat:message`, `gate:triggered`/`gate:resolved`, `supervisor:update`, `brain:event`, `org:changed`.
+- Web → browser: same names plus `plan:created`/`plan:resolved`, `activity`, `content:updated`, `hello`.
+- `createRouter(daemon, broadcast)` — every route that changes state broadcasts. Do not add a route that mutates without broadcasting.
+- A browser attaching to an agent before it runs is remembered by the daemon (`clientWanted`) and bound on start.
 
-## UI Layout
+## Conventions
 
-```
-┌──────────────────────────────────────────────────────┐
-│  Conduit                              [+ New Project]│
-├────────────┬─────────────────────────────────────────┤
-│            │                                         │
-│  Projects  │   Agent Terminals (tabbed or split)     │
-│            │  ┌─────────────────┬──────────────────┐ │
-│  > DexlessAI│  │ Frontend (claude)│ Backend (codex) │ │
-│    Frontend │  │ $ ...           │ $ ...            │ │
-│    Backend  │  │                 │                  │ │
-│    QA       │  │                 │                  │ │
-│            │  └─────────────────┴──────────────────┘ │
-│  > MedVault│                                         │
-│    ...     │  ┌─────────────────────────────────────┐│
-│            │  │ Shared Content          [+ New File] ││
-│            │  │ api-spec.md | design.md | notes.md  ││
-│            │  │ ┌─────────────────────────────────┐ ││
-│            │  │ │ # API Spec                      │ ││
-│            │  │ │ GET /todos → [...]               │ ││
-│            │  │ └─────────────────────────────────┘ ││
-│            │  └─────────────────────────────────────┘│
-└────────────┴─────────────────────────────────────────┘
-```
+- Never build a path from user input with `path.join`; use `storage.resolveInside` / `sharedDirFor` / `wikiDirFor`.
+- Everything rendered as HTML from model or agent text goes through `renderMarkdown` (DOMPurify).
+- `npm run build` type-checks both sides first; keep it green. `npm test` and `npm run smoke` must pass before a release.
+- Voice defaults are English (`en-US`); the wake word default is `jarvis`.
 
-## What This Is NOT
+## Environment
 
-- NOT a multi-agent coordination framework (no MCP, no contracts, no task lifecycle)
-- NOT autonomous — the user manually tells each agent what to do
-- NOT a harness — no system prompts, no role enforcement, no rate limiting
-- Agents don't talk to each other — shared content is the only bridge, and the USER decides when to tell an agent to read/write it
-
-## Reference
-
-The UI/UX can reference vibehq-web (D:\agent-hub-cc\web\) for xterm.js terminal rendering patterns and WebSocket handling. The PTY management can reference vibehq's spawner (D:\agent-hub-cc\src\spawner\). But the architecture should be much simpler — no Hub, no MCP, no relay engine.
+See `.env.example`. Nothing is required locally. `CONDUIT_AUTH` is required before exposing the port. `CONDUIT_SUPERVISOR=off` disables Bedrock calls. `BEDROCK_MODEL_ID` must match the IAM policy.
 
 ## Development
 
 ```bash
-npm init -y
-npm install express ws node-pty
-npm install -D typescript tsup vite @types/express @types/ws react react-dom @xterm/xterm @xterm/addon-fit
+npm install          # .npmrc sets legacy-peer-deps (Strands wants Express 5; we use 4)
+npm run dev          # daemon + web + vite (http://localhost:5173)
+npm run build && npm run start:all   # production (http://localhost:3200)
+npm test             # gate pattern checks
+npm run smoke        # end-to-end against a running instance
 ```
-
-Start with backend first (Express + PTY + WebSocket), then frontend (React + xterm.js).

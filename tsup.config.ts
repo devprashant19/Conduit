@@ -10,7 +10,10 @@ export default defineConfig({
   format: ['esm'],
   target: 'node20',
   outDir: 'dist',
-  clean: true,
+  // Never wipe dist here: the client build lives in dist/client and a
+  // server-only rebuild (or `tsup --watch`) must not delete it. The
+  // top-level `npm run build` clears dist first via `npm run clean`.
+  clean: false,
   sourcemap: true,
   external: ['node-pty'],
 });

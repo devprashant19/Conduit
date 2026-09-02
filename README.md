@@ -2,272 +2,217 @@
 
 **The human-driven multi-agent control center for professional engineers.**
 
-Conduit is a web-based dashboard for running and supervising multiple AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode) in parallel — with an AI Supervisor backed by the **AWS Strands Agents SDK** and **Amazon Bedrock** that watches agent outputs, surfaces what matters, and always asks you before it acts.
+Conduit is a web dashboard for running and supervising several AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode) side by side. Every agent runs in a real terminal you can see and type into. An AI Supervisor built on the **AWS Strands Agents SDK** and **Amazon Bedrock** watches their output, tells you what matters, and asks for your approval before anything risky happens.
 
-While autonomous agent platforms hand the steering wheel to AI, Conduit keeps you in the driver's seat: see every agent's screen in one window, get spoken audio updates, approve or reject agent plans, and intervene the moment something goes sideways.
+While autonomous agent platforms hand the steering wheel to the AI, Conduit keeps you in the driver's seat.
 
-## Project Provenance (Agents for Humans Hackathon)
+## Project provenance (Agents for Humans hackathon)
 
-The following components were built specifically during the submission period for the "Agents for Humans" hackathon (Professional Agents track):
+Built during the submission window for the "Agents for Humans" hackathon (Professional Agents track):
 
-- **Strands Supervisor Agent** — Bedrock-backed autonomous supervisor (`src/strands/agent.ts`) watching terminal output from all coding agents, powered by the AWS Strands Agents SDK
-- **Group Chat** — Real-time message stream aggregating Supervisor summaries and human messages across all agents in a project
-- **Voice/Audio Pipeline** — Text-to-speech delivery of agent status updates so you can hear what's happening without looking
-- **Watchdog / Output Listener** — PTY hooking system (`src/strands/watcher.ts`) capturing and classifying CLI output in real time to trigger safety gates or progress summaries
-- **Approval Gates** — Fast-path regex + slow-path Supervisor classification detecting risky agent actions and surfacing a human-approval modal before the agent proceeds
-- **Plan-Approve Safety Valve** — "Brain proposes, human decides" system (`PlanModal.tsx`) where the Supervisor must propose any write-intent instruction and wait for an explicit human click before execution
-- **Usage Dashboard UI** — Dedicated panel monitoring Claude (AgentCore) and Codex API rate limits and token usage quotas
-- **AWS Deployment** — Full containerization (`Dockerfile`, `docker-compose.yml`) for deployment on EC2 with IAM role scoped to Bedrock-only access
+- **Strands Supervisor Agent** (`src/strands/`) — a Bedrock-backed classifier that watches every running agent's output and reports progress, blockers, questions and risky actions.
+- **Approval Gates** — fast-path pattern detection (y/N prompts, destructive commands) plus Supervisor classification; the agent's terminal is surfaced in a modal and you decide.
+- **Plan-Approve safety valve** — the Supervisor can only *propose* instructions to agents via `plan_action`; nothing is sent until you approve it.
+- **Group Chat** — one stream per project with your messages, Supervisor summaries, gates and plan decisions; what you type is delivered into the agents' terminals.
+- **Voice pipeline** — speech in, spoken summaries out (browser engines by default, OpenAI/Gemini optional).
+- **Usage dashboard** and **AWS deployment** (Docker on EC2, IAM role scoped to Bedrock).
 
-> **What pre-existed:** The base project scaffolding (PTY terminal runner, Vite/React client shell, Express server, file storage, project/agent CRUD, shared content, wiki, and MCP messaging) was built prior to the submission window as an internal tool. All Strands/Bedrock integration and every item in the list above was added during the hackathon period.
-
-## Why "human-driven"?
-
-Autonomous agents are seductive in a demo. In practice they drift, burn tokens, and silently break things.
-
-Conduit takes the opposite bet. You run 2–7 agents in parallel doing real work, but **you stay in the loop on every one**. The Strands Supervisor tells you what matters; you decide what happens next.
-
-### The problems it solves
-
-- **Too many terminal windows** — can't tell which agent is doing what
-- **No easy way to share context** between agents on the same project
-- **No cross-agent coordination** — you end up copy-pasting between windows
-- **Agents take destructive actions silently** — you find out too late
-- **Can't manage agents from mobile / remote** — stuck at your desk
+The base scaffolding (PTY runner, React shell, Express server, file storage, project/agent CRUD, shared content, wiki, MCP messaging, Codex orchestrator) pre-dates the hackathon.
 
 ## Architecture
 
 ![Architecture Diagram](architecture.png)
 
-Conduit has three layers:
-
 ```
-                        You (Browser)
-                             │
-                    ┌────────▼────────┐
-                    │  React Web UI   │  Group Chat · Terminals · Approval Modals
-                    │  port :3200     │  Voice/TTS Pipeline
-                    └────────┬────────┘
-                             │ REST + WebSocket
-              ┌──────────────▼────────────────────┐
-              │      Express Server (Node.js)      │
-              │  PTY Manager · Routes · Storage    │
-              └──────┬───────────────┬─────────────┘
-                     │               │ HTTP /org/*
-              ┌──────▼───────┐  ┌────▼───────────┐
-              │ Coding Agent │  │  Conduit Daemon │
-              │  PTY Shells  │  │   port :3210    │
-              │ (Claude/Codex│  └────────┬────────┘
-              │  Gemini/etc) │           │
-              └──────────────┘    ┌──────▼──────────────────────┐
-                                  │  Strands Supervisor Agent   │
-                                  │  (AWS Strands Agents SDK)   │
-                                  │  → Amazon Bedrock / Claude  │
-                                  └─────────────────────────────┘
+                       You (browser)
+                            │  REST + WebSocket (Basic auth optional)
+                   ┌────────▼────────┐
+                   │  Web server     │  :3200  React UI · REST · voice proxy
+                   │  (Express)      │         relays terminal I/O, never owns processes
+                   └────────┬────────┘
+                            │  local WebSocket
+                   ┌────────▼────────┐
+                   │  Daemon         │  :3210 (loopback only)
+                   │                 │  owns every agent process, survives web restarts
+                   │  ┌────────────┐ │
+                   │  │ PTY agents │ │  claude / gemini / opencode in real terminals
+                   │  │ Codex      │ │  codex app-server threads (structured view)
+                   │  │ Watcher    │─┼──► Strands Supervisor → Amazon Bedrock
+                   │  │ The Keeper │ │  Codex-powered orchestrator (Command panel)
+                   │  └────────────┘ │
+                   └─────────────────┘
 ```
 
-**AWS pieces:** The Strands Supervisor calls Amazon Bedrock (Claude via `BedrockModel`) for every classification decision. The full app runs on a single EC2 instance (`t3.small`/`t3.medium`) with an IAM role scoped to `bedrock:InvokeModel` only.
+Two brains, two roles:
 
-## Features
+| | The Supervisor | The Keeper |
+|---|---|---|
+| Runs on | AWS Strands Agents SDK + Bedrock | Codex CLI (`codex exec`) |
+| Job | Watches agent output, classifies it, raises gates, proposes plans | Answers your questions about the whole org, relays instructions when you ask |
+| Can act without you? | **No** — write intent must go through `plan_action` and your approval | Only what you ask it in the Command panel |
+| Needs | AWS credentials + Bedrock model access | `codex` CLI logged in |
 
-- **Multi-vendor** — Claude Code, Codex CLI, Gemini CLI, OpenCode in one UI
-- **Project organization** — Group agents by project, each with its own config
-- **Terminal streaming** — Real xterm.js terminals with live PTY via WebSocket
-- **Five terminal layouts** — Single, 2-up, 3-up, Grid (recursive splits + drag-to-swap), Canvas (free-form drag & resize)
-- **Command palette** — `⌘K` / `Ctrl+K` to jump to agents, switch layouts, change theme, run batch actions
-- **Collapsible, resizable sidebar** — Drag the right edge (180–420px), or hit the toggle to hide it completely
-- **4 themes** — Dark, Light, Amber, Monochrome
-- **Shared content** — Centralized file store with auto `--add-dir` / `--include-directories` for all supported CLIs
-- **Agent messaging** — Agents in the same project can message each other via MCP
-- **Project Wiki** — Persistent wiki per project, inspired by [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
-- **Activity feed** — Real-time file watcher on shared content + agent lifecycle + message events
-- **Per-agent color identity** — Deterministic hue + monogram for every agent
-- **Auto instruction files** — Generates `CLAUDE.md` / `AGENTS.md` in each agent's cwd
-- **Start/Stop All** — Batch control per project
-- **Usage monitor** — Claude & Codex rate limit tracking (session + week) visible in sidebar
-- **Mobile responsive** — Slide-out sidebar, collapsible panels
-
-## Quick Start
+## Quick start (local)
 
 ```bash
 git clone https://github.com/devprashant19/Conduit.git
 cd Conduit
 npm install
-npm run dev
+npm run build
+npm run start:all        # daemon (:3210) + web server (:3200)
 ```
 
-Open `http://localhost:5173` in your browser.
+Open http://localhost:3200. For development with hot reload use `npm run dev` and open http://localhost:5173.
 
 ### Prerequisites
 
 - Node.js 20+
-- `node-pty` requires native build tools:
-  - **Windows**: Install Visual Studio Build Tools
-  - **macOS**: `xcode-select --install`
-  - **Linux**: `sudo apt install build-essential`
-- **AWS credentials** with Bedrock access (for the Supervisor Agent) — attach an IAM role or configure `~/.aws/credentials`
+- Build tools for `node-pty` (Windows: Visual Studio Build Tools; macOS: `xcode-select --install`; Linux: `build-essential`)
+- At least one agent CLI on your PATH and logged in: `claude`, `codex`, `gemini`, or `opencode`
+- `curl` (used by Claude Code lifecycle hooks; present on Windows 10+, macOS and most Linux)
 
-### Production
+Optional:
+
+- **AWS credentials with Bedrock access** for the Supervisor. Without them Conduit still works; the Supervisor logs one warning and backs off. Set `CONDUIT_SUPERVISOR=off` to disable it explicitly.
+- `codex` CLI for The Keeper (Command panel).
+- `OPENAI_API_KEY` / `GEMINI_API_KEY` for cloud speech; the browser engines need nothing.
+
+Copy `.env.example` to `.env` to configure any of this.
+
+### Verify the install
+
+With `npm run start:all` running in one terminal:
 
 ```bash
-npm run build
-npm run start:all
+npm run smoke
 ```
 
-Server runs on `http://localhost:3200` (serves both API and frontend). Daemon runs on `:3210` (internal only).
+This creates a throwaway project, exercises every REST route and WebSocket event, starts a real agent (Claude by default; `SMOKE_CLI=gemini` to change, `SMOKE_SKIP_AGENT=1` to skip), triggers and resolves an approval gate, and cleans up after itself.
 
-## Project Wiki
+## How the safety loop works
 
-A persistent, structured wiki per project. Instead of agents rediscovering project context from scratch every session, they read and maintain a living wiki.
+1. **Watch.** The daemon strips ANSI from each agent's output and runs two checks: a fast regex pass (y/N prompts, `rm -rf`, force pushes, `DROP TABLE`, `kubectl delete`, …) and, every ~10–20 seconds of activity, a Supervisor call on Bedrock.
+2. **Gate.** A match sets `pendingGate` on the agent, posts to the project's Group Chat, and opens a modal in every connected browser. Nothing is auto-answered.
+   - *Approve* answers a literal y/N prompt with `y`; for anything else it just lets the agent continue.
+   - *Reject* answers `n`, or sends Escape and tells the agent to stop.
+   - *Type a reply* sends your text to the terminal.
+   - Keyboard: `y` / `n` / `Esc`.
+3. **Plan.** When the Supervisor wants an agent to *do* something it calls `plan_action`. The plan appears in a modal with the exact message that would be sent. Approve to deliver it, reject with a reason the Supervisor sees on its next turn. Every decision is written to `~/.conduit/projects/<id>/audit.jsonl`.
 
-### How it works
+## Features
 
-1. Click **Wiki** tab → **Initialize Wiki** to create the wiki structure
-2. Tell an agent to read the wiki:
-   ```
-   Read the project wiki's _index.md to understand the current project state
-   ```
-3. After an agent completes work, tell it to update the wiki:
-   ```
-   Update the project wiki with what you just did — follow _schema.md conventions
-   ```
+- **Multi-vendor** — Claude Code, Codex CLI, Gemini CLI, OpenCode in one UI
+- **Projects** — group agents by project; each project gets a shared content folder and a wiki
+- **Real terminals** — xterm.js over WebSocket, with scrollback replay for late viewers and automatic reconnect
+- **Five layouts** — single, 2-up, 3-up, tmux-style grid, free-form canvas; per-project, persisted
+- **Command palette** — `⌘K` / `Ctrl+K`
+- **Group Chat** — talk to all running agents at once or `@name` one of them
+- **MCP messaging** — Claude agents in the same project can message each other (`message_agent`, `list_teammates`)
+- **Project wiki** — persistent, agent-maintained knowledge base (Karpathy's LLM-wiki pattern)
+- **Activity feed** — file changes in shared content, agent lifecycle, messages
+- **Usage monitor** — Claude and Codex rate-limit windows in the sidebar
+- **Voice** — push-to-talk (`⌘;`), optional wake word, spoken Keeper summaries
+- **4 themes**, collapsible sidebar, mobile layout
 
-### Wiki structure
+## Configuration
 
-```
-~/.conduit/wiki/[project-name]/
-├── _schema.md          # Wiki maintenance rules
-├── _index.md           # Page directory with one-line summaries
-├── _log.md             # Chronological change log (append-only)
-├── overview.md         # Project purpose, tech stack, current state
-├── architecture.md     # System design, components, data flow
-├── decisions.md        # Architecture decision records (append-only)
-├── progress.md         # Done / In Progress / Blocked / Upcoming
-├── agents/             # Per-agent work logs
-└── raw/                # Immutable source documents
-```
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `3200` | Web server port |
+| `HOST` | `0.0.0.0` | Bind address (`127.0.0.1` to stay local-only) |
+| `CONDUIT_AUTH` | *(off)* | `user:password` — HTTP Basic auth for UI, API and WebSocket. **Set this before exposing the port.** |
+| `CONDUIT_DAEMON_PORT` | `3210` | Daemon port (loopback only) |
+| `AWS_REGION` | `us-east-1` | Bedrock region |
+| `BEDROCK_MODEL_ID` | `anthropic.claude-3-5-sonnet-20240620-v1:0` | Supervisor model; must match your IAM policy |
+| `CONDUIT_SUPERVISOR` | `on` | `off` disables all Bedrock calls |
+| `OPENAI_API_KEY`, `GEMINI_API_KEY` | | Cloud speech providers (can also be entered in Settings) |
 
-## Shared Content
-
-Shared content files are stored in `~/.conduit/shared_content/[project-name]/`. When an agent starts, the directory is automatically passed to the CLI:
-
-| CLI | Flag | Instruction File |
-|-----|------|-----------------|
-| Claude Code | `--add-dir` | `CLAUDE.md` |
-| Codex CLI | `--add-dir` | `AGENTS.md` |
-| Gemini CLI | `--include-directories` | `AGENTS.md` |
-| OpenCode | via `AGENTS.md` | `AGENTS.md` |
-
-## Agent Messaging
-
-Agents in the same project can send messages to each other via MCP.
-
-### How it works
-
-1. When an agent starts, Conduit registers a session-scoped MCP server with `message_agent(target, message)` and `list_teammates()`.
-2. `CLAUDE.md` / `AGENTS.md` is auto-updated with a **Teammates** section.
-3. When you say *"tell backend the API is done"*, the agent maps it to `message_agent(target="backend", message="API is done")`.
-4. Conduit writes the message into the target agent's PTY.
-
-### Supported CLIs
-
-| CLI | MCP Support | Mechanism |
-|-----|-------------|-----------|
-| Claude Code | ✅ | `--mcp-config <path>` flag (session-scoped) |
-| Codex CLI | ✅ | Per-agent entry in `~/.codex/config.toml` |
-| Gemini CLI | ❌ | Not yet |
-| OpenCode | ❌ | Not yet |
-
-## Tech Stack
-
-| Layer | Tech |
-|-------|------|
-| Backend | Node.js, Express, TypeScript |
-| Frontend | React, Vite, xterm.js |
-| AI Supervisor | AWS Strands Agents SDK + Amazon Bedrock |
-| PTY | node-pty |
-| Communication | WebSocket (terminal I/O) + REST (CRUD) |
-| File watching | chokidar |
-| Storage | JSON files (`~/.conduit/`) |
-| Build | tsup (backend) + Vite (frontend) |
-
-## Data Storage
+## Data on disk
 
 ```
 ~/.conduit/
-├── projects/
-│   └── <project-id>/
-│       └── project.json        # Project metadata + agents
-├── shared_content/
-│   └── <project-name>/         # Shared files between agents
-├── wiki/
-│   └── <project-name>/         # Project wiki
-└── groupchat/
-    └── <project-id>/           # Group chat history + audit log
+├── projects/<id>/project.json     # project + agents (+ pending plans, gates)
+├── projects/<id>/groupchat.jsonl  # group chat history
+├── projects/<id>/audit.jsonl      # gate + plan decisions
+├── shared_content/<name>/         # files shared between agents (passed via --add-dir)
+├── wiki/<name>/                   # project wiki
+├── brain/                         # The Keeper's conversations
+├── codex-history/                 # Codex agent transcripts
+├── mcp-configs/, hook-configs/    # per-agent Claude Code config (auto-managed)
+├── supervisor-log.jsonl           # every Supervisor classification
+└── voice.json, api-keys.json      # voice settings / optional API keys
 ```
+
+Project names are used as folder names under `shared_content/` and `wiki/`; renaming a project moves the folders.
+
+## Agent integration details
+
+| CLI | Runs as | Shared dir / wiki | Status engine | MCP messaging |
+|---|---|---|---|---|
+| Claude Code | PTY | `--add-dir` | lifecycle hooks (`--settings`) | ✅ session-scoped `--mcp-config` |
+| Codex CLI | `codex app-server` thread | writable roots | app-server events | ❌ (use Group Chat / The Keeper) |
+| Gemini CLI | PTY | `--include-directories` | process only | ❌ |
+| OpenCode | PTY | `AGENTS.md` | process only | ❌ |
+
+When an agent starts, Conduit writes a `CLAUDE.md` / `AGENTS.md` section in its working directory describing the shared folder, the wiki, and (for Claude) its teammates.
 
 ## Scripts
 
 | Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server (backend + frontend with HMR) |
-| `npm run build` | Production build |
-| `npm run start:all` | Start production daemon + server |
-| `npm run dev:server` | Backend only (watch mode) |
-| `npm run dev:client` | Frontend only (Vite dev server) |
+|---|---|
+| `npm run dev` | Daemon + web server + Vite with hot reload |
+| `npm run build` | Type-check both sides, then build server and client |
+| `npm run typecheck` | Type-check only |
+| `npm run start:all` | Production: daemon + web server |
+| `npm run daemon` / `npm start` | Run either process alone |
+| `npm run smoke` | End-to-end smoke test against a running instance |
 
-## Deployment (Single Instance — EC2)
+## Deployment (Docker / EC2)
 
-Conduit runs on a single EC2 instance — one container, everything included.
+The image installs the agent CLIs, `curl` and `git`. Agents still need to be logged in: mount your `~/.claude`, `~/.codex`, `~/.gemini` folders (as the compose file does) or run `docker compose exec conduit claude login` once. Put your repositories under the mounted `workspace` folder and use `/workspace/<repo>` as the project directory.
 
-### 1. EC2 Instance Setup
+```bash
+export CONDUIT_AUTH=admin:choose-a-strong-password   # required by the compose file
+docker compose up -d --build
+```
 
-1. **Instance Type**: `t3.small` or `t3.medium` on Amazon Linux 2023 or Ubuntu.
-2. **Security Group**:
-   - Inbound TCP `3200` (or `80`) from `0.0.0.0/0`
-   - Inbound TCP `22` (SSH) from **your IP only**
-   - ⚠️ Port `3210` (daemon) must **NOT** be open publicly — it has no authentication
-3. **IAM Role** (attach to instance — no static credentials needed):
+On EC2:
+
+1. `t3.small`/`t3.medium`, Amazon Linux 2023 or Ubuntu, Docker + compose plugin installed.
+2. Security group: TCP `3200` only from IPs you trust (or put it behind a TLS reverse proxy). Port `3210` stays closed. SSH from your IP only.
+3. IAM instance role for the Supervisor — the resource must match `BEDROCK_MODEL_ID`:
 
 ```json
 {
   "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "bedrock:InvokeModel",
-        "bedrock:InvokeModelWithResponseStream"
-      ],
-      "Resource": "arn:aws:bedrock:[REGION]::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
-    }
-  ]
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+    "Resource": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0"
+  }]
 }
 ```
 
-### 2. Deploy
+Check that the model id is still available in your region and adjust `BEDROCK_MODEL_ID` and the policy together.
 
-```bash
-# Amazon Linux 2023
-sudo dnf update -y && sudo dnf install -y docker git
-sudo systemctl enable --now docker
+## Security notes
 
-# Docker Compose plugin
-sudo mkdir -p /usr/local/lib/docker/cli-plugins
-sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m) \
-  -o /usr/local/lib/docker/cli-plugins/docker-compose
-sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+- Without `CONDUIT_AUTH`, anyone who can reach port 3200 can type into your agents' shells. Keep it on localhost or set a password.
+- Shared content and wiki routes are confined to their project folders (path traversal is rejected).
+- The Keeper runs Codex with approvals bypassed so it can use its MCP tools headlessly; its only tools are Conduit's org tools, and it is reachable only through the authenticated UI.
+- Markdown from agents and models is sanitized before rendering.
 
-git clone https://github.com/devprashant19/Conduit.git
-cd Conduit
-sudo docker compose up -d
-```
+## Tech stack
 
-### 3. Verify
-
-Navigate to `http://<EC2_PUBLIC_IP>:3200` from a phone on a different network to confirm there are no localhost-assumption bugs.
-
-Project data is stored in the `conduit-data` Docker volume (`/root/.conduit` inside the container) and survives container restarts.
+| Layer | Tech |
+|---|---|
+| Backend | Node.js, Express, TypeScript |
+| Frontend | React, Vite, xterm.js |
+| AI Supervisor | AWS Strands Agents SDK + Amazon Bedrock |
+| PTY | node-pty |
+| Transport | WebSocket (terminal I/O, events) + REST |
+| Storage | JSON / JSONL files under `~/.conduit/` |
+| Build | tsup (server) + Vite (client) |
 
 ## License
 
