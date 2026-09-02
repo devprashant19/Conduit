@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Ic from './Icons';
 
 interface LandingPageProps {
@@ -6,6 +6,8 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ onOpenConsole }: LandingPageProps) {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<number>(0);
   return (
     <div className="landing-page">
       {/* Top Floating Navigation */}
@@ -300,47 +302,55 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
 
         <div className="faq-list">
           {/* FAQ 1 */}
-          <div className="faq-item open">
+          <div className={'faq-item' + (openFaq === 0 ? ' open' : '')} onClick={() => setOpenFaq(openFaq === 0 ? null : 0)}>
             <div className="faq-question">
               <span>What is Conduit and who is it built for?</span>
-              <span className="faq-toggle">×</span>
+              <span className="faq-toggle">{openFaq === 0 ? '×' : '+'}</span>
             </div>
-            <div className="faq-answer">
-              Conduit is a multi-agent control center for professional software engineers who want to run multiple AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode) side by side in real terminals while retaining full visibility and veto power over actions.
-            </div>
+            {openFaq === 0 && (
+              <div className="faq-answer">
+                Conduit is a multi-agent control center for professional software engineers who want to run multiple AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode) side by side in real terminals while retaining full visibility and veto power over actions.
+              </div>
+            )}
           </div>
 
           {/* FAQ 2 */}
-          <div className="faq-item">
+          <div className={'faq-item' + (openFaq === 1 ? ' open' : '')} onClick={() => setOpenFaq(openFaq === 1 ? null : 1)}>
             <div className="faq-question">
               <span>How do approval gates protect my codebase?</span>
-              <span className="faq-toggle">+</span>
+              <span className="faq-toggle">{openFaq === 1 ? '×' : '+'}</span>
             </div>
-            <div className="faq-answer">
-              Conduit uses two layers of protection: instant regex pattern detection for dangerous shell commands (like force pushes, rm -rf, drop tables) and periodic Bedrock classification. When a gate triggers, the agent is paused and surfaced in an approval modal—nothing is sent without your confirmation.
-            </div>
+            {openFaq === 1 && (
+              <div className="faq-answer">
+                Conduit uses two layers of protection: instant regex pattern detection for dangerous shell commands (like force pushes, rm -rf, drop tables) and periodic Bedrock classification. When a gate triggers, the agent is paused and surfaced in an approval modal—nothing is sent without your confirmation.
+              </div>
+            )}
           </div>
 
           {/* FAQ 3 */}
-          <div className="faq-item">
+          <div className={'faq-item' + (openFaq === 2 ? ' open' : '')} onClick={() => setOpenFaq(openFaq === 2 ? null : 2)}>
             <div className="faq-question">
               <span>Can agents collaborate and talk to each other?</span>
-              <span className="faq-toggle">+</span>
+              <span className="faq-toggle">{openFaq === 2 ? '×' : '+'}</span>
             </div>
-            <div className="faq-answer">
-              Yes. Agents in the same project can share context via the Project Wiki (Karpathy's LLM-wiki pattern), access shared folders (`shared_content/`), and communicate directly via MCP tools (`message_agent`, `list_teammates`).
-            </div>
+            {openFaq === 2 && (
+              <div className="faq-answer">
+                Yes. Agents in the same project can share context via the Project Wiki (Karpathy's LLM-wiki pattern), access shared folders (`shared_content/`), and communicate directly via MCP tools (`message_agent`, `list_teammates`).
+              </div>
+            )}
           </div>
 
           {/* FAQ 4 */}
-          <div className="faq-item">
+          <div className={'faq-item' + (openFaq === 3 ? ' open' : '')} onClick={() => setOpenFaq(openFaq === 3 ? null : 3)}>
             <div className="faq-question">
               <span>Is my data private and can I run it locally?</span>
-              <span className="faq-toggle">+</span>
+              <span className="faq-toggle">{openFaq === 3 ? '×' : '+'}</span>
             </div>
-            <div className="faq-answer">
-              Yes. Conduit runs entirely on your local machine or private EC2 instance. All project data, agent transcripts, and audit logs are stored locally under `~/.conduit/`. HTTP Basic Auth (`CONDUIT_AUTH`) protects the dashboard when deployed remotely.
-            </div>
+            {openFaq === 3 && (
+              <div className="faq-answer">
+                Yes. Conduit runs entirely on your local machine or private EC2 instance. All project data, agent transcripts, and audit logs are stored locally under `~/.conduit/`. HTTP Basic Auth (`CONDUIT_AUTH`) protects the dashboard when deployed remotely.
+              </div>
+            )}
           </div>
         </div>
 
