@@ -125,7 +125,9 @@ body {
   background: var(--bg-0);
   color: var(--text-0);
   font-size: 13px;
+  letter-spacing: -0.015em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
 }
 
