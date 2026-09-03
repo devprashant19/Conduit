@@ -6028,7 +6028,7 @@ textarea {
   color: var(--text-3);
 }
 
-/* Floating Real Agent Cards (Phase 2: Enlarged, Authentic Icons & Status Chips) */
+/* Floating Real Agent Cards (Minimal, Monochromatic, Unified Typography) */
 .hero-floating-badge {
   position: absolute;
   z-index: 5;
@@ -6091,39 +6091,40 @@ textarea {
   animation-delay: 1.1s;
 }
 
-/* User Prompt Bubble (Matches warm sand pill in reference image) */
+/* User Prompt Bubble (Subtle warm neutral pill) */
 .floating-user-bubble {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #ebe5db;
-  color: #27272a;
-  padding: 8px 14px;
-  border-radius: 16px;
+  background: #f4eee5;
+  color: #0f0f11;
+  padding: 7px 14px;
+  border-radius: 14px;
   border-bottom-left-radius: 4px;
+  border: 1px solid rgba(15, 15, 17, 0.08);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.4;
-  box-shadow: 0 2px 6px rgba(15, 15, 17, 0.04);
+  box-shadow: 0 1px 4px rgba(15, 15, 17, 0.03);
 }
 
 .user-bubble-avatar {
-  font-size: 12px;
-  opacity: 0.6;
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 .user-bubble-text {
   letter-spacing: -0.01em;
 }
 
-/* Agent Answer Card (Clean white surface, rounded corners, subtle border) */
+/* Agent Answer Card (Clean white surface, sharp contrast, subtle border) */
 .floating-agent-card {
   background: #ffffff;
-  border: 1px solid rgba(15, 15, 17, 0.09);
-  border-radius: 18px;
+  border: 1px solid rgba(15, 15, 17, 0.12);
+  border-radius: 16px;
   padding: 14px 16px;
-  box-shadow: 0 10px 30px -6px rgba(15, 15, 17, 0.08), 0 2px 8px rgba(15, 15, 17, 0.03);
+  box-shadow: 0 8px 24px -4px rgba(15, 15, 17, 0.06), 0 1px 3px rgba(15, 15, 17, 0.02);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -6131,113 +6132,85 @@ textarea {
 }
 
 .floating-agent-card.gated {
-  border-color: rgba(245, 158, 11, 0.35);
+  border-color: rgba(15, 15, 17, 0.2);
 }
 
-/* Identity Row: Brand Icon, Name, Status Pill */
+/* Identity Row: Icon, Name, Status */
 .card-top-identity {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
 
 .agent-brand-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.agent-brand-avatar.claude {
-  background: #d97706;
+  background: #0f0f11;
   color: #ffffff;
+  border: 1px solid rgba(15, 15, 17, 0.12);
 }
 
-.agent-brand-avatar.codex {
-  background: #10a37f;
-  color: #ffffff;
-}
-
-.agent-brand-avatar.supervisor {
-  background: #0284c7;
-  color: #ffffff;
-  font-size: 13px;
-}
-
-.agent-brand-avatar.gemini {
-  background: #4f46e5;
-  color: #ffffff;
-}
-
-.agent-brand-avatar.opencode {
-  background: #18181b;
-  color: #ffffff;
-}
-
+.agent-brand-avatar.claude,
+.agent-brand-avatar.codex,
+.agent-brand-avatar.supervisor,
+.agent-brand-avatar.gemini,
+.agent-brand-avatar.opencode,
 .agent-brand-avatar.voice {
-  background: #ea580c;
+  background: #0f0f11;
   color: #ffffff;
-  font-size: 13px;
 }
 
 .agent-title-text {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #0f0f11;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f0f11 !important;
   letter-spacing: -0.015em;
+  opacity: 1 !important;
 }
 
-/* Status Badges: Running, Verified, Halted, Synced */
+/* Status Badges: Minimal monochromatic / subtle indicator */
 .agent-status-badge {
   margin-left: auto;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
+  background: #faf8f5;
+  color: #27272a;
+  border: 1px solid rgba(15, 15, 17, 0.08);
 }
 
-.agent-status-badge.running {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid rgba(5, 150, 105, 0.2);
-}
-
-.agent-status-badge.codex {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid rgba(22, 163, 74, 0.2);
-}
-
-.agent-status-badge.halted {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid rgba(220, 38, 38, 0.2);
-}
-
-.agent-status-badge.synced {
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid rgba(37, 99, 235, 0.2);
-}
-
+.agent-status-badge.running,
+.agent-status-badge.codex,
+.agent-status-badge.halted,
+.agent-status-badge.synced,
 .agent-status-badge.voice {
-  background: #fff7ed;
-  color: #ea580c;
-  border: 1px solid rgba(234, 88, 12, 0.2);
+  background: #faf8f5;
+  color: #27272a;
+  border: 1px solid rgba(15, 15, 17, 0.1);
 }
 
 .badge-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: currentColor;
+  background: #16a34a;
+}
+
+.agent-status-badge.halted .badge-dot {
+  background: #dc2626;
+}
+
+.agent-status-badge.voice .badge-dot {
+  background: #2563eb;
 }
 
 .agent-status-badge.running .badge-dot {
@@ -6281,12 +6254,6 @@ textarea {
 @media (max-width: 1200px) {
   .hero-floating-badge {
     width: 280px;
-  }
-}
-
-@media (max-width: 960px) {
-  .hero-floating-badge {
-    display: none;
   }
 }
 
@@ -7412,27 +7379,9 @@ textarea {
     margin-bottom: 20px;
   }
 
-  /* Show floating badges on mobile as stacked responsive cards under the CTA */
+  /* Hide floating agent cards on mobile/tablet to keep the mobile landing view minimal and clean */
   .hero-floating-badge {
-    position: static;
-    width: 100%;
-    max-width: 360px;
-    margin: 0 auto;
-    animation: none;
-  }
-
-  .floating-user-bubble {
-    font-size: 11.5px;
-    padding: 6px 12px;
-  }
-
-  .floating-agent-card {
-    padding: 12px 14px;
-  }
-
-  .agent-explanation-text {
-    font-size: 12px;
-    line-height: 1.45;
+    display: none !important;
   }
 
   .landing-section {
@@ -7483,27 +7432,55 @@ textarea {
     font-size: 12px;
   }
 
-  .showcase-pill-tabs {
-    gap: 4px;
+  /* Workflow & Features Tabs Mobile Layout */
+  .workflow-tabs-track-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
     padding: 3px;
+    margin-bottom: 24px;
+    scrollbar-width: none;
   }
 
-  .showcase-tab-btn {
-    height: 28px;
-    padding: 0 10px;
-    font-size: 11.5px;
-  }
-
-  .showcase-card-container {
-    padding: 16px 12px;
-  }
-
-  .showcase-feature-card {
-    padding: 18px 16px;
-  }
-
-  .feature-tools-badge {
+  .workflow-tabs-track-wrap::-webkit-scrollbar {
     display: none;
+  }
+
+  .workflow-tab-sliding-indicator {
+    display: none;
+  }
+
+  .workflow-tab-item {
+    height: 28px;
+    padding: 0 12px;
+    font-size: 11.5px;
+    flex-shrink: 0;
+  }
+
+  .workflow-tab-item.active {
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(15, 15, 17, 0.08);
+  }
+
+  .workflow-master-card-container {
+    padding: 16px 12px;
+    border-radius: 16px;
+  }
+
+  .workflow-feature-card {
+    padding: 18px 16px;
+    min-height: auto;
+    gap: 12px;
+  }
+
+  .feature-description-text {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .feature-interactive-stage {
+    min-height: auto;
   }
 
   /* Section 4: Calendar Booking Single Column */
@@ -8273,7 +8250,7 @@ textarea {
   background: #22c55e;
 }
 
-.agent-title-text {
+.terminal-agent-title .agent-title-text {
   font-size: 11.5px;
   font-weight: 600;
   color: #f4f4f5;

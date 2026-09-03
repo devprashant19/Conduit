@@ -25,9 +25,6 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           <a href="#ecosystem" className="landing-nav-link">Ecosystem</a>
           <a href="#features" className="landing-nav-link">Features</a>
           <a href="#faq" className="landing-nav-link">FAQ</a>
-          <button className="landing-nav-link download-nav-btn" onClick={() => setIsDownloadOpen(true)}>
-            Download
-          </button>
         </div>
         <div className="landing-nav-actions">
           <button className="landing-btn-black" onClick={onOpenConsole}>
@@ -53,13 +50,13 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         {/* Top Left: Claude Code */}
         <div className="hero-floating-badge badge-top-left">
           <div className="floating-user-bubble">
-            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
             <span className="user-bubble-text">Fix the race condition in the WebSocket handler</span>
           </div>
           <div className="floating-agent-card">
             <div className="card-top-identity">
               <div className="agent-brand-avatar claude">
-                <BrandIcons.claude size={16} />
+                <BrandIcons.claude size={15} />
               </div>
               <span className="agent-title-text">Claude Code</span>
               <span className="agent-status-badge running">
@@ -79,13 +76,13 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         {/* Top Right: The Keeper (Codex CLI) */}
         <div className="hero-floating-badge badge-top-right">
           <div className="floating-user-bubble">
-            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
             <span className="user-bubble-text">The Keeper, what are all running agents working on?</span>
           </div>
           <div className="floating-agent-card">
             <div className="card-top-identity">
               <div className="agent-brand-avatar codex">
-                <BrandIcons.openai size={16} />
+                <BrandIcons.openai size={15} />
               </div>
               <span className="agent-title-text">The Keeper</span>
               <span className="agent-status-badge codex">
@@ -105,13 +102,13 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         {/* Mid Left: Approval Gate (Bedrock Supervisor) */}
         <div className="hero-floating-badge badge-mid-left">
           <div className="floating-user-bubble">
-            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
             <span className="user-bubble-text">Run database migration on staging</span>
           </div>
           <div className="floating-agent-card gated">
             <div className="card-top-identity">
               <div className="agent-brand-avatar supervisor">
-                <span className="shield-icon">🛡️</span>
+                <Ic.logo size={14} />
               </div>
               <span className="agent-title-text">Approval Gate</span>
               <span className="agent-status-badge halted">
@@ -131,13 +128,13 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         {/* Mid Right: Gemini CLI */}
         <div className="hero-floating-badge badge-mid-right">
           <div className="floating-user-bubble">
-            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
             <span className="user-bubble-text">Generate comprehensive test coverage for auth routes</span>
           </div>
           <div className="floating-agent-card">
             <div className="card-top-identity">
               <div className="agent-brand-avatar gemini">
-                <BrandIcons.gemini size={16} />
+                <BrandIcons.gemini size={15} />
               </div>
               <span className="agent-title-text">Gemini CLI</span>
               <span className="agent-status-badge running">
@@ -157,13 +154,13 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         {/* Bottom Left: OpenCode Wiki Sync */}
         <div className="hero-floating-badge badge-bot-left">
           <div className="floating-user-bubble">
-            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
             <span className="user-bubble-text">Sync project wiki with new architectural changes</span>
           </div>
           <div className="floating-agent-card">
             <div className="card-top-identity">
               <div className="agent-brand-avatar opencode">
-                <BrandIcons.opencode size={16} />
+                <BrandIcons.opencode size={15} />
               </div>
               <span className="agent-title-text">OpenCode</span>
               <span className="agent-status-badge synced">
@@ -183,13 +180,13 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         {/* Bottom Right: Voice Pipeline */}
         <div className="hero-floating-badge badge-bot-right">
           <div className="floating-user-bubble">
-            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
             <span className="user-bubble-text">"Jarvis, summarize blocker on agent 2"</span>
           </div>
           <div className="floating-agent-card">
             <div className="card-top-identity">
               <div className="agent-brand-avatar voice">
-                <span className="mic-icon">🎙️</span>
+                <Ic.mic size={13} />
               </div>
               <span className="agent-title-text">Voice Pipeline</span>
               <span className="agent-status-badge voice">
@@ -266,7 +263,7 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
                   <span className="preview-prompt-text">
                     Supervisor classifies agent output: reports progress, blockers, questions, and flags risky commands.
                   </span>
-                  <span className="preview-submit-arrow">⚡</span>
+                  <span className="preview-submit-arrow"><Ic.bolt size={13} /></span>
                 </div>
               </div>
             </div>
@@ -287,8 +284,8 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
                   <div className="preview-user-query">
                     claude: git push origin main --force
                   </div>
-                  <div className="preview-status-tag" style={{ color: '#dc2626' }}>
-                    <span className="check-icon">⚠️</span> APPROVAL GATE REQUIRED
+                  <div className="preview-status-tag" style={{ color: '#0f0f11' }}>
+                    <span className="check-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><Ic.logo size={12} /></span> APPROVAL GATE REQUIRED
                   </div>
                   <div className="preview-summary-text">
                     Destructive action detected on branch 'main'. The agent is paused until you approve, reject, or type a custom reply.
@@ -358,7 +355,20 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
             </div>
             {openFaq === 3 && (
               <div className="faq-answer">
-                Yes. Conduit runs entirely on your local machine or private EC2 instance. All project data, agent transcripts, and audit logs are stored locally under `~/.conduit/`. HTTP Basic Auth (`CONDUIT_AUTH`) protects the dashboard when deployed remotely.
+                Yes. Conduit runs entirely on your local machine or private cloud instance. All project data, agent transcripts, and audit logs are stored locally under `~/.conduit/`. HTTP Basic Auth (`CONDUIT_AUTH`) protects the dashboard when deployed remotely.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ 5 */}
+          <div className={'faq-item' + (openFaq === 4 ? ' open' : '')} onClick={() => setOpenFaq(openFaq === 4 ? null : 4)}>
+            <div className="faq-question">
+              <span>What platforms is Conduit available on?</span>
+              <span className="faq-toggle">{openFaq === 4 ? '×' : '+'}</span>
+            </div>
+            {openFaq === 4 && (
+              <div className="faq-answer">
+                The standalone Windows desktop application (`Conduit.exe`) is available for immediate download. Native packages for macOS (Apple Silicon / Intel) and Linux (AppImage / Debian) are currently in build and coming soon. You can also run Conduit on Linux/macOS directly from source with Node 20+.
               </div>
             )}
           </div>

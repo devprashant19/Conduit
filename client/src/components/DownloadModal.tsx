@@ -149,7 +149,7 @@ export default function DownloadModal({ isOpen, onClose }: DownloadModalProps) {
         </div>
 
         <div className="download-footer-note">
-          <span>SHA-256 checksums verified · Apple Notarized · Code signed with Authenticode · MIT License</span>
+          <span>SHA-256 verified · Packaged with Electron & Node-PTY · Open Source · MIT License</span>
         </div>
       </div>
     </div>
