@@ -13,6 +13,15 @@ interface LandingPageProps {
 export default function LandingPage({ onOpenConsole }: LandingPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+
+  const scrollToSection = (e: React.MouseEvent, sectionId: string) => {
+    e.preventDefault();
+    const el = document.getElementById(sectionId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="landing-page">
       {/* Top Floating Navigation */}
@@ -21,10 +30,18 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           <span className="brand-title">CONDUIT</span>
         </div>
         <div className="landing-nav-links">
-          <a href="#how-it-works" className="landing-nav-link">How it works</a>
-          <a href="#ecosystem" className="landing-nav-link">Ecosystem</a>
-          <a href="#features" className="landing-nav-link">Features</a>
-          <a href="#faq" className="landing-nav-link">FAQ</a>
+          <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'how-it-works')}>
+            How it works
+          </button>
+          <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'ecosystem')}>
+            Ecosystem
+          </button>
+          <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'features')}>
+            Features
+          </button>
+          <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'faq')}>
+            FAQ
+          </button>
         </div>
         <div className="landing-nav-actions">
           <button className="landing-btn-black" onClick={onOpenConsole}>
