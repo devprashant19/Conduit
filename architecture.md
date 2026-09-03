@@ -185,17 +185,17 @@ Conduit operates as a local-first system with a deterministic filesystem layout 
 ```mermaid
 graph TD
     subgraph RootDir ["~/.conduit/ (Root Storage Directory)"]
-        ProjectsConfig["projects.json<br/>• Project Definitions<br/>• Window Layouts (Single, 2-up, Tmux Grid, Canvas)<br/>• Agent Metadata & Hotkey bindings"]
-        SupervisorAudit["supervisor-log.jsonl<br/>• Complete Gate Audit Trail<br/>• Bedrock Telemetry Classifications<br/>• Human Approval Decisions"]
+        ProjectsConfig["projects.json (Project Definitions, Window Layouts, Agent Configs)"]
+        SupervisorAudit["supervisor-log.jsonl (Gate Audit Trail, Bedrock Telemetry Classifications)"]
         
         subgraph ProjectSubdirs ["projects/{projectId}/"]
-            SharedContent["shared_content/<br/>• Cross-agent specs<br/>• Schema definitions<br/>• Shared code snippets"]
-            ProjectWiki["wiki/<br/>• _index.md<br/>• Architecture markdown<br/>• Living project documentation"]
-            AgentLogs["logs/<br/>• {agentId}.stdout.log<br/>• Session replay dumps"]
+            SharedContent["shared_content/ (Cross-agent specs, schema definitions, shared code)"]
+            ProjectWiki["wiki/ (_index.md, Architecture markdown, living project docs)"]
+            AgentLogs["logs/ (Session replay dumps, agent output logs)"]
         end
     end
 
-    Engine[Conduit Storage Engine (storage.ts)] --> ProjectsConfig
+    Engine["Conduit Storage Engine (storage.ts)"] --> ProjectsConfig
     Engine --> SupervisorAudit
     Engine --> SharedContent
     Engine --> ProjectWiki
