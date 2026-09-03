@@ -6,6 +6,8 @@ export default defineConfig({
     'src/mcp-server.ts',
     'src/conduit-mcp-server.ts',
     'src/daemon/daemon.ts',
+    'electron/main.ts',
+    'electron/preload.ts',
   ],
   format: ['esm'],
   target: 'node20',
