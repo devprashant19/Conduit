@@ -123,21 +123,19 @@ export const ECOSYSTEM_ROWS: Array<{
   {
     id: 'row-agents',
     direction: 'left',
-    speedSec: 42,
+    speedSec: 36,
     tools: [
       { id: 'claude', name: 'Claude Code', iconKey: 'claude', category: 'agents' },
       { id: 'codex', name: 'OpenAI Codex', iconKey: 'openai', category: 'agents' },
       { id: 'gemini', name: 'Gemini CLI', iconKey: 'gemini', category: 'agents' },
       { id: 'opencode', name: 'OpenCode', iconKey: 'opencode', category: 'agents' },
-      { id: 'claude-dup', name: 'Claude Code', iconKey: 'claude', category: 'agents' },
-      { id: 'codex-dup', name: 'Codex CLI', iconKey: 'openai', category: 'agents' },
     ],
   },
   // ROW 2 — DEVELOPER ECOSYSTEM (→ right)
   {
     id: 'row-dev',
     direction: 'right',
-    speedSec: 46,
+    speedSec: 40,
     tools: [
       { id: 'github', name: 'GitHub', iconKey: 'github', category: 'developer' },
       { id: 'gitlab', name: 'GitLab', iconKey: 'gitlab', category: 'developer' },
@@ -147,31 +145,29 @@ export const ECOSYSTEM_ROWS: Array<{
       { id: 'npm', name: 'npm', iconKey: 'npm', category: 'developer' },
     ],
   },
-  // ROW 3 — AI / CLOUD INFRASTRUCTURE (← left)
+  // ROW 3 — SUPERVISOR & AI INFRASTRUCTURE (← left)
   {
     id: 'row-infra',
     direction: 'left',
-    speedSec: 50,
+    speedSec: 42,
     tools: [
-      { id: 'aws', name: 'AWS Cloud', iconKey: 'aws', category: 'infrastructure' },
       { id: 'bedrock', name: 'Amazon Bedrock', iconKey: 'bedrock', category: 'infrastructure' },
-      { id: 'strands', name: 'Strands Agents SDK', iconKey: 'strands', category: 'infrastructure' },
+      { id: 'strands', name: 'Strands Supervisor', iconKey: 'strands', category: 'infrastructure' },
       { id: 'mcp', name: 'Model Context Protocol', iconKey: 'mcp', category: 'infrastructure' },
-      { id: 'aws-ec2', name: 'Amazon EC2', iconKey: 'aws', category: 'infrastructure' },
-      { id: 'bedrock-sup', name: 'Strands Supervisor', iconKey: 'strands', category: 'infrastructure' },
+      { id: 'aws', name: 'AWS Cloud', iconKey: 'aws', category: 'infrastructure' },
     ],
   },
-  // ROW 4 — CONDUIT FRONTEND / RUNTIME STACK (→ right)
+  // ROW 4 — RUNTIME ARCHITECTURE (→ right)
   {
     id: 'row-runtime',
     direction: 'right',
-    speedSec: 44,
+    speedSec: 38,
     tools: [
+      { id: 'xterm', name: 'xterm.js PTY', iconKey: 'xterm', category: 'runtime' },
+      { id: 'websocket', name: 'WebSocket Replay', iconKey: 'websocket', category: 'runtime' },
+      { id: 'typescript', name: 'TypeScript', iconKey: 'typescript', category: 'runtime' },
       { id: 'react', name: 'React', iconKey: 'react', category: 'runtime' },
       { id: 'vite', name: 'Vite', iconKey: 'vite', category: 'runtime' },
-      { id: 'typescript', name: 'TypeScript', iconKey: 'typescript', category: 'runtime' },
-      { id: 'websocket', name: 'WebSocket Replay', iconKey: 'websocket', category: 'runtime' },
-      { id: 'xterm', name: 'xterm.js PTY', iconKey: 'xterm', category: 'runtime' },
     ],
   },
 ];

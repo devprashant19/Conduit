@@ -206,9 +206,9 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
         {/* Window Chrome Header */}
         <div className="window-chrome">
           <div className="window-traffic-lights" aria-hidden="true">
-            <span className="dot red" />
-            <span className="dot yellow" />
-            <span className="dot green" />
+            <span className="dot" />
+            <span className="dot" />
+            <span className="dot" />
           </div>
 
           <div className="window-center-brand">
@@ -219,19 +219,19 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
           </div>
 
           <div className="window-status-capsule">
-            <span className={`status-pill-dot ${stage === 'risk_detected' || stage === 'gate_modal' ? 'amber' : stage === 'all_completed' ? 'green' : 'blue'}`} />
+            <span className={`status-pill-dot ${stage === 'risk_detected' || stage === 'gate_modal' ? 'amber' : stage === 'all_completed' ? 'green' : 'idle'}`} />
             <span className="status-pill-text">
               {stage === 'idle' && 'Standby'}
-              {stage === 'request_typing' && 'User Composing...'}
-              {stage === 'request_submit' && 'Keeper Dispatched'}
+              {stage === 'request_typing' && 'Composing...'}
+              {stage === 'request_submit' && 'Dispatched'}
               {stage === 'plan_revealing' && 'Plan Created'}
-              {stage === 'agents_active' && '3 Agents Active'}
-              {stage === 'supervisor_scan' && 'Bedrock Monitoring'}
-              {stage === 'risk_detected' && '⚠️ Risk Detected'}
-              {stage === 'gate_modal' && '⚠️ Approval Required'}
-              {stage === 'human_click' && 'Human Decision'}
+              {stage === 'agents_active' && 'Agents Active'}
+              {stage === 'supervisor_scan' && 'Monitoring'}
+              {stage === 'risk_detected' && 'Risk Flagged'}
+              {stage === 'gate_modal' && 'Approval Gate'}
+              {stage === 'human_click' && 'Confirmed'}
               {stage === 'agent_resumed' && 'Resumed Safely'}
-              {stage === 'all_completed' && '✓ Completed'}
+              {stage === 'all_completed' && 'Completed'}
             </span>
           </div>
         </div>
@@ -239,10 +239,10 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
         {/* Narrative Workspace Body */}
         <div className={`window-narrative-body ${stage === 'gate_modal' || stage === 'human_click' ? 'is-blurred' : ''}`}>
           
-          {/* TOP TIER: User Prompt Composer (Active in early stages, collapses into context) */}
+          {/* TOP TIER: User Prompt Composer */}
           <div className={`story-prompt-container ${stage === 'request_typing' || stage === 'request_submit' ? 'prominent' : 'compact'}`}>
             <div className="prompt-pill-bar">
-              <span className="prompt-lead-avatar">👤</span>
+              <span className="prompt-lead-avatar"><Ic.user size={13} /></span>
               <div className="prompt-input-area">
                 {stage === 'idle' && <span className="prompt-placeholder">Describe your engineering goal...</span>}
                 {(stage !== 'idle') && (
@@ -252,7 +252,7 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
                   </span>
                 )}
               </div>
-              <button className={`prompt-submit-circle ${hoveredTarget === 'send' ? 'hovered' : ''}`}>
+              <button className={`prompt-submit-circle ${hoveredTarget === 'send' ? 'hovered' : ''}`} aria-label="Submit request">
                 <span className="arrow-up">↑</span>
               </button>
             </div>
@@ -264,18 +264,18 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
               {/* Supervisor Plan Checklist Card */}
               <div className="ribbon-plan-card">
                 <div className="card-top-title">
-                  <span className="badge-tag peach">KEEPER PLAN</span>
-                  <span className="badge-sub">Plan-Approve Valve</span>
+                  <span className="badge-tag">KEEPER PLAN</span>
+                  <span className="badge-sub">Approval Gate Active</span>
                 </div>
                 <div className="plan-stepper">
                   <div className={`plan-step-item ${planRevealedCount >= 1 ? 'revealed' : ''}`}>
                     <span className="step-icon">{planRevealedCount >= 1 ? '✓' : '1'}</span>
-                    <span className="step-text">Inspect authentication middleware</span>
+                    <span className="step-text">Inspect auth middleware</span>
                     <span className="step-agent">Claude</span>
                   </div>
                   <div className={`plan-step-item ${planRevealedCount >= 2 ? 'revealed' : ''}`}>
                     <span className="step-icon">{planRevealedCount >= 2 ? '✓' : '2'}</span>
-                    <span className="step-text">Refactor token verify to session cookies</span>
+                    <span className="step-text">Refactor session verification</span>
                     <span className="step-agent">Codex</span>
                   </div>
                   <div className={`plan-step-item ${planRevealedCount >= 3 ? 'revealed' : ''}`}>
@@ -285,7 +285,7 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
                   </div>
                   <div className={`plan-step-item ${planRevealedCount >= 4 ? 'revealed' : ''}`}>
                     <span className="step-icon">{stage === 'all_completed' ? '✓' : '4'}</span>
-                    <span className="step-text">Supervised remote push & PR verification</span>
+                    <span className="step-text">Supervised remote push & PR</span>
                     <span className="step-agent">Gate</span>
                   </div>
                 </div>
@@ -297,21 +297,21 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
                   <div className="supervisor-identity">
                     <span className="supervisor-radar-icon" />
                     <strong>Strands Supervisor</strong>
-                    <span className="badge-pill-light">Amazon Bedrock</span>
+                    <span className="badge-pill-light">Bedrock</span>
                   </div>
                   <span className="supervisor-status-tag">
-                    {stage === 'risk_detected' || stage === 'gate_modal' ? 'CRITICAL RISK DETECTED' : 'Watching stdout'}
+                    {stage === 'risk_detected' || stage === 'gate_modal' ? 'Destructive Command Halted' : 'Monitoring output'}
                   </span>
                 </div>
                 <div className="supervisor-telemetry">
                   <div className="telemetry-item">
-                    <span className="t-k">Monitoring</span>
+                    <span className="t-k">Terminals</span>
                     <span className="t-v">3 PTY Shells</span>
                   </div>
                   <div className="telemetry-item">
-                    <span className="t-k">Classification</span>
+                    <span className="t-k">Status</span>
                     <span className={`t-v ${stage === 'risk_detected' || stage === 'gate_modal' ? 'text-danger' : 'text-ok'}`}>
-                      {stage === 'risk_detected' || stage === 'gate_modal' ? '! destructive force-push' : '✓ 0 blockers'}
+                      {stage === 'risk_detected' || stage === 'gate_modal' ? 'Halted for Approval' : 'Operational'}
                     </span>
                   </div>
                 </div>
@@ -334,7 +334,7 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
                   <span className="terminal-cwd">~/src/middleware/auth.ts</span>
                 </div>
                 <div className="terminal-body">
-                  <div className="term-line dim">$ claude --dangerously-skip-permissions=false</div>
+                  <div className="term-line dim">$ claude</div>
                   <div className="term-line">Parsing src/middleware/auth.ts...</div>
                   <div className="term-line text-green">✓ Extracted jwtVerify logic into session.ts</div>
                   
@@ -371,7 +371,7 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
                   <span className="terminal-cwd">tests/session.test.ts</span>
                 </div>
                 <div className="terminal-body">
-                  <div className="term-line dim">$ codex exec "update cookie session tests"</div>
+                  <div className="term-line dim">$ codex exec "update tests"</div>
                   <div className="term-line">Executing Vitest matrix...</div>
                   <div className="term-line text-green">PASS test/auth/session.test.ts (18/18)</div>
                   <div className="term-line text-green">PASS test/auth/middleware.test.ts (24/24)</div>
@@ -390,9 +390,9 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
                   <span className="terminal-cwd">wiki/auth-spec.md</span>
                 </div>
                 <div className="terminal-body">
-                  <div className="term-line dim">$ gemini --include-directories shared_content/</div>
-                  <div className="term-line">Syncing project wiki specs with LLM wiki pattern...</div>
-                  <div className="term-line text-muted">✓ Wiki synchronized with session cookie docs.</div>
+                  <div className="term-line dim">$ gemini --include wiki/</div>
+                  <div className="term-line">Syncing project specs with LLM wiki pattern...</div>
+                  <div className="term-line text-muted">✓ Specs updated.</div>
                 </div>
               </div>
 
@@ -406,14 +406,14 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
           <div className="cinematic-gate-backdrop" role="dialog" aria-modal="true">
             <div className="cinematic-gate-modal">
               <div className="gate-header-tag">
-                <span className="gate-warning-triangle">⚠️</span>
+                <span className="gate-warning-indicator"><Ic.logo size={12} /></span>
                 <span>APPROVAL GATE TRIGGERED</span>
               </div>
               
               <h3 className="gate-headline">Destructive Remote Push Intercepted</h3>
               
               <p className="gate-submessage">
-                <strong>Claude Code</strong> attempted to overwrite remote commit history. The Bedrock Supervisor halted execution:
+                <strong>Claude Code</strong> attempted to overwrite remote git history. Execution paused:
               </p>
 
               <div className="gate-terminal-snippet">
@@ -442,19 +442,19 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
           <div className="cinematic-completion-backdrop">
             <div className="completion-modal-card">
               <div className="completion-check-badge">✓</div>
-              <h3 className="completion-title">Workflow Successfully Verified</h3>
+              <h3 className="completion-title">Workflow Completed</h3>
               <p className="completion-lead">
-                3 AI agents collaborated across real terminals under Bedrock supervision. All safety gates respected.
+                3 AI agents coordinated across real terminals under supervisor safety rules.
               </p>
 
               <div className="completion-metrics-row">
                 <div className="metric-box">
                   <span className="m-val">3</span>
-                  <span className="m-lbl">Agents Coordinated</span>
+                  <span className="m-lbl">Agents</span>
                 </div>
                 <div className="metric-box">
                   <span className="m-val">42</span>
-                  <span className="m-lbl">Tests Verified</span>
+                  <span className="m-lbl">Tests</span>
                 </div>
                 <div className="metric-box">
                   <span className="m-val">1</span>
@@ -462,12 +462,12 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
                 </div>
                 <div className="metric-box">
                   <span className="m-val">0</span>
-                  <span className="m-lbl">Unmonitored Risks</span>
+                  <span className="m-lbl">Incidents</span>
                 </div>
               </div>
 
               <button className="landing-btn-black completion-cta" onClick={onOpenConsole}>
-                Launch Live Conduit Workspace <Ic.chevR size={12} />
+                Open Control Center <Ic.chevR size={12} />
               </button>
             </div>
           </div>
@@ -479,12 +479,12 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
             <span className="status-node-dot" />
             <span>Daemon active on :3210</span>
             <span className="status-sep">·</span>
-            <span>Strands Supervisor: Online</span>
+            <span>Supervisor: Bedrock</span>
           </div>
           <div className="statusbar-right">
             <span>Safety Valve: Plan-Approve</span>
             <span className="status-sep">·</span>
-            <span className="shortcut-kbd">⌘J The Keeper</span>
+            <span className="shortcut-kbd">⌘J</span>
           </div>
         </div>
 

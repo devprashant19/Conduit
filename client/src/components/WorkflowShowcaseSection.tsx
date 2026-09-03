@@ -17,19 +17,19 @@ export const WORKFLOW_FEATURES: WorkflowFeature[] = [
     stepNumber: '01',
     tabLabel: 'Real Terminals',
     title: 'Side-by-side terminal supervision',
-    badge: 'xterm.js · node-pty · WebSocket',
+    badge: 'xterm.js · node-pty',
     description:
-      'Every agent runs in a real pseudo-terminal you can watch and type into. Scrollback replay allows late browser viewers to reconnect seamlessly with full process output preservation.',
+      'Every agent runs in a real pseudo-terminal you can watch and type into, with automatic scrollback replay on reconnection.',
     ctaText: 'Open Live Terminals →',
   },
   {
     id: 'layouts',
     stepNumber: '02',
     tabLabel: '5 Persistent Layouts',
-    title: '5 Multi-agent persistent layouts',
-    badge: 'Single · 2-up · 3-up · Tmux Grid · Canvas',
+    title: 'Multi-agent persistent layouts',
+    badge: 'Single · 2-up · 3-up · Tmux · Canvas',
     description:
-      'Tile your coding agents your way: 1-to-3 agent splits, tmux-style draggable dividers with proportional resizing, or freeform movable window cards persisted per project.',
+      'Tile your coding agents your way: 1-to-3 agent splits, tmux-style draggable dividers, or freeform window cards saved per project.',
     ctaText: 'Explore Layouts in Console →',
   },
   {
@@ -37,9 +37,9 @@ export const WORKFLOW_FEATURES: WorkflowFeature[] = [
     stepNumber: '03',
     tabLabel: 'Group Chat',
     title: 'Universal project Group Chat',
-    badge: 'Broadcast · @agent mention · ANSI strip',
+    badge: 'Broadcast · @agent',
     description:
-      'Broadcast instructions to all running agents at once or target a specific one with `@agent-name`. The Supervisor automatically posts real-time progress summaries and blocker warnings here.',
+      'Broadcast instructions to all running agents at once or target a specific agent with @name. Automated status updates stream directly into chat.',
     ctaText: 'Try Group Chat →',
   },
   {
@@ -47,19 +47,19 @@ export const WORKFLOW_FEATURES: WorkflowFeature[] = [
     stepNumber: '04',
     tabLabel: 'MCP Inter-agent Messaging',
     title: 'MCP inter-agent messaging',
-    badge: 'message_agent · list_teammates',
+    badge: 'message_agent · JSON-RPC',
     description:
-      'Claude Code agents running in the same project discover each other and coordinate autonomously via session-scoped Model Context Protocol (MCP) server endpoints.',
+      'Agents within the same project discover teammates and coordinate peer-to-peer via session-scoped Model Context Protocol (MCP) servers.',
     ctaText: 'View MCP Configs →',
   },
   {
     id: 'keeper',
     stepNumber: '05',
     tabLabel: 'The Keeper',
-    title: 'The Keeper (Codex orchestrator)',
-    badge: '⌘J Command Panel · codex app-server',
+    title: 'The Keeper orchestrator',
+    badge: '⌘J Panel · Codex app-server',
     description:
-      'A headless Codex CLI orchestrator answering repository-wide architecture questions, verifying progress across all agents, and coordinating multi-phase tasks on command.',
+      'An orchestrator answering repository-wide architecture questions, verifying progress across all agents, and coordinating tasks on command.',
     ctaText: 'Launch The Keeper →',
   },
   {
@@ -67,9 +67,9 @@ export const WORKFLOW_FEATURES: WorkflowFeature[] = [
     stepNumber: '06',
     tabLabel: 'Voice Control',
     title: 'Push-to-talk voice pipeline',
-    badge: '⌘; Hotkey · Optional Wake Word · TTS',
+    badge: '⌘; Hotkey · Audio Feedback',
     description:
-      'Speak naturally to your agents using browser Web Speech APIs or optional OpenAI/Gemini cloud endpoints. The Keeper answers with concise spoken audio summaries.',
+      'Speak instructions directly to your agents using browser Web Speech or cloud voice endpoints, with concise audio status summaries.',
     ctaText: 'Configure Voice Settings →',
   },
 ];
@@ -94,7 +94,7 @@ export const WorkflowShowcaseSection: React.FC<WorkflowShowcaseSectionProps> = (
   });
 
   // Calculate sliding active pill position
-  const updatePillPosition = (index: number) => {
+  const updatePillPosition = (index: number, shouldScrollTrack = false) => {
     if (!tabsRef.current) return;
     const tabButtons = tabsRef.current.querySelectorAll<HTMLButtonElement>('.workflow-tab-item');
     const target = tabButtons[index];
@@ -102,16 +102,27 @@ export const WorkflowShowcaseSection: React.FC<WorkflowShowcaseSectionProps> = (
       const containerLeft = tabsRef.current.getBoundingClientRect().left;
       const targetRect = target.getBoundingClientRect();
       setIndicatorStyle({
-        left: targetRect.left - containerLeft,
+        left: targetRect.left - containerLeft + tabsRef.current.scrollLeft,
         width: targetRect.width,
       });
+
+      // ONLY horizontally scroll the tabs container itself; NEVER scroll the browser window
+      if (shouldScrollTrack) {
+        const targetOffsetLeft = target.offsetLeft;
+        const targetWidth = target.offsetWidth;
+        const containerWidth = tabsRef.current.clientWidth;
+        tabsRef.current.scrollTo({
+          left: targetOffsetLeft - (containerWidth / 2) + (targetWidth / 2),
+          behavior: 'smooth',
+        });
+      }
     }
   };
 
   useEffect(() => {
-    updatePillPosition(activeIndex);
-    window.addEventListener('resize', () => updatePillPosition(activeIndex));
-    return () => window.removeEventListener('resize', () => updatePillPosition(activeIndex));
+    updatePillPosition(activeIndex, false);
+    window.addEventListener('resize', () => updatePillPosition(activeIndex, false));
+    return () => window.removeEventListener('resize', () => updatePillPosition(activeIndex, false));
   }, [activeIndex]);
 
   // Smooth feature state transition coordinator
@@ -236,7 +247,7 @@ const FeatureTerminalVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) 
     }, 400);
 
     const t2 = setTimeout(() => {
-      setLines(['Running authentication suite...', 'PASS src/middleware/auth.test.ts (180ms)']);
+      setLines(['Running auth test matrix...', 'PASS src/middleware/auth.test.ts (180ms)']);
       setStep(2);
     }, 1200);
 
@@ -244,7 +255,6 @@ const FeatureTerminalVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) 
       setLines((prev) => [
         ...prev,
         'PASS src/services/session.test.ts (94ms)',
-        'PASS src/security/csrf.test.ts (62ms)',
         '✓ 42 test suites passed',
       ]);
       setStep(3);
@@ -261,14 +271,14 @@ const FeatureTerminalVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) 
     <div className="mini-term-visual">
       <div className="mini-term-chrome">
         <div className="mini-term-dots">
-          <span className="m-dot red" />
-          <span className="m-dot yel" />
-          <span className="m-dot grn" />
+          <span className="m-dot" />
+          <span className="m-dot" />
+          <span className="m-dot" />
         </div>
         <span className="mini-term-title">Claude Code — PTY Shell #1</span>
         <span className="mini-term-status">
-          <span className={`status-led ${step === 3 ? 'green' : 'amber'}`} />
-          {step === 3 ? 'COMPLETED' : 'RUNNING'}
+          <span className={`status-led ${step === 3 ? 'green' : 'idle'}`} />
+          {step === 3 ? 'DONE' : 'RUNNING'}
         </span>
       </div>
       <div className="mini-term-body">
@@ -312,7 +322,7 @@ const FeatureLayoutsVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) =
         <span className={`mode-pill ${activeLayout === 'single' ? 'active' : ''}`}>Single</span>
         <span className={`mode-pill ${activeLayout === 'two_up' ? 'active' : ''}`}>2-up</span>
         <span className={`mode-pill ${activeLayout === 'tmux' ? 'active' : ''}`}>Tmux Grid</span>
-        <span className="mode-pill">Canvas</span>
+        <span className="mode-pill desktop-only">Canvas</span>
         <span className="layouts-state-tag">✓ Layout Persisted</span>
       </div>
       <div className={`layouts-grid-stage layout-${activeLayout}`}>
@@ -354,7 +364,7 @@ const FeatureGroupChatVisual: React.FC<{ isRunning: boolean }> = ({ isRunning })
     setMessages([]);
 
     const t1 = setTimeout(() => {
-      setMessages([{ sender: 'Claude Code', text: 'Refactored cookie middleware for session tokens.', role: 'agent' }]);
+      setMessages([{ sender: 'Claude Code', text: 'Refactored auth middleware for session tokens.', role: 'agent' }]);
     }, 400);
 
     const t2 = setTimeout(() => {
@@ -381,8 +391,8 @@ const FeatureGroupChatVisual: React.FC<{ isRunning: boolean }> = ({ isRunning })
   return (
     <div className="mini-chat-visual">
       <div className="mini-chat-head">
-        <span className="chat-badge-channel"># universal-group-chat</span>
-        <span className="chat-broadcast-tag">Broadcast to 4 Agents</span>
+        <span className="chat-badge-channel"># project-group-chat</span>
+        <span className="chat-broadcast-tag">Broadcast to Agents</span>
       </div>
       <div className="mini-chat-stream">
         {messages.map((m, i) => (
@@ -418,7 +428,7 @@ const FeatureMcpVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) => {
     <div className="mini-mcp-visual">
       <div className="mcp-hub-wrap">
         <div className="mcp-node node-left">
-          <span className="node-ico">🤖</span>
+          <span className="node-ico"><Ic.bolt size={13} /></span>
           <span className="node-name">Claude Code</span>
           <span className="node-payload">message_agent()</span>
         </div>
@@ -426,11 +436,11 @@ const FeatureMcpVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) => {
         <div className="mcp-center-bus">
           <div className={`mcp-packet-pulse ${pulse ? 'pulsing' : ''}`} />
           <span className="bus-title">Conduit MCP Hub</span>
-          <span className="bus-spec">list_teammates · session-scoped</span>
+          <span className="bus-spec">session-scoped</span>
         </div>
 
         <div className="mcp-node node-right">
-          <span className="node-ico">🧠</span>
+          <span className="node-ico"><Ic.logo size={13} /></span>
           <span className="node-name">Codex CLI</span>
           <span className="node-payload">✓ Packet received</span>
         </div>
@@ -465,13 +475,13 @@ const FeatureKeeperVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) =>
       </div>
       <div className="keeper-command-prompt">
         <span className="k-arrow">❯</span>
-        <span className="k-query">"What is the current status of the authentication refactor?"</span>
+        <span className="k-query">"What is the status of the auth refactor?"</span>
       </div>
       <div className="keeper-structured-answer">
         {step >= 1 && (
           <div className="keeper-evaluating">
             <span className="eval-spinner" />
-            <span>Keeper evaluating whole repository context...</span>
+            <span>Evaluating repository context...</span>
           </div>
         )}
         {step >= 2 && (
@@ -484,7 +494,7 @@ const FeatureKeeperVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) =>
               <span className="k-num">42/42</span>
               <span className="k-label">Tests Passing</span>
             </div>
-            <div className="k-stat-item green">
+            <div className="k-stat-item">
               <span className="k-num">0</span>
               <span className="k-label">Blockers Flagged</span>
             </div>
@@ -517,7 +527,7 @@ const FeatureVoiceVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) => 
     <div className="mini-voice-visual">
       <div className="voice-mic-cockpit">
         <div className={`voice-orb ${state}`}>
-          <span className="voice-mic-icon">🎙️</span>
+          <span className="voice-mic-icon"><Ic.mic size={15} /></span>
         </div>
         <div className="voice-waveform-bars">
           <span className="v-bar b1" />
@@ -534,9 +544,9 @@ const FeatureVoiceVisual: React.FC<{ isRunning: boolean }> = ({ isRunning }) => 
         </div>
         {state === 'answering' && (
           <div className="voice-audio-response">
-            <span className="tts-icon">🔊</span>
+            <span className="tts-icon"><Ic.mic size={12} /></span>
             <span className="tts-text">
-              "Codex has finished writing session cookie tests. All 42 suites passed without errors."
+              "Codex has finished writing session cookie tests. 42 suites passed."
             </span>
           </div>
         )}
