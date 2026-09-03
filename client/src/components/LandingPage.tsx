@@ -352,56 +352,7 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Section 4: Architecture Overview */}
-      <section className="landing-section demo-sec">
-        <h2 className="section-title">
-          Two brains, two distinct roles.<br />
-          Always with human oversight.
-        </h2>
-        <p className="section-subtitle">
-          The Supervisor watches and flags risks on Bedrock. The Keeper answers questions about your whole project via Codex CLI.
-        </p>
-
-        <div className="calendar-card-wrap">
-          <div className="calendar-card" style={{ gridTemplateColumns: '1fr 1fr' }}>
-            {/* The Supervisor */}
-            <div className="cal-host-col" style={{ borderRight: '1px solid rgba(15, 15, 17, 0.06)' }}>
-              <div className="cal-host-avatar">🛡️</div>
-              <div className="cal-host-meta">
-                <span className="cal-host-name">AWS Strands Agents SDK + Bedrock</span>
-                <h3 className="cal-meeting-title">The Supervisor</h3>
-              </div>
-              <p className="cal-meeting-desc">
-                Watches agent terminal outputs, classifies progress and blockers, detects destructive commands, and proposes plans via `plan_action`.
-              </p>
-              <div className="cal-meeting-details">
-                <div className="cal-detail-item">🔒 Can act without you? <strong>No — requires approval</strong></div>
-                <div className="cal-detail-item">⚡ Engine: Claude 3.5 Sonnet on Amazon Bedrock</div>
-                <div className="cal-detail-item">📝 Audit log: Saved to ~/.conduit/audit.jsonl</div>
-              </div>
-            </div>
-
-            {/* The Keeper */}
-            <div className="cal-grid-col">
-              <div className="cal-host-avatar">🧠</div>
-              <div className="cal-host-meta">
-                <span className="cal-host-name">Codex CLI App-Server</span>
-                <h3 className="cal-meeting-title">The Keeper</h3>
-              </div>
-              <p className="cal-meeting-desc">
-                The global project orchestrator in the Command Panel (⌘J). Answers questions about the entire repository and relays instructions to specific agents on demand.
-              </p>
-              <div className="cal-meeting-details">
-                <div className="cal-detail-item">💬 Interaction: Command palette & Group Chat</div>
-                <div className="cal-detail-item">🎙️ Voice: Spoken summaries & push-to-talk (⌘;)</div>
-                <div className="cal-detail-item">🛠️ Scope: Operates only on user explicit instructions</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 5: Real FAQ & Bottom Sign-off */}
+      {/* Section 5: Real FAQ */}
       <section id="faq" className="landing-section faq-sec">
         <h2 className="section-title">Frequently asked questions</h2>
 
@@ -457,24 +408,6 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Bottom Mascot Parade & Final Hero Sign-off */}
-        <div className="footer-signoff-wrap">
-          <div className="mascot-parade-row">
-            <span className="parade-mascot">🤖</span>
-            <span className="parade-mascot">💻</span>
-            <span className="parade-mascot">♊</span>
-            <span className="parade-mascot">🔓</span>
-            <span className="parade-mascot">🛡️</span>
-            <span className="parade-mascot">🧠</span>
-          </div>
-          <h2 className="signoff-title">
-            Always in the <span className="highlight-pill">driver's seat.</span>
-          </h2>
-          <button className="landing-btn-black signoff-btn" onClick={onOpenConsole}>
-            Launch Conduit Console <Ic.chevR size={12} />
-          </button>
         </div>
       </section>
     </div>
