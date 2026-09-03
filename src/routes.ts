@@ -122,7 +122,19 @@ export function createRouter(
     res.status(204).end();
   });
 
-  // --- Agents ---
+  // --- Layout Routes ---
+  router.get('/projects/:id/layout', (req: Request, res: Response) => {
+    const layout = storage.getProjectLayout(req.params.id);
+    res.json({ layout });
+  });
+
+  router.put('/projects/:id/layout', (req: Request, res: Response) => {
+    const ok = storage.saveProjectLayout(req.params.id, req.body.layout);
+    if (!ok) return res.status(404).json({ error: 'Project not found' });
+    res.json({ success: true });
+  });
+
+  // --- Agent Routes ---
   router.get('/projects/:id/agents', async (req: Request, res: Response) => {
     const agents = storage.listAgents(req.params.id);
     const statuses = await agentStatuses();

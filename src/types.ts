@@ -57,10 +57,18 @@ export interface Plan {
   createdAt: string;
 }
 
+export interface ProjectLayout {
+  mode: '1-up' | '2-up' | '3-up' | '4-tmux' | 'freeform';
+  splitRatios: number[];
+  activeAgentIds: string[];
+  focusedAgentId?: string;
+}
+
 export interface ProjectData {
   project: Project;
   agents: Agent[];
   pendingPlans?: Plan[];
+  layout?: ProjectLayout;
 }
 
 import type { BrainEvent, CodexItem } from './daemon/protocol.js';

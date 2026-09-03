@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { v4 as uuid } from 'uuid';
-import type { Project, Agent, ProjectData, SharedContent, Plan } from './types.js';
+import type { Project, Agent, ProjectData, SharedContent, Plan, ProjectLayout } from './types.js';
 
 export interface GroupChatEntry {
   id: string;
@@ -243,7 +243,20 @@ export function deleteAgent(projectId: string, agentId: string): boolean {
   return true;
 }
 
-// --- Plans ---
+// --- Plans & Layouts ---
+
+export function getProjectLayout(projectId: string): ProjectLayout | null {
+  const data = getProjectData(projectId);
+  return data?.layout || null;
+}
+
+export function saveProjectLayout(projectId: string, layout: ProjectLayout): boolean {
+  const data = getProjectData(projectId);
+  if (!data) return false;
+  data.layout = layout;
+  saveProjectData(data);
+  return true;
+}
 
 export function getPlans(projectId: string): Plan[] {
   const data = getProjectData(projectId);

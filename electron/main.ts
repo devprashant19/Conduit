@@ -157,9 +157,37 @@ ipcMain.on('conduit:notification', (_event, { title, body }) => {
   }
 });
 
-// App Lifecycle
+// App Lifecycle & Global Hotkeys
 app.whenReady().then(async () => {
   await createWindow();
+
+  // Register Global OS Hotkeys
+  const { globalShortcut } = await import('electron');
+
+  // Command Palette / The Keeper (⌘J / Ctrl+J)
+  globalShortcut.register('CommandOrControl+J', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.webContents.send('conduit:toggle-keeper');
+    }
+  });
+
+  // Push-to-Talk Voice capture toggle (⌘; / Ctrl+;)
+  globalShortcut.register('CommandOrControl+;', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('conduit:toggle-voice');
+    }
+  });
+
+  // Focus primary live terminal (⌘⇧C / Ctrl+Shift+C)
+  globalShortcut.register('CommandOrControl+Shift+C', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.webContents.send('conduit:focus-terminal');
+    }
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -169,6 +197,9 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', () => {
+  import('electron').then(({ globalShortcut }) => {
+    globalShortcut.unregisterAll();
+  });
   daemonManager.stopServices();
 });
 
