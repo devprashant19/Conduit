@@ -812,6 +812,33 @@ export default function AgentGrid({
 
   const ordered = order.map(id => agents.find(a => a.id === id)).filter((a): a is Agent => a != null);
 
+  // Keyboard pane navigation: Alt+ArrowLeft / Alt+ArrowRight / Alt+ArrowUp / Alt+ArrowDown
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey || ordered.length <= 1) return;
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+
+      e.preventDefault();
+      const currentIndex = ordered.findIndex(a => a.id === focusedId);
+      if (currentIndex === -1) {
+        onFocus(ordered[0].id);
+        return;
+      }
+
+      let nextIndex = currentIndex;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        nextIndex = (currentIndex + 1) % ordered.length;
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        nextIndex = (currentIndex - 1 + ordered.length) % ordered.length;
+      }
+
+      onFocus(ordered[nextIndex].id);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [ordered, focusedId, onFocus]);
+
   /**
    * Move `fromId` to where `toId` sits in the persisted order. The rows hand
    * us indices into their *visible* list, which for 2-up is focused-first —
