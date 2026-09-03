@@ -4,7 +4,7 @@ import ConduitAgentDemo from './ConduitAgentDemo';
 import ToolEcosystemSection from './ecosystem/ToolEcosystemSection';
 import WorkflowShowcaseSection from './WorkflowShowcaseSection';
 import { BrandIcons } from './ecosystem/BrandIcons';
-import DownloadMatrixSection from './DownloadMatrixSection';
+import DownloadModal from './DownloadModal';
 
 interface LandingPageProps {
   onOpenConsole: () => void;
@@ -12,6 +12,7 @@ interface LandingPageProps {
 
 export default function LandingPage({ onOpenConsole }: LandingPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   return (
     <div className="landing-page">
       {/* Top Floating Navigation */}
@@ -24,6 +25,9 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           <a href="#ecosystem" className="landing-nav-link">Ecosystem</a>
           <a href="#features" className="landing-nav-link">Features</a>
           <a href="#faq" className="landing-nav-link">FAQ</a>
+          <button className="landing-nav-link download-nav-btn" onClick={() => setIsDownloadOpen(true)}>
+            Download
+          </button>
         </div>
         <div className="landing-nav-actions">
           <button className="landing-btn-black" onClick={onOpenConsole}>
@@ -214,8 +218,8 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           </p>
 
           <div className="hero-actions">
-            <button className="hero-cta-button" onClick={onOpenConsole}>
-              Launch Conduit Console ↓
+            <button className="hero-cta-button" onClick={() => setIsDownloadOpen(true)}>
+              Download ↓
             </button>
             <span className="hero-cta-subtext">Real terminals · Full human supervision · MIT License</span>
           </div>
@@ -361,8 +365,8 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Desktop App Download Center */}
-      <DownloadMatrixSection />
+      {/* Desktop App Download Modal Popup */}
+      <DownloadModal isOpen={isDownloadOpen} onClose={() => setIsDownloadOpen(false)} />
     </div>
   );
 }
