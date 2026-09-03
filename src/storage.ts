@@ -82,6 +82,40 @@ export function wikiDirFor(projectName: string): string { return wikiDir(project
 // Initialize storage
 ensureDir(PROJECTS_DIR);
 
+// Seed a default demo project if first launch
+export function seedDefaultDemoProject(): Project {
+  const demoCwd = path.join(os.homedir(), '.conduit', 'demo-workspace');
+  ensureDir(demoCwd);
+
+  const project = createProject(
+    'Conduit Studio (Demo)',
+    demoCwd,
+    'Multi-agent demonstration studio orchestrating Claude Code, Codex, and Gemini CLI side-by-side with safety gates.'
+  );
+
+  // Seed 3 specialized agents
+  createAgent(project.id, 'Claude Architect', 'claude', demoCwd, 'System Architecture & Core Services');
+  createAgent(project.id, 'Codex Builder', 'codex', demoCwd, 'Feature Implementation & API Endpoints');
+  createAgent(project.id, 'Gemini Reviewer', 'gemini', demoCwd, 'Code Review & Automated Test Suites');
+
+  // Seed sample wiki overview
+  const welcomeWiki = `# Conduit Multi-Agent Studio Demo
+
+Welcome to your local Conduit control center.
+
+## Running Agents
+- **Claude Architect**: Handles top-level system architecture and database migrations.
+- **Codex Builder**: Implements application features and routes.
+- **Gemini Reviewer**: Runs unit tests and validates pull request safety.
+
+## Human-in-the-Loop Protection
+Every risky operation (e.g. \`rm -rf\`, SQL drops, force pushes) is intercepted by Amazon Bedrock and requires human approval before execution.
+`;
+  updateWikiFile(project.id, '_index.md', welcomeWiki);
+
+  return project;
+}
+
 // --- Projects ---
 
 export function listProjects(): Project[] {
@@ -99,6 +133,13 @@ export function listProjects(): Project[] {
       console.error(`[storage] skipping unreadable ${file}:`, err instanceof Error ? err.message : err);
     }
   }
+
+  // Auto-seed demo project on first launch so the workspace is immediately alive
+  if (projects.length === 0) {
+    const demo = seedDefaultDemoProject();
+    return [demo];
+  }
+
   return projects.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
 }
 

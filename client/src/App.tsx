@@ -285,13 +285,17 @@ export default function App() {
     projects.forEach((p) => {
       if (!agents.has(p.id)) loadAgents(p.id);
     });
+    // Auto-select first project if none selected so the studio is never blank
+    if (!selectedProjectId && projects.length > 0) {
+      setSelectedProjectId(projects[0].id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects]);
+  }, [projects, selectedProjectId]);
 
   // If the selected project disappears (deleted elsewhere), deselect it.
   useEffect(() => {
     if (selectedProjectId && projects.length && !projects.some((p) => p.id === selectedProjectId)) {
-      setSelectedProjectId(null);
+      setSelectedProjectId(projects[0]?.id || null);
       setSelectedAgentId(null);
     }
   }, [projects, selectedProjectId]);
