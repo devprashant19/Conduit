@@ -45,6 +45,16 @@
   --accent-text: #ffffff;
   /* Text on primary buttons */
 
+  --accent-peach: #ffe4e1;
+  --accent-amber: #f59e0b;
+  --accent-green: #16a34a;
+
+  /* Dark PTY Terminal tokens */
+  --term-bg: #141416;
+  --term-border: #27272a;
+  --term-header: #1c1c1f;
+  --term-text: #e4e4e7;
+
   /* Pastel peach / coral highlight (Agent FM signature) */
   --highlight-peach: rgba(255, 185, 175, 0.45);
   --highlight-peach-strong: #fbd5ce;
