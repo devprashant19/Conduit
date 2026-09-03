@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Ic from './Icons';
+import ConduitAgentDemo from './ConduitAgentDemo';
 
 interface LandingPageProps {
   onOpenConsole: () => void;
@@ -131,6 +132,23 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
             <span className="hero-cta-subtext">Real terminals · Full human supervision · MIT License</span>
           </div>
         </div>
+      </section>
+
+      {/* Interactive Product Demonstration Showcase (Conduit Live Story) */}
+      <section className="landing-section demo-showcase-section">
+        <div className="demo-showcase-header">
+          <span className="demo-eyebrow">THE HUMAN-DRIVEN MULTI-AGENT CONTROL CENTER</span>
+          <h2 className="demo-showcase-heading">
+            Your agents work.<br />
+            You stay in control.
+          </h2>
+          <p className="demo-showcase-desc">
+            Coordinate Claude, Codex, Gemini, and OpenCode from one unified workspace while Conduit's Supervisor continuously monitors terminal output for blockers and dangerous commands.
+          </p>
+        </div>
+
+        {/* The Animated Conduit Workspace */}
+        <ConduitAgentDemo onOpenConsole={onOpenConsole} />
       </section>
 
       {/* Section 2: How the Safety Loop Works */}
