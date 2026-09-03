@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Ic from './Icons';
 import ConduitAgentDemo from './ConduitAgentDemo';
+import ToolEcosystemSection from './ecosystem/ToolEcosystemSection';
 
 interface LandingPageProps {
   onOpenConsole: () => void;
@@ -18,7 +19,7 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         </div>
         <div className="landing-nav-links">
           <a href="#how-it-works" className="landing-nav-link">How it works</a>
-          <a href="#agents" className="landing-nav-link">Supported Agents</a>
+          <a href="#ecosystem" className="landing-nav-link">Ecosystem</a>
           <a href="#features" className="landing-nav-link">Features</a>
           <a href="#faq" className="landing-nav-link">FAQ</a>
         </div>
@@ -151,6 +152,9 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         <ConduitAgentDemo onOpenConsole={onOpenConsole} />
       </section>
 
+      {/* Tool Ecosystem Section: Works With the Tools Engineers Already Use */}
+      <ToolEcosystemSection />
+
       {/* Section 2: How the Safety Loop Works */}
       <section id="how-it-works" className="landing-section how-it-works-sec">
         <h2 className="section-title">How the human-in-the-loop safety loop works</h2>
@@ -208,28 +212,9 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Section 3: Supported AI Agents & Multi-vendor Tools */}
-      <section id="agents" className="landing-section tools-sec">
-        <h2 className="section-title">Multi-vendor agent support</h2>
-
-        {/* Real Tool & CLI Grid */}
-        <div className="tools-logo-cloud">
-          <div className="tool-logo-pill" title="Claude Code"><span className="logo-emoji">🤖</span> Claude Code</div>
-          <div className="tool-logo-pill" title="Codex CLI"><span className="logo-emoji">💻</span> Codex CLI</div>
-          <div className="tool-logo-pill" title="Gemini CLI"><span className="logo-emoji">♊</span> Gemini CLI</div>
-          <div className="tool-logo-pill" title="OpenCode"><span className="logo-emoji">🔓</span> OpenCode</div>
-          <div className="tool-logo-pill" title="AWS Bedrock"><span className="logo-emoji">☁️</span> AWS Bedrock</div>
-          <div className="tool-logo-pill" title="Strands Agents SDK"><span className="logo-emoji">🧬</span> Strands SDK</div>
-          <div className="tool-logo-pill" title="xterm.js"><span className="logo-emoji">⌨️</span> xterm.js PTY</div>
-          <div className="tool-logo-pill" title="node-pty"><span className="logo-emoji">⚙️</span> node-pty</div>
-          <div className="tool-logo-pill" title="MCP Messaging"><span className="logo-emoji">🔌</span> Model Context Protocol</div>
-          <div className="tool-logo-pill" title="Project Wiki"><span className="logo-emoji">📚</span> LLM Project Wiki</div>
-          <div className="tool-logo-pill" title="WebSocket"><span className="logo-emoji">⚡</span> WebSocket Replay</div>
-          <div className="tool-logo-pill" title="Voice"><span className="logo-emoji">🎙️</span> Speech Engine</div>
-        </div>
-
-        {/* Features Tabs Showcase */}
-        <div className="faster-showcase-wrap" id="features">
+      {/* Features Tabs Showcase */}
+      <section id="features" className="landing-section tools-sec">
+        <div className="faster-showcase-wrap">
           <h2 className="section-title faster-title">
             Built for serious <span className="highlight-pill">engineering workflows</span>
           </h2>
