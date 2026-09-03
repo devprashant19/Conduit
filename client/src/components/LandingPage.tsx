@@ -3,6 +3,7 @@ import Ic from './Icons';
 import ConduitAgentDemo from './ConduitAgentDemo';
 import ToolEcosystemSection from './ecosystem/ToolEcosystemSection';
 import WorkflowShowcaseSection from './WorkflowShowcaseSection';
+import { BrandIcons } from './ecosystem/BrandIcons';
 
 interface LandingPageProps {
   onOpenConsole: () => void;
@@ -43,74 +44,159 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           <span className="frame-dot r-m" />
         </div>
 
-        {/* Floating Real Agent Cards */}
+        {/* Floating Real Agent Cards (Phase 2: Enlarged, Authentic Icons & Status Chips) */}
         {/* Top Left: Claude Code */}
         <div className="hero-floating-badge badge-top-left">
-          <div className="floating-user-bubble">Fix the race condition in the WebSocket handler</div>
+          <div className="floating-user-bubble">
+            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-text">Fix the race condition in the WebSocket handler</span>
+          </div>
           <div className="floating-agent-card">
-            <span className="mascot-avatar sprout">🤖</span>
-            <div className="agent-text">
-              <div className="agent-msg">Claude Code resolved socket race & passes all smoke tests.</div>
-              <div className="agent-tools">Claude 3.5 Sonnet · node-pty</div>
+            <div className="card-top-identity">
+              <div className="agent-brand-avatar claude">
+                <BrandIcons.claude size={16} />
+              </div>
+              <span className="agent-title-text">Claude Code</span>
+              <span className="agent-status-badge running">
+                <span className="badge-dot" /> Running
+              </span>
+            </div>
+            <p className="agent-explanation-text">
+              I'll analyze the WebSocket handler and fix the race condition. Let me check the relevant files and review the implementation.
+            </p>
+            <div className="agent-card-tags">
+              <span className="meta-tag">claude-3-5-sonnet</span>
+              <span className="meta-tag">node-pty</span>
             </div>
           </div>
         </div>
 
-        {/* Top Right: Codex Orchestrator */}
+        {/* Top Right: The Keeper (Codex CLI) */}
         <div className="hero-floating-badge badge-top-right">
-          <div className="floating-user-bubble">The Keeper, what are all running agents working on?</div>
+          <div className="floating-user-bubble">
+            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-text">The Keeper, what are all running agents working on?</span>
+          </div>
           <div className="floating-agent-card">
-            <span className="mascot-avatar bunny">🧠</span>
-            <div className="agent-text">
-              <div className="agent-msg">Agent 1 refactoring CSS, Agent 2 running migrations.</div>
-              <div className="agent-tools">The Keeper · Codex CLI</div>
+            <div className="card-top-identity">
+              <div className="agent-brand-avatar codex">
+                <BrandIcons.openai size={16} />
+              </div>
+              <span className="agent-title-text">The Keeper</span>
+              <span className="agent-status-badge codex">
+                <span className="badge-dot" /> Orchestrating
+              </span>
+            </div>
+            <p className="agent-explanation-text">
+              Agent 1 is refactoring CSS in client. Agent 2 is executing migration scripts on the staging database.
+            </p>
+            <div className="agent-card-tags">
+              <span className="meta-tag">codex-app-server</span>
+              <span className="meta-tag">⌘J Panel</span>
             </div>
           </div>
         </div>
 
-        {/* Mid Left: Approval Gate */}
+        {/* Mid Left: Approval Gate (Bedrock Supervisor) */}
         <div className="hero-floating-badge badge-mid-left">
-          <div className="floating-user-bubble">Run database migration on staging</div>
-          <div className="floating-agent-card">
-            <span className="mascot-avatar bear">🛡️</span>
-            <div className="agent-text">
-              <div className="agent-msg">Approval Gate: Destructive SQL detected. Awaiting OK.</div>
-              <div className="agent-tools">Bedrock Supervisor · Safety Gate</div>
+          <div className="floating-user-bubble">
+            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-text">Run database migration on staging</span>
+          </div>
+          <div className="floating-agent-card gated">
+            <div className="card-top-identity">
+              <div className="agent-brand-avatar supervisor">
+                <span className="shield-icon">🛡️</span>
+              </div>
+              <span className="agent-title-text">Approval Gate</span>
+              <span className="agent-status-badge halted">
+                <span className="badge-dot" /> Halted (Risk)
+              </span>
+            </div>
+            <p className="agent-explanation-text">
+              Destructive SQL operation detected: <code>DROP TABLE session_cache;</code> Execution paused until human confirms.
+            </p>
+            <div className="agent-card-tags">
+              <span className="meta-tag">bedrock-supervisor</span>
+              <span className="meta-tag">safety-gate</span>
             </div>
           </div>
         </div>
 
         {/* Mid Right: Gemini CLI */}
         <div className="hero-floating-badge badge-mid-right">
-          <div className="floating-user-bubble">Generate comprehensive test coverage for auth routes</div>
+          <div className="floating-user-bubble">
+            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-text">Generate comprehensive test coverage for auth routes</span>
+          </div>
           <div className="floating-agent-card">
-            <span className="mascot-avatar kitten">✨</span>
-            <div className="agent-text">
-              <div className="agent-msg">18 integration tests generated and verified.</div>
-              <div className="agent-tools">Gemini CLI · PTY Terminal</div>
+            <div className="card-top-identity">
+              <div className="agent-brand-avatar gemini">
+                <BrandIcons.gemini size={16} />
+              </div>
+              <span className="agent-title-text">Gemini CLI</span>
+              <span className="agent-status-badge running">
+                <span className="badge-dot" /> Verified
+              </span>
+            </div>
+            <p className="agent-explanation-text">
+              Generated 18 test suites covering cookie validation, expiration edge-cases, and CSRF token verification.
+            </p>
+            <div className="agent-card-tags">
+              <span className="meta-tag">gemini-2.5-flash</span>
+              <span className="meta-tag">pty-shell</span>
             </div>
           </div>
         </div>
 
-        {/* Bottom Left: OpenCode */}
+        {/* Bottom Left: OpenCode Wiki Sync */}
         <div className="hero-floating-badge badge-bot-left">
-          <div className="floating-user-bubble">Sync project wiki with new architectural changes</div>
-          <div className="floating-agent-card compact">
-            <span className="mascot-avatar blob">📖</span>
-            <div className="agent-text">
-              <div className="agent-msg">Updated project wiki & shared content folder.</div>
+          <div className="floating-user-bubble">
+            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-text">Sync project wiki with new architectural changes</span>
+          </div>
+          <div className="floating-agent-card">
+            <div className="card-top-identity">
+              <div className="agent-brand-avatar opencode">
+                <BrandIcons.opencode size={16} />
+              </div>
+              <span className="agent-title-text">OpenCode</span>
+              <span className="agent-status-badge synced">
+                <span className="badge-dot" /> Synced
+              </span>
+            </div>
+            <p className="agent-explanation-text">
+              Updated <code>wiki/auth-spec.md</code> and synchronized shared context using the LLM wiki pattern.
+            </p>
+            <div className="agent-card-tags">
+              <span className="meta-tag">wiki-engine</span>
+              <span className="meta-tag">shared_content/</span>
             </div>
           </div>
         </div>
 
         {/* Bottom Right: Voice Pipeline */}
         <div className="hero-floating-badge badge-bot-right">
-          <div className="floating-user-bubble">"Jarvis, summarize blocker on agent 2"</div>
+          <div className="floating-user-bubble">
+            <span className="user-bubble-avatar">👤</span>
+            <span className="user-bubble-text">"Jarvis, summarize blocker on agent 2"</span>
+          </div>
           <div className="floating-agent-card">
-            <span className="mascot-avatar peach">🎙️</span>
-            <div className="agent-text">
-              <div className="agent-msg">Spoken audio briefing generated via speech synthesis.</div>
-              <div className="agent-tools">Voice Pipeline · Push-to-talk (⌘;)</div>
+            <div className="card-top-identity">
+              <div className="agent-brand-avatar voice">
+                <span className="mic-icon">🎙️</span>
+              </div>
+              <span className="agent-title-text">Voice Pipeline</span>
+              <span className="agent-status-badge voice">
+                <span className="badge-dot" /> TTS Audio
+              </span>
+            </div>
+            <p className="agent-explanation-text">
+              "Codex is waiting for DB migration approval. Remaining agents are operating normally without blockers."
+            </p>
+            <div className="agent-card-tags">
+              <span className="meta-tag">web-speech-api</span>
+              <span className="meta-tag">hotkey: ⌘;</span>
             </div>
           </div>
         </div>
