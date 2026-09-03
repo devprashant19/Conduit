@@ -1,0 +1,45 @@
+name: Release Desktop Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Release Desktop App
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile typescript & assets
+        run: npm run build
+
+      - name: Package Desktop Artifacts (Electron-Builder)
+        run: npm run build:desktop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAC_NOTARIZE_APPLE_ID: ${{ secrets.MAC_NOTARIZE_APPLE_ID }}
+          MAC_NOTARIZE_APP_PASSWORD: ${{ secrets.MAC_NOTARIZE_APP_PASSWORD }}
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist-desktop/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

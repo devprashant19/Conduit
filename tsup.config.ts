@@ -17,5 +17,5 @@ export default defineConfig({
   // top-level `npm run build` clears dist first via `npm run clean`.
   clean: false,
   sourcemap: true,
-  external: ['node-pty'],
+  external: ['electron', 'node-pty', 'electron-updater'],
 });

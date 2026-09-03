@@ -4,6 +4,7 @@ import ConduitAgentDemo from './ConduitAgentDemo';
 import ToolEcosystemSection from './ecosystem/ToolEcosystemSection';
 import WorkflowShowcaseSection from './WorkflowShowcaseSection';
 import { BrandIcons } from './ecosystem/BrandIcons';
+import DownloadMatrixSection from './DownloadMatrixSection';
 
 interface LandingPageProps {
   onOpenConsole: () => void;
@@ -359,6 +360,9 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           </div>
         </div>
       </section>
+
+      {/* Desktop App Download Center */}
+      <DownloadMatrixSection />
     </div>
   );
 }

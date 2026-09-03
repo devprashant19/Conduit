@@ -15,7 +15,7 @@ export class DaemonManager {
 
     console.log('[DaemonManager] Spawning daemon process:', daemonScript);
     this.daemonProcess = spawn(process.execPath, [daemonScript], {
-      env: { ...process.env, NODE_ENV: isDev ? 'development' : 'production' },
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', NODE_ENV: isDev ? 'development' : 'production' },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -29,7 +29,7 @@ export class DaemonManager {
 
     console.log('[DaemonManager] Spawning server process:', serverScript);
     this.serverProcess = spawn(process.execPath, [serverScript], {
-      env: { ...process.env, PORT: '3200', HOST: '127.0.0.1', NODE_ENV: isDev ? 'development' : 'production' },
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', PORT: '3200', HOST: '127.0.0.1', NODE_ENV: isDev ? 'development' : 'production' },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

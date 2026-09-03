@@ -24,7 +24,7 @@ async function createWindow() {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -188,6 +188,15 @@ app.whenReady().then(async () => {
       mainWindow.webContents.send('conduit:focus-terminal');
     }
   });
+
+  // Check for in-app updates in production
+  if (!isDev) {
+    import('electron-updater').then(({ autoUpdater }) => {
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        console.log('[AutoUpdater] Update check skipped/offline:', err.message);
+      });
+    }).catch(() => {});
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

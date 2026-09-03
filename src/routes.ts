@@ -36,6 +36,26 @@ export function createRouter(
   const broadcastContentUpdate = (projectId: string, filename: string) =>
     broadcast({ type: 'content:updated', projectId, filename });
 
+  // --- Desktop Binary Distribution Route ---
+  router.get('/download/:file', (req: Request, res: Response) => {
+    const filename = path.basename(req.params.file);
+
+    // If local built executable exists, serve it directly
+    const localExePath = path.resolve(process.cwd(), 'dist-desktop', 'win-unpacked', filename);
+    const publicExePath = path.resolve(process.cwd(), 'client', 'public', 'downloads', filename);
+
+    if (fs.existsSync(localExePath)) {
+      return res.download(localExePath, filename);
+    }
+    if (fs.existsSync(publicExePath)) {
+      return res.download(publicExePath, filename);
+    }
+
+    // Otherwise redirect to GitHub release binary asset
+    const releaseUrl = `https://github.com/devprashant19/Conduit/releases/latest/download/${encodeURIComponent(filename)}`;
+    res.redirect(releaseUrl);
+  });
+
   /** Fetch the fine-grained agent status map from the daemon.
    *  If the daemon is unreachable, nothing is running (it owns every PTY). */
   async function agentStatuses(): Promise<Record<string, string>> {

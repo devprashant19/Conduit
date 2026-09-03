@@ -64,6 +64,18 @@ npm run start:all        # daemon (:3210) + web server (:3200)
 
 Open http://localhost:3200. For development with hot reload use `npm run dev` and open http://localhost:5173.
 
+### Native Desktop Application (macOS / Linux / Windows)
+
+Conduit can be packaged and run as a standalone native desktop application bundling the local daemon, PTY terminal grid, and Bedrock supervisor:
+
+```bash
+# Run desktop app locally in development
+npm run dev:desktop
+
+# Package standalone native binaries (.dmg, .AppImage, .deb, .exe)
+npm run build:desktop
+```
+
 ### Prerequisites
 
 - Node.js 20+

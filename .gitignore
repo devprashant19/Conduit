@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-desktop/
+client/public/downloads/
 *.log
 .env
 .env.local
@@ -17,3 +19,4 @@ api-keys.json
 
 .termhive/
 plan.md
+plan2.md

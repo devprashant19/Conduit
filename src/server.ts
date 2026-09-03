@@ -149,6 +149,23 @@ for (const project of storage.listProjects()) {
   activity.watchProject(project.id, project.name);
 }
 
+// Direct desktop download route
+app.get('/download/:file', (req, res) => {
+  const filename = path.basename(req.params.file);
+  const localExePath = path.resolve(process.cwd(), 'dist-desktop', 'win-unpacked', filename);
+  const publicExePath = path.resolve(process.cwd(), 'client', 'public', 'downloads', filename);
+
+  if (fs.existsSync(localExePath)) {
+    return res.download(localExePath, filename);
+  }
+  if (fs.existsSync(publicExePath)) {
+    return res.download(publicExePath, filename);
+  }
+
+  const releaseUrl = `https://github.com/devprashant19/Conduit/releases/latest/download/${encodeURIComponent(filename)}`;
+  res.redirect(releaseUrl);
+});
+
 // API routes
 app.use('/api', createRouter(daemon, broadcast));
 
@@ -343,8 +360,13 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 usage.startPolling();
 
 // Serve static frontend in production
-const clientDist = path.join(__dirname, 'client');
-if (fs.existsSync(clientDist)) {
+const clientDist = [
+  path.join(__dirname, 'client'),
+  path.join(__dirname, '..', 'client'),
+  path.join(process.cwd(), 'dist', 'client'),
+].find((p) => fs.existsSync(p));
+
+if (clientDist) {
   app.use(express.static(clientDist));
   app.get('*', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
