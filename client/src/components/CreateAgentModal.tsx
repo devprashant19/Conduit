@@ -51,6 +51,8 @@ export default function CreateAgentModal({ projectCwd, onClose, onCreate }: Prop
             <option value="codex">Codex CLI</option>
             <option value="gemini">Gemini CLI</option>
             <option value="opencode">OpenCode</option>
+            <option value="gpt">GPT-OSS 120B (Groq)</option>
+            <option value="nemotron">Nemotron (OpenRouter)</option>
           </select>
 
           {(cli === 'claude' || cli === 'opencode') && (

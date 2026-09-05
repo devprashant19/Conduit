@@ -23,6 +23,11 @@ export const BrandIcons = {
       <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
     </svg>
   ),
+  nemotron: (props: { size?: number }) => (
+    <svg width={props.size || 18} height={props.size || 18} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2L2 22h20L12 2zm0 3.5l7 14.5H5l7-14.5z" />
+    </svg>
+  ),
 
   // Developer Ecosystem
   github: (props: { size?: number }) => (
@@ -129,6 +134,8 @@ export const ECOSYSTEM_ROWS: Array<{
       { id: 'codex', name: 'OpenAI Codex', iconKey: 'openai', category: 'agents' },
       { id: 'gemini', name: 'Gemini CLI', iconKey: 'gemini', category: 'agents' },
       { id: 'opencode', name: 'OpenCode', iconKey: 'opencode', category: 'agents' },
+      { id: 'gpt', name: 'GPT-OSS 120B (Groq)', iconKey: 'openai', category: 'agents' },
+      { id: 'nemotron', name: 'Nemotron (OpenRouter)', iconKey: 'nemotron', category: 'agents' },
     ],
   },
   // ROW 2 — DEVELOPER ECOSYSTEM (→ right)

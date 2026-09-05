@@ -83,14 +83,14 @@ export interface AskAgentResult {
    * timeout — legacy alias kept for back-compat; new code uses busy/crashed
    */
   status:
-    | 'replied'
-    | 'no-reply'
-    | 'busy'
-    | 'crashed'
-    | 'timeout'
-    | 'delivered'
-    | 'not-running'
-    | 'not-found';
+  | 'replied'
+  | 'no-reply'
+  | 'busy'
+  | 'crashed'
+  | 'timeout'
+  | 'delivered'
+  | 'not-running'
+  | 'not-found';
   projectId?: string;
   projectName?: string;
   agentName?: string;
@@ -733,7 +733,7 @@ export interface CreateAgentResult {
   error?: string;
 }
 
-const VALID_CLIS = ['claude', 'codex', 'gemini', 'opencode'];
+const VALID_CLIS = ['claude', 'codex', 'gemini', 'opencode', 'gpt', 'nemotron'];
 
 /** Add an agent to a project. The agent is created stopped. */
 export function createAgentDispatch(

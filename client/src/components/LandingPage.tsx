@@ -228,7 +228,7 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           </h1>
 
           <p className="hero-subtitle">
-            Run Claude Code, Codex, Gemini CLI, and OpenCode side by side. Supervised by Amazon Bedrock with human-in-the-loop approval gates.
+            Run Claude Code, Codex, Gemini, OpenCode, Llama, and Nemotron side by side. Supervised by Amazon Bedrock with human-in-the-loop approval gates.
           </p>
 
           <div className="hero-actions">

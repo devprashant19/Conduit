@@ -20,7 +20,7 @@ export interface Agent {
   projectId: string;
   name: string;
   role?: string;
-  cli: 'claude' | 'codex' | 'gemini' | 'opencode';
+  cli: 'claude' | 'codex' | 'gemini' | 'opencode' | 'gpt' | 'nemotron';
   cwd: string;
   status: AgentStatus;
   pid?: number;

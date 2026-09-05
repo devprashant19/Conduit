@@ -245,6 +245,12 @@ function getCliCommand(agent: Agent, sharedPath: string, wikiPath: string, mcpCo
       args.push('--add-dir', sharedPath);
       args.push('--add-dir', wikiPath);
       return { cmd: 'codex', args };
+    case 'gpt':
+      args.push('--model', 'groq/openai/gpt-oss-120b');
+      return { cmd: 'aider', args };
+    case 'nemotron':
+      args.push('--model', 'openrouter/nvidia/nemotron-3.5-lightning:free');
+      return { cmd: 'aider', args };
   }
 }
 
@@ -306,6 +312,8 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
     codex: 'AGENTS.md',
     gemini: 'AGENTS.md',
     opencode: 'AGENTS.md',
+    gpt: 'AGENTS.md',
+    nemotron: 'AGENTS.md',
   };
   const instrFile = path.join(cwd, instructionFiles[agent.cli]);
   try {
