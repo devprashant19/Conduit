@@ -2276,7 +2276,7 @@ textarea {
 .chip.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0a0a0a;
+  color: var(--accent-text);
   font-weight: 500;
 }
 
@@ -2597,7 +2597,7 @@ textarea {
   height: 28px;
   padding: 0 14px;
   background: var(--accent);
-  color: #0a0a0a;
+  color: var(--accent-text);
   border: none;
   border-radius: 6px;
   font-size: 12px;
@@ -3101,7 +3101,7 @@ textarea {
 .modal-actions button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0a0a0a;
+  color: var(--accent-text);
   font-weight: 500;
 }
 
@@ -5367,7 +5367,7 @@ textarea {
 
 .hbtn.primary {
   background: var(--accent);
-  color: #0a0a0a;
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
