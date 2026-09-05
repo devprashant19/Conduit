@@ -9,7 +9,7 @@ import type { DaemonClient } from './daemon/client.js';
 import type { Agent, WSServerMessage } from './types.js';
 import { isYesNoPrompt } from './gatePatterns.js';
 
-const VALID_CLIS: Agent['cli'][] = ['claude', 'codex', 'gemini', 'opencode'];
+const VALID_CLIS: Agent['cli'][] = ['claude', 'codex', 'gemini', 'opencode', 'gpt', 'nemotron'];
 
 function expandHome(p: string): string {
   if (p === '~') return os.homedir();
