@@ -24,6 +24,46 @@ import {
 } from '../storage.js';
 import { checkGate, stripAnsi } from '../gatePatterns.js';
 import type { DaemonMessage } from '../daemon/protocol.js';
+import { getClaudeToken } from '../usage.js';
+
+async function anthropicFallbackSupervisor(prompt: string, onUpdate: (update: SupervisorUpdate) => void) {
+  const token = getClaudeToken();
+  if (!token) throw new Error('No Anthropic token found. Please login to Claude Code.');
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'oauth-2025-04-20',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 512,
+      system: 'You are a technical supervisor overseeing autonomous coding agents. Classify the terminal output below. The output must be valid JSON matching the schema.',
+      messages: [{ role: 'user', content: prompt }],
+      tools: [{
+        name: 'report_update',
+        description: 'Report the classification and summary.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            classification: { type: 'string', enum: ['progress', 'blocker', 'question', 'risky_action', 'noise'] },
+            summary: { type: 'string' }
+          },
+          required: ['classification', 'summary']
+        }
+      }],
+      tool_choice: { type: 'tool', name: 'report_update' }
+    })
+  });
+
+  if (!res.ok) throw new Error(`Anthropic error: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  const toolCall = data.content?.find((c: any) => c.type === 'tool_use' && c.name === 'report_update');
+  if (toolCall?.input) onUpdate(toolCall.input as SupervisorUpdate);
+}
 
 type Broadcast = (msg: DaemonMessage) => void;
 
@@ -155,7 +195,7 @@ async function processBuffer(state: WatcherState) {
       return `- ${String(e.event).replace('plan_', '')}: ${plan?.description || ''} (→ ${plan?.targetAgent || '?'})${e.reason ? ` — reason: ${e.reason}` : ''}`;
     });
 
-  const supervisor = createSupervisorAgent((update: SupervisorUpdate) => {
+  const handleUpdate = (update: SupervisorUpdate) => {
     if (!update || update.classification === 'noise') return;
     const ts = new Date().toISOString();
     const payload = {
@@ -175,7 +215,9 @@ async function processBuffer(state: WatcherState) {
       postToGroupChat(state, supervisorEntry(`${agentName}: ${update.summary}`, update.classification));
     }
     state.broadcast({ kind: 'event', event: 'supervisor:update', payload });
-  });
+  };
+
+  const supervisor = createSupervisorAgent(handleUpdate);
 
   const prompt = [
     `Agent: ${agentName} (id ${state.agentId}) on project "${projectName}" (id ${state.projectId}).`,
@@ -188,15 +230,32 @@ async function processBuffer(state: WatcherState) {
   ].filter(Boolean).join('\n\n');
 
   try {
-    await supervisor.invoke(prompt);
-    supervisorWarned = false;
+    const isForcedAnthropic = process.env.SUPERVISOR_PROVIDER === 'anthropic';
+    if (isForcedAnthropic) {
+      await anthropicFallbackSupervisor(prompt, handleUpdate);
+      supervisorWarned = false;
+    } else {
+      try {
+        await supervisor.invoke(prompt);
+        supervisorWarned = false;
+      } catch (err) {
+        const msg = describeError(err);
+        if (isCredentialError(msg)) {
+          console.log(`[watcher] Bedrock error (${msg}), falling back to Anthropic...`);
+          await anthropicFallbackSupervisor(prompt, handleUpdate);
+          supervisorWarned = false;
+        } else {
+          throw err;
+        }
+      }
+    }
   } catch (err) {
     const msg = describeError(err);
     if (isCredentialError(msg)) {
       supervisorBackoffUntil = Date.now() + 10 * 60 * 1000;
       if (!supervisorWarned) {
         supervisorWarned = true;
-        console.warn(`[watcher] Supervisor unavailable (${msg}). Bedrock access is off for 10 minutes; set AWS credentials + BEDROCK_MODEL_ID in .env, or CONDUIT_SUPERVISOR=off to silence this.`);
+        console.warn(`[watcher] Supervisor unavailable (${msg}). Set AWS credentials or use SUPERVISOR_PROVIDER=anthropic.`);
       }
     } else {
       console.error(`[watcher] Supervisor error for ${agentName}:`, msg);

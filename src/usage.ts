@@ -24,7 +24,7 @@ let claudeCache: UsageData | null = null;
 let claudeLastFetch = 0;
 let claudeRateLimitedUntil = 0;
 
-function getClaudeToken(): string | null {
+export function getClaudeToken(): string | null {
   try {
     if (!fs.existsSync(CLAUDE_CREDS)) return null;
     const data = JSON.parse(fs.readFileSync(CLAUDE_CREDS, 'utf-8'));
