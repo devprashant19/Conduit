@@ -122,7 +122,7 @@ export default function Sidebar({
           <span>Projects</span>
           <button className="add" onClick={onNewProject} title="New project"><Ic.plus size={13} /></button>
         </div>
-        <div className="sb-projects">
+        <div className="sb-projects" data-tour="workspace">
           {projects.map(p => {
             const list = agents.get(p.id) || [];
             // "alive" = process exists (running / awaiting_input / idle)

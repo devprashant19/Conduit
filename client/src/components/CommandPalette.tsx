@@ -29,12 +29,13 @@ interface Props {
   onNewAgent: () => void;
   onStartAll?: () => void;
   onStopAll?: () => void;
+  onStartTour?: () => void;
 }
 
 export default function CommandPalette({
   open, onClose, agents,
   onSelectAgent, onLayout,
-  onNewProject, onNewAgent, onStartAll, onStopAll,
+  onNewProject, onNewAgent, onStartAll, onStopAll, onStartTour,
 }: Props) {
   const [q, setQ] = useState('');
   const [focus, setFocus] = useState(0);
@@ -69,6 +70,7 @@ export default function CommandPalette({
   ];
   if (onStartAll) commands.push({ group: 'Action', icon: <Ic.play size={11} />, label: 'Start all agents', run: () => { onStartAll(); onClose(); } });
   if (onStopAll) commands.push({ group: 'Action', icon: <Ic.stop size={10} />, label: 'Stop all agents', run: () => { onStopAll(); onClose(); } });
+  if (onStartTour) commands.push({ group: 'Help & Tour', icon: <Ic.bolt size={12} />, label: 'Product Tour (2-Phase Onboarding)', sub: 'Guided interactive tour', run: () => { onStartTour(); onClose(); } });
 
   const filtered = !q
     ? commands

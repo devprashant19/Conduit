@@ -8,9 +8,10 @@ import DownloadModal from './DownloadModal';
 
 interface LandingPageProps {
   onOpenConsole: () => void;
+  onStartTour?: () => void;
 }
 
-export default function LandingPage({ onOpenConsole }: LandingPageProps) {
+export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
@@ -44,6 +45,16 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
           </button>
         </div>
         <div className="landing-nav-actions">
+          {onStartTour && (
+            <button
+              type="button"
+              className="landing-nav-link"
+              onClick={onStartTour}
+              style={{ fontWeight: 600, color: 'var(--text-0, #0f0f11)' }}
+            >
+              Tour
+            </button>
+          )}
           <button className="landing-btn-black" onClick={onOpenConsole}>
             Open Control Center <Ic.chevR size={12} />
           </button>
@@ -221,7 +232,7 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
         </div>
 
         {/* Center Hero Content */}
-        <div className="hero-center-content">
+        <div className="hero-center-content" data-tour="landing-hero">
           <h1 className="hero-title">
             The multi-agent control center<br />
             for <span className="highlight-pill">engineers</span>
@@ -241,7 +252,7 @@ export default function LandingPage({ onOpenConsole }: LandingPageProps) {
       </section>
 
       {/* Interactive Product Demonstration Showcase (Conduit Live Story) */}
-      <section className="landing-section demo-showcase-section">
+      <section className="landing-section demo-showcase-section" data-tour="landing-demo">
         <div className="demo-showcase-header">
           <span className="demo-eyebrow">THE HUMAN-DRIVEN MULTI-AGENT CONTROL CENTER</span>
           <h2 className="demo-showcase-heading">

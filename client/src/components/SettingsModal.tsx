@@ -39,6 +39,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  onRestartTour?: () => void;
 }
 
 const LANGS: ModelOption[] = [
@@ -49,7 +50,7 @@ const LANGS: ModelOption[] = [
   { id: '', label: 'Auto-detect' },
 ];
 
-export default function SettingsModal({ open, onClose, onSaved }: Props) {
+export default function SettingsModal({ open, onClose, onSaved, onRestartTour }: Props) {
   const [cfg, setCfg] = useState<VoiceConfig | null>(null);
   const [providers, setProviders] = useState<ProviderSpec[]>([]);
   const [keys, setKeys] = useState<{ openai: boolean; gemini: boolean }>({ openai: false, gemini: false });
@@ -342,6 +343,28 @@ export default function SettingsModal({ open, onClose, onSaved }: Props) {
               </div>
             </Row>
           </section>
+
+          {onRestartTour && (
+            <section className="settings-sec">
+              <h3>Product Tour</h3>
+              <div className="settings-row" style={{ alignItems: 'center' }}>
+                <label>Interactive Walkthrough</label>
+                <div className="settings-row-ctrl">
+                  <button
+                    type="button"
+                    className="hbtn"
+                    onClick={() => {
+                      onClose();
+                      onRestartTour();
+                    }}
+                    style={{ fontWeight: 600 }}
+                  >
+                    Restart 2-Phase Tour
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
 
           {err && <div className="settings-err">{err}</div>}
         </div>

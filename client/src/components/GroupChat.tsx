@@ -78,7 +78,7 @@ export default function GroupChat({ projectId, agents, ws }: Props) {
   const running = agents.filter((a) => a.status !== 'stopped').map((a) => a.name);
 
   return (
-    <div className="panel gc-panel">
+    <div className="panel gc-panel" data-tour="groupchat">
       <div className="panel-h">
         <div className="panel-h-l">
           <h2>Group Chat</h2>

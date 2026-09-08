@@ -220,5 +220,5 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, ws.send, ws.subscribe, ws.isOpen]);
 
-  return <div ref={containerRef} className="terminal-container" />;
+  return <div ref={containerRef} className="terminal-container" data-tour="terminal" />;
 }

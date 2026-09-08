@@ -81,7 +81,7 @@ export default function DownloadModal({ isOpen, onClose }: DownloadModalProps) {
 
   return (
     <div className="download-modal-overlay" onClick={onClose}>
-      <div className="download-modal-container" onClick={(e) => e.stopPropagation()}>
+      <div className="download-modal-container" data-tour="download-modal" onClick={(e) => e.stopPropagation()}>
         <button className="download-modal-close" onClick={onClose} aria-label="Close modal">
           ×
         </button>

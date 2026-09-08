@@ -22,6 +22,8 @@ import { useWakeWord } from './hooks/useWakeWord';
 import { useVoiceConfig } from './hooks/useVoiceConfig';
 import SettingsModal from './components/SettingsModal';
 import LandingPage from './components/LandingPage';
+import ConduitOnboardingTour from './components/onboarding/ConduitOnboardingTour';
+import DownloadModal from './components/DownloadModal';
 import logoDark from './assets/logo_dark_sm.jpg';
 import logoLight from './assets/logo_light_sm.jpg';
 import * as api from './api';
@@ -564,22 +566,48 @@ export default function App() {
 
   const logoImg = logoDark;
 
+  const [tourForceStart, setTourForceStart] = useState(false);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+
+  const ensureDemoWorkspace = useCallback(() => {
+    if (projects.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(projects[0].id);
+      loadAgents(projects[0].id);
+    }
+  }, [projects, selectedProjectId, loadAgents]);
+
+  const handleViewChange = useCallback((v: 'landing' | 'console') => {
+    if (v === 'landing') {
+      window.location.hash = '';
+      setInConsole(false);
+    } else {
+      window.location.hash = '#console';
+      setInConsole(true);
+      ensureDemoWorkspace();
+    }
+  }, [ensureDemoWorkspace]);
+
+  const handleStartTour = useCallback(() => {
+    handleViewChange('landing');
+    setTourForceStart(true);
+  }, [handleViewChange]);
+
   const appCls = ['app'];
   if (sidebarCollapsed) appCls.push('sb-hidden');
 
-  if (!inConsole) {
-    return (
-      <LandingPage
-        onOpenConsole={() => {
-          window.location.hash = '#console';
-          setInConsole(true);
-        }}
-      />
-    );
-  }
-
   return (
-    <div className={appCls.join(' ')} style={{ '--sidebar-w': sidebarW + 'px' } as React.CSSProperties}>
+    <>
+      {!inConsole ? (
+        <LandingPage
+          onOpenConsole={() => {
+            window.location.hash = '#console';
+            setInConsole(true);
+            ensureDemoWorkspace();
+          }}
+          onStartTour={handleStartTour}
+        />
+      ) : (
+        <div className={appCls.join(' ')} style={{ '--sidebar-w': sidebarW + 'px' } as React.CSSProperties}>
       <div className="ambient-mesh" aria-hidden="true" />
       <header className="header">
         <div className="header-l">
@@ -604,7 +632,7 @@ export default function App() {
             <span>Conduit</span>
           </div>
           {selectedProject && (
-            <div className="breadcrumb">
+            <div className="breadcrumb" data-tour="workspace">
               <span className="sep">/</span>
               <span className="proj">{selectedProject.name}</span>
               <span className="proj-meta">{selectedProject.cwd}</span>
@@ -617,7 +645,7 @@ export default function App() {
             <span>Search</span>
             <kbd>{MOD}K</kbd>
           </button>
-          <div className={'cmd-quick' + (brainWorking ? ' working' : '')}>
+          <div className={'cmd-quick' + (brainWorking ? ' working' : '')} data-tour="keeper">
             <button
               className="cmd-quick-mark"
               title="Open Command (⌘J)"
@@ -678,6 +706,14 @@ export default function App() {
           </button>
           <button
             className="hbtn"
+            title="Product Tour (2-Phase Onboarding)"
+            onClick={handleStartTour}
+            style={{ fontWeight: 600, color: 'var(--text-1)' }}
+          >
+            Tour
+          </button>
+          <button
+            className="hbtn"
             title="Voice settings"
             onClick={() => setSettingsOpen(true)}
           >
@@ -709,7 +745,7 @@ export default function App() {
       />
       <div className="sb-resizer" onMouseDown={onSidebarResizeDown} title="Drag to resize sidebar" />
 
-      <section className="gr">
+      <section className="gr" data-tour="agents">
         <div className="canvas-frame" aria-hidden="true" />
         {selectedProjectId ? (
           <>
@@ -823,7 +859,7 @@ export default function App() {
       </section>
 
       <footer className="st">
-        <div className="st-l">
+        <div className="st-l" data-tour="supervisor">
           {selectedProjectId && (
             <>
               <span className="st-item">
@@ -878,6 +914,7 @@ export default function App() {
         onNewAgent={() => setShowNewAgent(true)}
         onStartAll={selectedProjectId ? () => handleStartAll() : undefined}
         onStopAll={selectedProjectId ? () => handleStopAll() : undefined}
+        onStartTour={handleStartTour}
       />
 
       <CommandPanel
@@ -916,6 +953,7 @@ export default function App() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onSaved={voice.refresh}
+        onRestartTour={handleStartTour}
       />
 
       {showNewProject && (
@@ -953,6 +991,19 @@ export default function App() {
           onResolve={handleResolvePlan}
         />
       )}
-    </div>
+      </div>
+      )}
+
+      <ConduitOnboardingTour
+        forceStart={tourForceStart}
+        onClose={() => setTourForceStart(false)}
+        onViewChange={handleViewChange}
+        onTabChange={(t) => setMainTab(t)}
+        onEnsureDemoWorkspace={ensureDemoWorkspace}
+        onOpenDownloadModal={() => setIsDownloadOpen(true)}
+        onCloseDownloadModal={() => setIsDownloadOpen(false)}
+      />
+      <DownloadModal isOpen={isDownloadOpen} onClose={() => setIsDownloadOpen(false)} />
+    </>
   );
 }

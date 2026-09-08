@@ -142,7 +142,7 @@ export default function MessagesPanel({ projectId, agents, ws }: Props) {
   );
 
   return (
-    <div className="panel msg-panel">
+    <div className="panel msg-panel" data-tour="mcp">
       <div className="panel-h">
         <div className="panel-h-l">
           <h2>Messages</h2>
