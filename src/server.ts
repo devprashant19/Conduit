@@ -13,7 +13,8 @@ import * as usage from './usage.js';
 import { DaemonClient } from './daemon/client.js';
 import type { WSClientMessage, WSServerMessage, ActivityEvent } from './types.js';
 import { runSmokeTest } from './strands/agent.js';
-import { BEDROCK_MODEL_ID, AWS_REGION, supervisorDisabled } from './strands/config.js';
+import { BEDROCK_MODEL_ID, AWS_REGION, supervisorDisabled, supervisorProvider } from './strands/config.js';
+import { hasAnthropicCredential, currentModel as anthropicModel } from './strands/anthropic.js';
 import { PROVIDERS } from './voice/providers.js';
 import { loadConfig as loadVoiceConfig, saveConfig as saveVoiceConfig, hasKey, saveApiKeys } from './voice/config.js';
 import { transcribeOpenAI, ttsOpenAI } from './voice/openai.js';
@@ -193,6 +194,9 @@ app.get('/api/health', (_req, res) => {
     daemon: daemon.isConnected(),
     auth: isAuthEnabled(),
     supervisor: supervisorDisabled() ? 'off' : 'on',
+    supervisorProvider: supervisorProvider(),
+    anthropicCredential: hasAnthropicCredential(),
+    anthropicModel: anthropicModel(),
     bedrockModel: BEDROCK_MODEL_ID,
     region: AWS_REGION,
   });
@@ -542,6 +546,16 @@ server.listen(PORT, HOST, () => {
   } else if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
     console.warn('[server] auth: OFF — anyone who can reach this port can type into your agents. Set CONDUIT_AUTH=user:pass before exposing it beyond localhost.');
   }
-  if (supervisorDisabled()) console.log('[server] supervisor: off (CONDUIT_SUPERVISOR)');
-  else console.log(`[server] supervisor: Bedrock ${BEDROCK_MODEL_ID} in ${AWS_REGION}`);
+  if (supervisorDisabled()) {
+    console.log('[server] supervisor: off (CONDUIT_SUPERVISOR)');
+  } else {
+    const provider = supervisorProvider();
+    const anthropic = hasAnthropicCredential()
+      ? `Anthropic ${anthropicModel()}`
+      : 'Anthropic (no credential)';
+    const bedrock = `Bedrock ${BEDROCK_MODEL_ID} in ${AWS_REGION}`;
+    console.log(`[server] supervisor: ${provider === 'anthropic' ? anthropic
+      : provider === 'bedrock' ? bedrock
+        : `${bedrock}, falling back to ${anthropic}`}`);
+  }
 });

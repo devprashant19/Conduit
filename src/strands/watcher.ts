@@ -17,53 +17,14 @@ import fs from 'fs';
 import { randomUUID } from 'crypto';
 import * as runtime from '../daemon/runtime.js';
 import { createSupervisorAgent, type SupervisorUpdate } from './agent.js';
-import { supervisorDisabled } from './config.js';
+import { supervisorDisabled, supervisorProvider } from './config.js';
 import {
   appendGroupChat, updateAgent, getAgent, getProjectData, readRecentAudit,
   type GroupChatEntry,
 } from '../storage.js';
 import { checkGate, stripAnsi } from '../gatePatterns.js';
 import type { DaemonMessage } from '../daemon/protocol.js';
-import { getClaudeToken } from '../usage.js';
-
-async function anthropicFallbackSupervisor(prompt: string, onUpdate: (update: SupervisorUpdate) => void) {
-  const token = getClaudeToken();
-  if (!token) throw new Error('No Anthropic token found. Please login to Claude Code.');
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + token,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'oauth-2025-04-20',
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 512,
-      system: 'You are a technical supervisor overseeing autonomous coding agents. Classify the terminal output below. The output must be valid JSON matching the schema.',
-      messages: [{ role: 'user', content: prompt }],
-      tools: [{
-        name: 'report_update',
-        description: 'Report the classification and summary.',
-        input_schema: {
-          type: 'object',
-          properties: {
-            classification: { type: 'string', enum: ['progress', 'blocker', 'question', 'risky_action', 'noise'] },
-            summary: { type: 'string' }
-          },
-          required: ['classification', 'summary']
-        }
-      }],
-      tool_choice: { type: 'tool', name: 'report_update' }
-    })
-  });
-
-  if (!res.ok) throw new Error(`Anthropic error: ${res.status} ${await res.text()}`);
-  const data = await res.json();
-  const toolCall = data.content?.find((c: any) => c.type === 'tool_use' && c.name === 'report_update');
-  if (toolCall?.input) onUpdate(toolCall.input as SupervisorUpdate);
-}
+import { classifyWithAnthropic, hasAnthropicCredential, currentModel } from './anthropic.js';
 
 type Broadcast = (msg: DaemonMessage) => void;
 
@@ -163,6 +124,52 @@ function isCredentialError(msg: string): boolean {
   return /credential|AccessDenied|UnrecognizedClient|ExpiredToken|not authorized|security token|Region is missing|ENOTFOUND|ECONNREFUSED/i.test(msg);
 }
 
+/** Consecutive Supervisor failures — drives the escalating backoff. */
+let supervisorFailures = 0;
+
+/**
+ * Back off after a failure so a permanently broken Supervisor (no credentials,
+ * a bad model id, an exhausted rate limit) can't fire one request per batch
+ * forever. 1 min, then 2, 4, 8, capped at 15.
+ */
+function backOff(reason: string, hint: string) {
+  supervisorFailures += 1;
+  const delay = Math.min(60_000 * 2 ** (supervisorFailures - 1), 15 * 60_000);
+  supervisorBackoffUntil = Date.now() + delay;
+  if (!supervisorWarned) {
+    supervisorWarned = true;
+    console.warn(
+      `[watcher] Supervisor unavailable: ${reason}\n`
+      + `          Pausing classification for ${Math.round(delay / 60_000)} min. ${hint}`,
+    );
+  }
+}
+
+/**
+ * Run one classification through the configured provider.
+ *
+ *   bedrock   — Strands + Bedrock only
+ *   anthropic — the Anthropic Messages API only
+ *   auto      — Bedrock, then Anthropic if Bedrock has no usable credentials
+ */
+async function classify(prompt: string, onUpdate: (u: SupervisorUpdate) => void): Promise<void> {
+  const provider = supervisorProvider();
+
+  if (provider === 'anthropic') {
+    onUpdate(await classifyWithAnthropic(prompt));
+    return;
+  }
+
+  try {
+    await createSupervisorAgent(onUpdate).invoke(prompt);
+  } catch (err) {
+    const msg = describeError(err);
+    if (provider === 'bedrock' || !isCredentialError(msg) || !hasAnthropicCredential()) throw err;
+    console.log(`[watcher] Bedrock unavailable (${msg}) — falling back to the Anthropic API.`);
+    onUpdate(await classifyWithAnthropic(prompt));
+  }
+}
+
 async function processBuffer(state: WatcherState) {
   if (state.isProcessing || !state.buffer.trim()) return;
   if (supervisorDisabled()) { state.buffer = ''; return; }
@@ -217,8 +224,6 @@ async function processBuffer(state: WatcherState) {
     state.broadcast({ kind: 'event', event: 'supervisor:update', payload });
   };
 
-  const supervisor = createSupervisorAgent(handleUpdate);
-
   const prompt = [
     `Agent: ${agentName} (id ${state.agentId}) on project "${projectName}" (id ${state.projectId}).`,
     state.recent.length ? `Your recent reports for this agent:\n${state.recent.join('\n')}` : '',
@@ -230,36 +235,24 @@ async function processBuffer(state: WatcherState) {
   ].filter(Boolean).join('\n\n');
 
   try {
-    const isForcedAnthropic = process.env.SUPERVISOR_PROVIDER === 'anthropic';
-    if (isForcedAnthropic) {
-      await anthropicFallbackSupervisor(prompt, handleUpdate);
-      supervisorWarned = false;
-    } else {
-      try {
-        await supervisor.invoke(prompt);
-        supervisorWarned = false;
-      } catch (err) {
-        const msg = describeError(err);
-        if (isCredentialError(msg)) {
-          console.log(`[watcher] Bedrock error (${msg}), falling back to Anthropic...`);
-          await anthropicFallbackSupervisor(prompt, handleUpdate);
-          supervisorWarned = false;
-        } else {
-          throw err;
-        }
-      }
-    }
+    await classify(prompt, handleUpdate);
+    // A good turn clears the failure streak and re-arms the warning.
+    supervisorFailures = 0;
+    supervisorWarned = false;
   } catch (err) {
     const msg = describeError(err);
-    if (isCredentialError(msg)) {
-      supervisorBackoffUntil = Date.now() + 10 * 60 * 1000;
-      if (!supervisorWarned) {
-        supervisorWarned = true;
-        console.warn(`[watcher] Supervisor unavailable (${msg}). Set AWS credentials or use SUPERVISOR_PROVIDER=anthropic.`);
-      }
+    const kind = (err as { kind?: string })?.kind;
+    let hint: string;
+    if (kind === 'auth' || isCredentialError(msg)) {
+      hint = 'Set AWS credentials for Bedrock, or ANTHROPIC_API_KEY with SUPERVISOR_PROVIDER=anthropic. CONDUIT_SUPERVISOR=off silences this.';
+    } else if (kind === 'rate-limit') {
+      hint = `Every candidate model is rate-limited on this credential. Pin a cheaper one with ANTHROPIC_MODEL_ID (currently trying ${currentModel()}), or use an ANTHROPIC_API_KEY.`;
+    } else if (kind === 'model') {
+      hint = `No usable model. Check ANTHROPIC_MODEL_ID (currently ${currentModel()}).`;
     } else {
-      console.error(`[watcher] Supervisor error for ${agentName}:`, msg);
+      hint = 'This is usually transient; classification resumes automatically.';
     }
+    backOff(`${msg} (agent ${agentName})`, hint);
   } finally {
     state.isProcessing = false;
     if (state.buffer.trim() && !state.timer) {

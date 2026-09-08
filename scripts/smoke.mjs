@@ -15,6 +15,32 @@ import { WebSocket } from 'ws';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+/** True when `cmd` is not on PATH. */
+function cliMissing(cmd) {
+  const probe = process.platform === 'win32'
+    ? spawnSync('where', [cmd], { shell: true, stdio: 'ignore' })
+    : spawnSync('which', [cmd], { stdio: 'ignore' });
+  return probe.status !== 0;
+}
+
+/**
+ * The gate test needs a PTY that lands in a plain shell, so `echo` actually
+ * echoes and the watcher sees a literal y/N prompt. Pick an agent type whose
+ * CLI is NOT installed — an installed CLI opens an interactive TUI that
+ * swallows the keystrokes instead. (`codex` is excluded: it runs on
+ * app-server, not a PTY.) Returns null when every candidate is installed.
+ */
+function pickShellCli() {
+  const candidates = [
+    { cli: 'opencode', bin: 'opencode' },
+    { cli: 'gemini', bin: 'gemini' },
+    { cli: 'gpt', bin: 'aider' },
+    { cli: 'nemotron', bin: 'aider' },
+  ];
+  return candidates.find((c) => cliMissing(c.bin))?.cli ?? null;
+}
 
 const BASE = process.env.CONDUIT_URL || 'http://localhost:3200';
 const AUTH = process.env.CONDUIT_AUTH || '';
@@ -251,9 +277,14 @@ try {
   // Start an agent whose CLI is (almost certainly) not installed, so the
   // PTY drops to a plain shell. Echo a y/N prompt through it: the watcher's
   // fast path must raise a gate, and approving must answer it.
-  if (!SKIP_AGENT) {
-    console.log('\n  gate flow via a shell echo…');
-    const g = await api('POST', `/projects/${projectId}/agents`, { name: 'Gatekeeper', cli: 'opencode' });
+  const shellCli = pickShellCli();
+  if (!SKIP_AGENT && !shellCli) {
+    console.log('\n  gate flow: skipped — every candidate CLI is installed, so no agent');
+    console.log('  lands in a plain shell. `npm test` covers the gate patterns directly.');
+  }
+  if (!SKIP_AGENT && shellCli) {
+    console.log(`\n  gate flow via a shell echo (cli=${shellCli}, binary not installed)…`);
+    const g = await api('POST', `/projects/${projectId}/agents`, { name: 'Gatekeeper', cli: shellCli });
     ok(g.status === 201, 'POST agent Gatekeeper');
     const gate = g.json;
     ws.send(JSON.stringify({ type: 'terminal:attach', agentId: gate.id }));

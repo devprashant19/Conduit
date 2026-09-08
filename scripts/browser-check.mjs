@@ -74,6 +74,16 @@ try {
     const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true }, sessionId);
     return r.result?.result?.value;
   };
+
+  // `/` serves the marketing landing page; the dashboard is behind its CTA.
+  // Click through so the rest of the checks run against the control center.
+  const onLanding = await evalText('!!document.querySelector(".landing-btn-black")');
+  if (onLanding) {
+    console.log('  landing page shown — clicking "Open Control Center"');
+    await evalText(`[...document.querySelectorAll('button')].find(b => /open control center/i.test(b.textContent))?.click()`);
+    await sleep(4000);
+  }
+
   const title = await evalText('document.title');
   const footer = await evalText('document.querySelector(".st-r")?.innerText || ""');
   const body = await evalText('document.body.innerText.slice(0, 300)');

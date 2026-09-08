@@ -18,6 +18,21 @@ export function supervisorDisabled(): boolean {
   return v === '0' || v === 'off' || v === 'false';
 }
 
+/**
+ * Which backend classifies agent output.
+ *   'bedrock'   — Strands + Amazon Bedrock only
+ *   'anthropic' — the Anthropic Messages API only (ANTHROPIC_API_KEY, or the
+ *                 Claude Code OAuth token on this machine)
+ *   'auto'      — Bedrock first, Anthropic when Bedrock has no usable
+ *                 credentials (the default)
+ */
+export function supervisorProvider(): 'auto' | 'anthropic' | 'bedrock' {
+  const v = (process.env.SUPERVISOR_PROVIDER || '').trim().toLowerCase();
+  if (v === 'anthropic' || v === 'claude') return 'anthropic';
+  if (v === 'bedrock' || v === 'aws') return 'bedrock';
+  return 'auto';
+}
+
 // Credentials: the Strands BedrockModel builds its own BedrockRuntimeClient,
 // which uses the standard AWS SDK provider chain — AWS_ACCESS_KEY_ID /
 // AWS_SECRET_ACCESS_KEY from the environment or .env, ~/.aws/credentials, or
