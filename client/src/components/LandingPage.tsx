@@ -260,7 +260,7 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
             You stay in control.
           </h2>
           <p className="demo-showcase-desc">
-            Coordinate Claude, Codex, Gemini, and OpenCode from one unified workspace while Conduit's Supervisor continuously monitors terminal output for blockers and dangerous commands.
+            Coordinate Claude, Codex, Gemini, OpenCode, GPT-OSS, and Nemotron from one unified workspace while Conduit's Supervisor continuously monitors terminal output for blockers and dangerous commands.
           </p>
         </div>
 
@@ -344,7 +344,7 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
             </div>
             {openFaq === 0 && (
               <div className="faq-answer">
-                Conduit is a multi-agent control center for professional software engineers who want to run multiple AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode) side by side in real terminals while retaining full visibility and veto power over actions.
+                Conduit is a multi-agent control center for professional software engineers who want to run multiple AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode, GPT-OSS on Groq, Nemotron on OpenRouter) side by side in real terminals while retaining full visibility and veto power over actions.
               </div>
             )}
           </div>

@@ -33,6 +33,19 @@ function getHubUrl(): string {
   return process.env.CONDUIT_HUB_URL || `http://localhost:${process.env.PORT || '3200'}`;
 }
 
+/**
+ * Environment handed to an agent's shell.
+ *
+ * Strips ELECTRON_RUN_AS_NODE: in the desktop build the daemon runs under it,
+ * and inheriting it would make any Electron app the agent launches (VS Code,
+ * say) boot headless as Node and appear to do nothing.
+ */
+function agentEnv(): Record<string, string> {
+  const env = { ...process.env } as Record<string, string>;
+  delete env.ELECTRON_RUN_AS_NODE;
+  return env;
+}
+
 /** Expand leading ~ to the user's home directory */
 function expandHome(p: string): string {
   if (p.startsWith('~/') || p === '~') {
@@ -246,23 +259,50 @@ function getCliCommand(agent: Agent, sharedPath: string, wikiPath: string, mcpCo
       args.push('--add-dir', wikiPath);
       return { cmd: 'codex', args };
     case 'gpt':
-      args.push('--model', 'groq/openai/gpt-oss-120b');
-      return { cmd: 'aider', args };
+      return { cmd: 'aider', args: aiderArgs('groq/openai/gpt-oss-120b', cwd) };
     case 'nemotron':
-      args.push('--model', 'openrouter/nvidia/nemotron-3.5-lightning:free');
-      return { cmd: 'aider', args };
+      return { cmd: 'aider', args: aiderArgs('openrouter/nvidia/nemotron-3.5-lightning:free', cwd) };
+  }
+}
+
+/**
+ * Shared aider invocation for the API-backed agent types.
+ *
+ * `--read AGENTS.md` matters: aider does not pick up AGENTS.md on its own, so
+ * without this the Conduit section we just wrote (shared-content path, wiki
+ * path) would be invisible to the agent.
+ *
+ * `--no-auto-commits` is deliberate — aider commits after every edit by
+ * default, which would slip changes past the approval gates and into the
+ * user's history. `--yes-always` is deliberately NOT set for the same reason:
+ * aider's own confirmations are what the regex gate detects.
+ */
+function aiderArgs(model: string, cwd: string): string[] {
+  return [
+    '--model', model,
+    '--read', path.join(cwd, 'AGENTS.md'),
+    '--no-auto-commits',
+    '--no-check-update',
+  ];
+}
+
+export class AgentStartError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AgentStartError';
   }
 }
 
 export function startAgent(agent: Agent, onStatus: (agentId: string, status: string) => void): boolean {
   if (!pty) {
-    console.error('Cannot start agent: node-pty not available');
-    return false;
+    throw new AgentStartError(
+      'node-pty is not available, so Conduit cannot open terminals. Reinstall dependencies (`npm install`) and make sure your platform build tools are present.',
+    );
   }
   if (sessions.has(agent.id)) return true;
 
   const projectData = getProjectData(agent.projectId);
-  if (!projectData) return false;
+  if (!projectData) throw new AgentStartError('Project not found.');
 
   const projectName = projectData.project.name;
   const sharedPath = ensureSharedDir(projectName);
@@ -331,7 +371,7 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
       cols: 120,
       rows: 30,
       cwd,
-      env: process.env as Record<string, string>,
+      env: agentEnv(),
     });
   } catch (err) {
     console.error(`Failed to spawn PTY for agent ${agent.id}:`, err);

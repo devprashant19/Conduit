@@ -6165,6 +6165,8 @@ textarea {
 .agent-brand-avatar.supervisor,
 .agent-brand-avatar.gemini,
 .agent-brand-avatar.opencode,
+.agent-brand-avatar.gpt,
+.agent-brand-avatar.nemotron,
 .agent-brand-avatar.voice {
   background: #0f0f11;
   color: #ffffff;

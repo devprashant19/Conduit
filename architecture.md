@@ -33,6 +33,8 @@ graph TB
         AgentCodex["Codex CLI (App-Server)"]
         AgentGemini["Gemini CLI (PTY Shell)"]
         AgentOpenCode["OpenCode (PTY Shell)"]
+        AgentGpt["GPT-OSS via aider (PTY Shell, Groq)"]
+        AgentNemotron["Nemotron via aider (PTY Shell, OpenRouter)"]
     end
 
     subgraph Storage_Layer ["Local Persistence (~/.conduit)"]
@@ -49,6 +51,8 @@ graph TB
     PTYManager -->|Spawns Pseudo-Terminals| AgentCodex
     PTYManager -->|Spawns Pseudo-Terminals| AgentGemini
     PTYManager -->|Spawns Pseudo-Terminals| AgentOpenCode
+    PTYManager -->|Spawns Pseudo-Terminals| AgentGpt
+    PTYManager -->|Spawns Pseudo-Terminals| AgentNemotron
     AgentClaude -->|Lifecycle HTTP Hooks| HookServer
     HookServer --> DaemonCore
     DaemonCore <--> Storage_Layer

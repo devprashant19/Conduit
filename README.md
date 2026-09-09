@@ -2,7 +2,7 @@
 
 **The human-driven multi-agent control center for professional engineers.**
 
-Conduit is a web dashboard for running and supervising several AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode) side by side. Every agent runs in a real terminal you can see and type into. An AI Supervisor built on the **AWS Strands Agents SDK** and **Amazon Bedrock** watches their output, tells you what matters, and asks for your approval before anything risky happens.
+Conduit is a web dashboard for running and supervising several AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode, GPT-OSS on Groq, Nemotron on OpenRouter) side by side. Every agent runs in a real terminal you can see and type into. An AI Supervisor built on the **AWS Strands Agents SDK** and **Amazon Bedrock** watches their output, tells you what matters, and asks for your approval before anything risky happens.
 
 While autonomous agent platforms hand the steering wheel to the AI, Conduit keeps you in the driver's seat.
 
@@ -81,6 +81,15 @@ npm run build:desktop
 - Node.js 20+
 - Build tools for `node-pty` (Windows: Visual Studio Build Tools; macOS: `xcode-select --install`; Linux: `build-essential`)
 - At least one agent CLI on your PATH and logged in: `claude`, `codex`, `gemini`, or `opencode`
+- For the `gpt` and `nemotron` agent types, [aider](https://aider.chat) plus the matching API key:
+
+  ```bash
+  uv tool install --python 3.12 aider-chat   # aider supports Python >=3.10,<3.13
+  ```
+
+  then set `GROQ_API_KEY` (gpt → `openai/gpt-oss-120b`) and/or `OPENROUTER_API_KEY`
+  (nemotron → `nvidia/nemotron-3.5-lightning:free`) in `.env`. Conduit checks for the
+  binary and the key before starting an agent and tells you which one is missing.
 - `curl` (used by Claude Code lifecycle hooks; present on Windows 10+, macOS and most Linux)
 
 Optional:
@@ -192,10 +201,12 @@ When an agent starts, Conduit writes a `CLAUDE.md` / `AGENTS.md` section in its 
 | `npm run start:all` | Production: daemon + web server |
 | `npm run daemon` / `npm start` | Run either process alone |
 | `npm run smoke` | End-to-end smoke test against a running instance |
+| `npm run check:agents` | Start one agent of every CLI type and report which run (and why the rest don't) |
+| `npm run build:desktop` | Icon + full build + electron-builder → `dist-desktop/` |
 
 ## Deployment (Docker / EC2)
 
-The image installs the agent CLIs, `curl` and `git`. Agents still need to be logged in: mount your `~/.claude`, `~/.codex`, `~/.gemini` folders (as the compose file does) or run `docker compose exec conduit claude login` once. Put your repositories under the mounted `workspace` folder and use `/workspace/<repo>` as the project directory.
+The image installs the agent CLIs (including `aider` for the gpt/nemotron types), `curl` and `git`. Agents still need to be logged in: mount your `~/.claude`, `~/.codex`, `~/.gemini` folders (as the compose file does) or run `docker compose exec conduit claude login` once. Put your repositories under the mounted `workspace` folder and use `/workspace/<repo>` as the project directory.
 
 ```bash
 export CONDUIT_AUTH=admin:choose-a-strong-password   # required by the compose file

@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A web dashboard for running and supervising several coding CLI agents (Claude Code, Codex, Gemini CLI, OpenCode) in parallel, organised by project. Every agent runs in a real terminal the user can see and type into. A Supervisor (AWS Strands Agents SDK on Amazon Bedrock) watches agent output, summarises it into a per-project Group Chat, raises **approval gates** for risky actions, and can only *propose* instructions (plans) that the human approves.
+A web dashboard for running and supervising several coding CLI agents (Claude Code, Codex, Gemini CLI, OpenCode, plus GPT-OSS on Groq and Nemotron on OpenRouter — both driven through `aider`) in parallel, organised by project. Every agent runs in a real terminal the user can see and type into. A Supervisor (AWS Strands Agents SDK on Amazon Bedrock) watches agent output, summarises it into a per-project Group Chat, raises **approval gates** for risky actions, and can only *propose* instructions (plans) that the human approves.
 
 Human-driven: the user decides. The Supervisor never sends an instruction to an agent without an approved plan.
 
