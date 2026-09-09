@@ -115,10 +115,30 @@ async function fetchCodexUsage(): Promise<UsageData | null> {
 }
 
 // --- Public API ---
+/**
+ * Cached usage. Both a success and a failure are cached: without negative
+ * caching a credential that exists but cannot be used turns every
+ * `GET /api/usage` (which the sidebar polls) into a fresh outbound request.
+ */
+let claudeFailedUntil = 0;
+let codexFailedUntil = 0;
+const FAILURE_BACKOFF = 5 * 60 * 1000;
+
 export async function getUsage(): Promise<AllUsage> {
   const now = Date.now();
-  const claude = (claudeCache && now - claudeLastFetch < POLL_INTERVAL) ? claudeCache : await fetchClaudeUsage();
-  const codex = (codexCache && now - codexLastFetch < POLL_INTERVAL) ? codexCache : await fetchCodexUsage();
+
+  let claude = claudeCache;
+  if (!(claudeCache && now - claudeLastFetch < POLL_INTERVAL) && now >= claudeFailedUntil) {
+    claude = await fetchClaudeUsage();
+    if (!claude) claudeFailedUntil = Date.now() + FAILURE_BACKOFF;
+  }
+
+  let codex = codexCache;
+  if (!(codexCache && now - codexLastFetch < POLL_INTERVAL) && now >= codexFailedUntil) {
+    codex = await fetchCodexUsage();
+    if (!codex) codexFailedUntil = Date.now() + FAILURE_BACKOFF;
+  }
+
   return { claude, codex };
 }
 
