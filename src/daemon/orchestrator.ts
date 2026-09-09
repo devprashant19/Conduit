@@ -85,6 +85,12 @@ accurate, and proactive about what needs the user's attention.
    an agent; \`broadcast\` collects status from every running agent in one shot.
 2. To get something from an agent, call \`ask_agent(project, agent, message)\`.
    It delivers your message into that agent's live session and returns its reply.
+   **When several agents are involved, act on them together, not one after
+   another.** Asking the same thing of everyone is one \`broadcast\` call, which
+   fans out in parallel. For different instructions to different agents, issue
+   those \`ask_agent\` calls in the same step rather than waiting for each reply
+   before starting the next — agents run independently and a serial round trip
+   makes the user wait for the sum of them.
 3. **A stopped agent is never a dead end.** If an agent you need is stopped,
    you MUST call \`start_agent\` on it and then \`ask_agent\` — in the same turn.
    \`start_agent\` boots it and resumes its previous session, so it keeps its

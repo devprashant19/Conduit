@@ -128,6 +128,44 @@ function isCredentialError(msg: string): boolean {
 let supervisorFailures = 0;
 
 /**
+ * How many classifications may be in flight at once, across every agent.
+ *
+ * Each agent has its own 20s throttle, so N working agents make N times the
+ * requests and they arrive together. That is what trips a provider rate limit
+ * in the first place — and the resulting backoff then silences supervision for
+ * every agent at once. Queueing here prevents the burst instead of reacting
+ * to it, which matters as soon as agents are worked in parallel.
+ */
+const MAX_CONCURRENT_CLASSIFICATIONS = 2;
+let inFlight = 0;
+const waiting: Array<() => void> = [];
+
+async function acquireSlot(): Promise<void> {
+  if (inFlight < MAX_CONCURRENT_CLASSIFICATIONS) { inFlight += 1; return; }
+  await new Promise<void>((resolve) => waiting.push(resolve));
+  inFlight += 1;
+}
+
+function releaseSlot(): void {
+  inFlight = Math.max(0, inFlight - 1);
+  const next = waiting.shift();
+  if (next) next();
+}
+
+/**
+ * Is this failure the provider's fault rather than this agent's?
+ *
+ * A dead credential or an exhausted quota affects everyone, so pausing
+ * globally is right. A one-off parse or tool error does not, and letting it
+ * mute supervision for every other agent means gates silently stop being
+ * raised across the whole conduit.
+ */
+function isProviderFailure(kind: string | undefined, msg: string): boolean {
+  return kind === 'auth' || kind === 'rate-limit' || kind === 'model'
+    || kind === 'network' || isCredentialError(msg);
+}
+
+/**
  * Back off after a failure so a permanently broken Supervisor (no credentials,
  * a bad model id, an exhausted rate limit) can't fire one request per batch
  * forever. 1 min, then 2, 4, 8, capped at 15.
@@ -235,7 +273,14 @@ async function processBuffer(state: WatcherState) {
   ].filter(Boolean).join('\n\n');
 
   try {
-    await classify(prompt, handleUpdate);
+    // Bounded concurrency: several agents finishing together would otherwise
+    // fire their classifications simultaneously.
+    await acquireSlot();
+    try {
+      await classify(prompt, handleUpdate);
+    } finally {
+      releaseSlot();
+    }
     // A good turn clears the failure streak and re-arms the warning.
     supervisorFailures = 0;
     supervisorWarned = false;
@@ -252,7 +297,12 @@ async function processBuffer(state: WatcherState) {
     } else {
       hint = 'This is usually transient; classification resumes automatically.';
     }
-    backOff(`${msg} (agent ${agentName})`, hint);
+    if (isProviderFailure(kind, msg)) {
+      backOff(`${msg} (agent ${agentName})`, hint);
+    } else {
+      // This agent's problem, not the Supervisor's — let everyone else carry on.
+      console.warn(`[watcher] classification failed for ${agentName}: ${msg}`);
+    }
   } finally {
     state.isProcessing = false;
     if (state.buffer.trim() && !state.timer) {

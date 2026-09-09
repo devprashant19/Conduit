@@ -5392,6 +5392,21 @@ textarea {
   margin-bottom: 12px;
 }
 
+/* Count of other agents blocked behind this gate. Quiet on purpose — it is
+   context for the decision, not the decision itself. */
+.gate-queued {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: var(--warn-dim, rgba(201, 100, 66, 0.14));
+  color: var(--warn, #c96442);
+  border: 1px solid var(--warn, #c96442);
+  white-space: nowrap;
+}
+
 .modal-head h2 {
   margin: 0;
   display: inline-flex;

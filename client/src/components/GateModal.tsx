@@ -6,13 +6,15 @@ interface Props {
   project?: Project;
   agent?: Agent;
   gate?: PendingGate;
+  /** Total agents blocked on an approval, this one included. */
+  queued?: number;
   onClose: () => void;
   onResolve: (decision: 'approve' | 'reject' | 'custom', customInput?: string) => Promise<void> | void;
 }
 
 const YES_NO = /\[y\/N\]|\[Y\/n\]|\(yes\/no\)|\(y\/n\)/i;
 
-export default function GateModal({ project, agent, gate, onClose, onResolve }: Props) {
+export default function GateModal({ project, agent, gate, queued = 1, onClose, onResolve }: Props) {
   const [customInput, setCustomInput] = useState('');
   const [showCustom, setShowCustom] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,6 +61,13 @@ export default function GateModal({ project, agent, gate, onClose, onResolve }: 
         <div className="modal-head">
           <h2 id="gate-title">
             <Ic.stop size={12} /> {agent.name} needs your decision
+            {/* Gates queue one at a time, so without this you cannot tell
+                whether one agent is blocked or five are. */}
+            {queued > 1 && (
+              <span className="gate-queued" title={`${queued} agents are blocked on an approval`}>
+                +{queued - 1} more waiting
+              </span>
+            )}
           </h2>
           <button className="hbtn" onClick={onClose} aria-label="Close" title="Close (Esc)"><Ic.x size={14} /></button>
         </div>

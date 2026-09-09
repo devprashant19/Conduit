@@ -688,6 +688,21 @@ export default function App() {
   // on is bounded.
   const alwaysOn = wakeEnabled;
 
+  /**
+   * How many agents are blocked on an approval right now.
+   *
+   * Gates queue correctly — resolving one opens the next — but only one is
+   * ever on screen, so with several agents working in parallel there was no
+   * way to tell whether one was waiting or five were.
+   */
+  const pendingGateCount = useMemo(() => {
+    let n = 0;
+    for (const list of agents.values()) {
+      for (const a of list) if (a.pendingGate && a.status !== 'stopped') n += 1;
+    }
+    return n;
+  }, [agents]);
+
   /** Flat roster across every project, for addressing an agent by name. */
   const voiceRoster: RosterAgent[] = useMemo(() => {
     const out: RosterAgent[] = [];
@@ -1196,6 +1211,7 @@ export default function App() {
             project={projects.find(p => p.id === activeGateAgent.projectId)}
             agent={gatedAgent}
             gate={gatedAgent?.pendingGate}
+            queued={pendingGateCount}
             onClose={() => setActiveGateAgent(null)}
             onResolve={handleResolveGate}
           />

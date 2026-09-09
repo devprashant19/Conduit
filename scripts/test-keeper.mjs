@@ -52,7 +52,9 @@ ws.on('message', (raw) => {
   if (p.kind === 'state' && p.state?.engine) engine = p.state.engine;
   if (p.kind === 'append' && p.message) {
     const { role, text, tool } = p.message;
-    messages.push({ role, tool, text: String(text || '') });
+    // Stamp arrival so serial and parallel tool use can be told apart: three
+    // calls issued together look very different from three round trips.
+    messages.push({ role, tool, text: String(text || ''), at: Date.now() });
     if (role === 'assistant') answer = String(text || '');   // last one wins
     if (role === 'error') errorText = String(text || '');
   }
@@ -91,7 +93,25 @@ console.log(`elapsed       : ${elapsed}s`);
 const tools = messages.filter((m) => m.role === 'tool');
 if (tools.length) {
   console.log(`\ntools called  : ${tools.length}`);
-  for (const t of tools.slice(0, 8)) console.log(`  · ${t.tool}: ${t.text.slice(0, 90)}`);
+  for (const t of tools.slice(0, 8)) {
+    const at = ((t.at - started) / 1000).toFixed(1).padStart(5);
+    console.log(`  ${at}s  ${t.tool}: ${t.text.slice(0, 80)}`);
+  }
+  // Find the largest run of calls issued within a moment of each other.
+  // A gap after a *different* tool is expected — reading the project list
+  // before acting on it is genuinely sequential — so what matters is whether
+  // the repeated calls came out as one batch.
+  const gaps = tools.slice(1).map((t, i) => t.at - tools[i].at);
+  if (gaps.length) {
+    console.log(`  gaps: ${gaps.map((g) => (g / 1000).toFixed(1) + 's').join(', ')}`);
+    let run = 1, best = 1;
+    for (const g of gaps) {
+      if (g < 1500) { run += 1; best = Math.max(best, run); } else { run = 1; }
+    }
+    console.log(best > 1
+      ? `  ✓ ${best} calls dispatched together (largest batch)`
+      : '  · every call waited for the one before it');
+  }
 }
 
 if (errorText) {
