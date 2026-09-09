@@ -41,7 +41,8 @@ src/
     agent.ts           Supervisor agent (BedrockModel + report_update / plan_action tools)
     watcher.ts         per-agent watchdog: fast regex gates + batched Supervisor calls
     tools.ts, config.ts
-  voice/               STT/TTS providers + settings
+  voice/               STT/TTS providers + settings (browser | groq | openai | gemini;
+                       groq is STT-only and the recommended engine)
 client/src/
   App.tsx              state owner; ws events → agents/gates/plans; modals
   hooks/useWebSocket   reconnecting socket; subscribe(); ws:open/ws:close frames

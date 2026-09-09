@@ -68,7 +68,7 @@ const IDLE_RECYCLE_MS = 10_000;
 /** Absolute floor, so a silent room never trips the gate. */
 const MIN_SPEECH_RMS = 0.02;
 
-export type WakeProvider = 'browser' | 'openai' | 'gemini';
+export type WakeProvider = 'browser' | 'openai' | 'gemini' | 'groq';
 export type ListenMode = 'wake' | 'conversation';
 
 interface WakeOptions {

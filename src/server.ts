@@ -20,6 +20,7 @@ import { PROVIDERS } from './voice/providers.js';
 import { loadConfig as loadVoiceConfig, saveConfig as saveVoiceConfig, hasKey, saveApiKeys } from './voice/config.js';
 import { transcribeOpenAI, ttsOpenAI } from './voice/openai.js';
 import { transcribeGemini, ttsGemini } from './voice/gemini.js';
+import { transcribeGroq } from './voice/groq.js';
 import { authMiddleware, isAuthorized, isAuthEnabled } from './auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -221,7 +222,7 @@ app.get('/api/voice/config', (_req, res) => {
   res.json({
     config: loadVoiceConfig(),
     providers: PROVIDERS,
-    keys: { openai: hasKey('openai'), gemini: hasKey('gemini') },
+    keys: { openai: hasKey('openai'), gemini: hasKey('gemini'), groq: hasKey('groq') },
   });
 });
 
@@ -229,7 +230,7 @@ app.put('/api/voice/config', (req, res) => {
   try {
     const body = (req.body || {}) as {
       stt?: unknown; tts?: unknown;
-      apiKeys?: { openai?: string; gemini?: string };
+      apiKeys?: { openai?: string; gemini?: string; groq?: string };
     };
     // Settings (stt/tts) live in voice.json.
     if (body.stt || body.tts) {
@@ -284,7 +285,9 @@ app.post(
       // The browser may pass the language it wants; otherwise use the saved one.
       const language = (typeof req.query.language === 'string' && req.query.language) || cfg.stt.language || undefined;
       let text = '';
-      if (cfg.stt.provider === 'openai') {
+      if (cfg.stt.provider === 'groq') {
+        text = await transcribeGroq(audio, mime, cfg.stt.model, language);
+      } else if (cfg.stt.provider === 'openai') {
         text = await transcribeOpenAI(audio, mime, cfg.stt.model, language);
       } else if (cfg.stt.provider === 'gemini') {
         text = await transcribeGemini(audio, mime, cfg.stt.model, language);
@@ -317,7 +320,9 @@ app.post('/api/voice/tts', async (req, res) => {
     } else if (provider === 'gemini') {
       out = await ttsGemini(text, model, voice);
     } else {
-      res.status(400).json({ error: 'TTS provider is "browser" — synthesis happens in the browser, not here' });
+      // Names the provider actually configured. Groq is speech-to-text only
+      // in Conduit, so it lands here too and speaks with the browser voice.
+      res.status(400).json({ error: `TTS provider is "${provider}" — synthesis happens in the browser, not here` });
       return;
     }
     res.setHeader('Content-Type', out.mime);

@@ -50,7 +50,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   ws: WsApi;
-  sttCfg: { provider: 'browser' | 'openai' | 'gemini'; language: string };
+  sttCfg: { provider: 'browser' | 'openai' | 'gemini' | 'groq'; language: string };
 }
 
 const EXAMPLES = [

@@ -27,7 +27,7 @@ interface Props {
   working: boolean;
   lastReply: { text: string; ts: number } | null;
   onClearReply: () => void;
-  sttCfg: { provider: 'browser' | 'openai' | 'gemini'; language: string };
+  sttCfg: { provider: 'browser' | 'openai' | 'gemini' | 'groq'; language: string };
   /** Spoken output on/off. Owned by App — this component only toggles it. */
   voiceOut: boolean;
   onToggleVoiceOut: () => void;

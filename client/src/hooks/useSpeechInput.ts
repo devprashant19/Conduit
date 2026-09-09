@@ -26,7 +26,7 @@ const SETTLE_MS = 1100;
 
 type SpeechResultHandler = (text: string, final: boolean) => void;
 export interface SpeechOptions {
-  provider?: 'browser' | 'openai' | 'gemini';
+  provider?: 'browser' | 'openai' | 'gemini' | 'groq';
   language?: string;
 }
 

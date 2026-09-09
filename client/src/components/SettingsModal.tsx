@@ -11,7 +11,7 @@ import Ic from './Icons';
 interface ModelOption { id: string; label: string }
 interface VoiceOption { id: string; label: string }
 interface ProviderSpec {
-  id: 'browser' | 'openai' | 'gemini';
+  id: 'browser' | 'openai' | 'gemini' | 'groq';
   label: string;
   needsKey?: 'OPENAI_API_KEY' | 'GEMINI_API_KEY';
   sttModels?: ModelOption[];
@@ -21,14 +21,14 @@ interface ProviderSpec {
 
 interface VoiceConfig {
   stt: {
-    provider: 'browser' | 'openai' | 'gemini';
+    provider: 'browser' | 'openai' | 'gemini' | 'groq';
     model: string;
     language: string;
     saveRecordings: boolean;
   };
   tts: {
     enabled: boolean;
-    provider: 'browser' | 'openai' | 'gemini';
+    provider: 'browser' | 'openai' | 'gemini' | 'groq';
     model: string;
     voice: string;
     speed: number;
@@ -110,7 +110,7 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
 
   const sttProv = providers.find((p) => p.id === cfg.stt.provider);
   const ttsProv = providers.find((p) => p.id === cfg.tts.provider);
-  const keyOK = (id: 'browser' | 'openai' | 'gemini') =>
+  const keyOK = (id: 'browser' | 'openai' | 'gemini' | 'groq') =>
     id === 'browser' ? true : id === 'openai' ? keys.openai : keys.gemini;
 
   const sttProviders = providers.filter(

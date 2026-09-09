@@ -10,10 +10,10 @@
 export interface ModelOption { id: string; label: string }
 export interface VoiceOption { id: string; label: string }
 export interface ProviderSpec {
-  id: 'browser' | 'openai' | 'gemini';
+  id: 'browser' | 'openai' | 'gemini' | 'groq';
   label: string;
   /** env var name — UI shows whether it's set. */
-  needsKey?: 'OPENAI_API_KEY' | 'GEMINI_API_KEY';
+  needsKey?: 'OPENAI_API_KEY' | 'GEMINI_API_KEY' | 'GROQ_API_KEY';
   sttModels?: ModelOption[];
   ttsModels?: ModelOption[];
   voices?: VoiceOption[];
@@ -21,6 +21,20 @@ export interface ProviderSpec {
 
 export const PROVIDERS: ProviderSpec[] = [
   { id: 'browser', label: 'Browser (free, current default)' },
+
+  {
+    // Recommended for speech-to-text: markedly more accurate than the browser
+    // engine on names and technical words, sub-second in practice, and the
+    // only cheap option that also works inside the desktop app — where the
+    // browser recogniser cannot run at all.
+    id: 'groq',
+    label: 'Groq Whisper (fast, accurate, ~$0.04/hr)',
+    needsKey: 'GROQ_API_KEY',
+    sttModels: [
+      { id: 'whisper-large-v3-turbo', label: 'whisper-large-v3-turbo (fastest, $0.04/hr)' },
+      { id: 'whisper-large-v3', label: 'whisper-large-v3 (most accurate, $0.111/hr)' },
+    ],
+  },
 
   {
     id: 'openai',

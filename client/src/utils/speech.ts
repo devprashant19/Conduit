@@ -13,7 +13,13 @@
 
 export interface TtsCfg {
   enabled: boolean;
-  provider: 'browser' | 'openai' | 'gemini';
+  /**
+   * Shares the STT provider union, but only 'openai' and 'gemini' synthesise
+   * server-side. Anything else — including 'groq', which Conduit uses for
+   * transcription only — speaks with the browser's local voice: free,
+   * offline, and unlimited.
+   */
+  provider: 'browser' | 'openai' | 'gemini' | 'groq';
   model: string;
   voice: string;
   speed: number;

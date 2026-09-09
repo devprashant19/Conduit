@@ -98,7 +98,14 @@ Optional:
 - A CLI for The Keeper (Command panel): `codex`, or `claude` — whichever is on PATH.
   Set `CONDUIT_KEEPER_ENGINE=claude` (or `codex`) to pin one; otherwise Conduit prefers
   `codex` and falls back to `claude`, so a Claude Code login is enough on its own.
-- `OPENAI_API_KEY` / `GEMINI_API_KEY` for cloud speech; the browser engines need nothing.
+- Speech-to-text: the browser engine is free and needs no key, but it is less
+  accurate on names and **cannot run inside the desktop app** (Chromium proxies
+  it to a Google service Electron has no keys for). For accuracy, latency, or
+  desktop voice, set the STT provider to **Groq Whisper** in Settings → Voice —
+  it reuses `GROQ_API_KEY`, costs about $0.04/hour, and answers in under a
+  second. `OPENAI_API_KEY` / `GEMINI_API_KEY` also work.
+- Text-to-speech is best left on the browser engine: local, free and unlimited.
+  OpenAI and Gemini are available if you want a better-sounding voice.
 - `ANTHROPIC_API_KEY` — lets the Supervisor fall back to the Anthropic Messages API when
   Bedrock is unavailable. Without it Conduit reuses the Claude Code OAuth token if present.
 

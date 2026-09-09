@@ -10,14 +10,14 @@ import { useCallback, useEffect, useState } from 'react';
 
 export interface VoiceCfg {
   stt: {
-    provider: 'browser' | 'openai' | 'gemini';
+    provider: 'browser' | 'openai' | 'gemini' | 'groq';
     model: string;
     language: string;
     saveRecordings: boolean;
   };
   tts: {
     enabled: boolean;
-    provider: 'browser' | 'openai' | 'gemini';
+    provider: 'browser' | 'openai' | 'gemini' | 'groq';
     model: string;
     voice: string;
     speed: number;

@@ -19,7 +19,7 @@ const KEYS_PATH = path.join(VOICE_DIR, 'api-keys.json');
 
 export interface VoiceConfig {
   stt: {
-    provider: 'browser' | 'openai' | 'gemini';
+    provider: 'browser' | 'openai' | 'gemini' | 'groq';
     model: string;
     language: string;
     /** Save each captured clip to ~/.conduit/voice-debug/ — for diagnosing
@@ -28,7 +28,7 @@ export interface VoiceConfig {
   };
   tts: {
     enabled: boolean;
-    provider: 'browser' | 'openai' | 'gemini';
+    provider: 'browser' | 'openai' | 'gemini' | 'groq';
     model: string;
     voice: string;
     /** Playback rate, 0.25–4.0. Honoured by OpenAI; Gemini ignores it. */
@@ -60,7 +60,7 @@ export function saveConfig(cfg: VoiceConfig): void {
 }
 
 /** API keys — stored in api-keys.json. .env still wins as an explicit override. */
-export interface ApiKeys { openai?: string; gemini?: string }
+export interface ApiKeys { openai?: string; gemini?: string; groq?: string }
 
 export function loadApiKeys(): ApiKeys {
   try {
@@ -69,6 +69,7 @@ export function loadApiKeys(): ApiKeys {
       return {
         openai: typeof raw.openai === 'string' ? raw.openai : undefined,
         gemini: typeof raw.gemini === 'string' ? raw.gemini : undefined,
+        groq: typeof raw.groq === 'string' ? raw.groq : undefined,
       };
     }
   } catch { /* ignore */ }
@@ -95,7 +96,7 @@ export function saveApiKeys(partial: ApiKeys): void {
   try { fs.chmodSync(KEYS_PATH, 0o600); } catch { /* ignore */ }
 }
 
-export function getApiKey(provider: 'openai' | 'gemini'): string | undefined {
+export function getApiKey(provider: 'openai' | 'gemini' | 'groq'): string | undefined {
   // .env takes precedence (explicit override for power users / CI), then file.
   if (provider === 'openai') {
     return process.env.OPENAI_API_KEY || loadApiKeys().openai || undefined;
@@ -108,10 +109,15 @@ export function getApiKey(provider: 'openai' | 'gemini'): string | undefined {
       undefined
     );
   }
+  if (provider === 'groq') {
+    // The same key the `gpt` agent type already uses, so voice works with no
+    // extra setup for anyone running GPT-OSS.
+    return process.env.GROQ_API_KEY || loadApiKeys().groq || undefined;
+  }
   return undefined;
 }
 
-export function hasKey(provider: 'browser' | 'openai' | 'gemini'): boolean {
+export function hasKey(provider: 'browser' | 'openai' | 'gemini' | 'groq'): boolean {
   if (provider === 'browser') return true;
   return !!getApiKey(provider);
 }
