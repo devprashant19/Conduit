@@ -94,7 +94,7 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
       cursorBlink: true,
       fontSize: 12.25,
       fontFamily: "'Consolas', 'Fira Code', monospace",
-      theme: isLight ? LIGHT_THEME : DARK_THEME,
+      theme: DARK_THEME,
       scrollback: 5000,
       allowProposedApi: true,
     });
