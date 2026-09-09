@@ -1881,7 +1881,7 @@ textarea {
   width: 100%;
   min-height: 0;
   overflow: hidden;
-  background: rgba(9, 9, 11, 0.85);
+  background: transparent;
   padding: 8px 6px 6px 12px;
   position: relative;
   max-width: 100%;
