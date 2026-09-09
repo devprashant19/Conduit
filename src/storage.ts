@@ -198,10 +198,30 @@ function saveProjectData(data: ProjectData) {
   fs.renameSync(tmp, file);
 }
 
+/** Thrown when a name would collide with an existing project. */
+export class DuplicateProjectError extends Error {
+  constructor(name: string) {
+    super(`A project named "${name}" already exists.`);
+    this.name = 'DuplicateProjectError';
+  }
+}
+
+/** True when another project already uses this (sanitized) name. */
+function nameTaken(name: string, exceptId?: string): boolean {
+  const norm = safeProjectName(name).toLowerCase();
+  return listProjects().some((p) => p.id !== exceptId && p.name.toLowerCase() === norm);
+}
+
 export function createProject(name: string, cwd: string, description?: string): Project {
+  const safeName = safeProjectName(name);
+  // Enforced here, not just in the routes: shared_content/ and wiki/ are keyed
+  // by name, so two projects sharing one would share (and delete) each other's
+  // data.
+  if (nameTaken(safeName)) throw new DuplicateProjectError(safeName);
+
   const project: Project = {
     id: uuid(),
-    name: safeProjectName(name),
+    name: safeName,
     description,
     cwd,
     createdAt: new Date().toISOString(),
@@ -224,6 +244,11 @@ export function updateProject(projectId: string, updates: Partial<Pick<Project, 
   // Shared content + wiki directories are keyed by name — move them along
   // with a rename so the project doesn't lose its data.
   if (next.name && next.name !== data.project.name) {
+    // Refuse a rename onto an existing name: the move below would be skipped
+    // and both projects would then share one shared_content/ and wiki/ dir,
+    // so deleting either with removeData would destroy the other's files.
+    if (nameTaken(next.name, projectId)) throw new DuplicateProjectError(next.name);
+
     for (const [from, to] of [
       [sharedDir(data.project.name), sharedDir(next.name)],
       [wikiDir(data.project.name), wikiDir(next.name)],

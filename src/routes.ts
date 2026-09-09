@@ -97,6 +97,12 @@ export function createRouter(
       res.status(400).json({ error: 'name and cwd are required' });
       return;
     }
+    // Validate before touching the filesystem — a rejected request must not
+    // leave a stray directory behind.
+    if (storage.listProjects().some((p) => p.name.toLowerCase() === storage.safeProjectName(name).toLowerCase())) {
+      res.status(409).json({ error: `A project named "${name}" already exists` });
+      return;
+    }
     const cwd = path.resolve(expandHome(cwdRaw));
     try {
       fs.mkdirSync(cwd, { recursive: true });
@@ -104,11 +110,13 @@ export function createRouter(
       res.status(400).json({ error: 'Could not create working directory: ' + (err instanceof Error ? err.message : String(err)) });
       return;
     }
-    if (storage.listProjects().some((p) => p.name.toLowerCase() === storage.safeProjectName(name).toLowerCase())) {
-      res.status(409).json({ error: `A project named "${name}" already exists` });
-      return;
+    let project;
+    try {
+      project = storage.createProject(name, cwd, description);
+    } catch (err) {
+      if (err instanceof storage.DuplicateProjectError) { res.status(409).json({ error: err.message }); return; }
+      throw err;
     }
-    const project = storage.createProject(name, cwd, description);
     activity.watchProject(project.id, project.name);
     broadcast({ type: 'org:changed' });
     res.status(201).json(project);
@@ -119,8 +127,18 @@ export function createRouter(
     if (typeof req.body?.name === 'string') updates.name = str(req.body.name, 120);
     if (typeof req.body?.description === 'string') updates.description = str(req.body.description, 2000);
     if (typeof req.body?.cwd === 'string') updates.cwd = path.resolve(expandHome(str(req.body.cwd, 1000)));
-    const project = storage.updateProject(req.params.id, updates);
+    let project;
+    try {
+      project = storage.updateProject(req.params.id, updates);
+    } catch (err) {
+      if (err instanceof storage.DuplicateProjectError) { res.status(409).json({ error: err.message }); return; }
+      throw err;
+    }
     if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
+    // shared_content/ and wiki/ move with a rename, so the file watcher must
+    // follow them or it keeps watching the old path forever.
+    activity.unwatchProject(req.params.id);
+    activity.watchProject(project.id, project.name);
     broadcast({ type: 'org:changed' });
     res.json(project);
   });
