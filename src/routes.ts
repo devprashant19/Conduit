@@ -742,6 +742,7 @@ export function createRouter(
   router.post('/projects/:id/wiki/initialize', (req: Request, res: Response) => {
     const ok = storage.initializeWiki(req.params.id);
     if (!ok) { res.status(404).json({ error: 'Project not found' }); return; }
+    broadcastContentUpdate(req.params.id, '_index.md');
     res.json({ initialized: true });
   });
 
@@ -761,6 +762,8 @@ export function createRouter(
     if (!storage.getProjectData(req.params.id)) { res.status(404).json({ error: 'Project not found' }); return; }
     const item = storage.updateWikiFile(req.params.id, req.params.filename, content);
     if (!item) { res.status(400).json({ error: 'Invalid filename' }); return; }
+    // Keep other viewers in step, as the shared-content routes already do.
+    broadcastContentUpdate(req.params.id, req.params.filename);
     res.json(item);
   });
 
