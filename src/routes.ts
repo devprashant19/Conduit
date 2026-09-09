@@ -377,9 +377,14 @@ export function createRouter(
 
   // --- Agent-to-agent messaging (called by MCP server + the Messages panel) ---
   router.post('/projects/:id/messages', async (req: Request, res: Response) => {
-    const { fromAgentId, fromAgentName, target, message } = (req.body || {}) as Record<string, unknown>;
+    const b = (req.body || {}) as Record<string, unknown>;
+    const fromAgentId = str(b.fromAgentId, 64).trim();
+    const target = str(b.target, 200).trim();
+    // Must be a real string: a truthy object used to slip through, inject an
+    // empty message, and log "[object Object]" into the activity feed.
+    const message = str(b.message, 20_000).trim();
     if (!fromAgentId || !target || !message) {
-      res.status(400).json({ error: 'fromAgentId, target, and message are required' });
+      res.status(400).json({ error: 'fromAgentId, target, and message are required and must be strings' });
       return;
     }
 
@@ -387,17 +392,17 @@ export function createRouter(
     const sender = agents.find(a => a.id === fromAgentId);
     if (!sender) { res.status(404).json({ error: 'Sender agent not found in this project' }); return; }
 
-    const found = findAgent(agents, String(target), sender.id);
+    const found = findAgent(agents, target, sender.id);
     if (!found.agent) {
       res.status(found.error?.startsWith('No agent') ? 404 : 400).json({ error: found.error });
       return;
     }
     const recipient = found.agent;
-    const fromName = str(fromAgentName, 80) || sender.name;
+    const fromName = str(b.fromAgentName, 80) || sender.name;
     let delivered = false;
     try {
       const r = await daemon.request('agent:inject', {
-        agentId: recipient.id, fromName, message: str(message, 20_000),
+        agentId: recipient.id, fromName, message,
       });
       delivered = r.delivered;
     } catch { /* daemon down */ }
@@ -407,10 +412,10 @@ export function createRouter(
       agentId: sender.id,
       agentName: sender.name,
       event: 'agent:message',
-      detail: `${fromName} → ${recipient.name}: ${String(message).slice(0, 120)}`,
+      detail: `${fromName} → ${recipient.name}: ${message.slice(0, 120)}`,
       fromAgent: fromName,
       toAgent: recipient.name,
-      message: String(message),
+      message,
     });
 
     res.json({ delivered, toAgentId: recipient.id, toAgentName: recipient.name });
