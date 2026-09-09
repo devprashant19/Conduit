@@ -51,6 +51,9 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const activeRef = useRef<Active>(null);
+  /** True between the user pressing stop and the engine actually ending. */
+  const stoppingRef = useRef(false);
+  const lastFinalRef = useRef('');
   const onTextRef = useRef(onText);
   const optRef = useRef(options);
   useEffect(() => { onTextRef.current = onText; optRef.current = options; });
@@ -71,6 +74,7 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
   const stop = useCallback(() => {
     const a = activeRef.current;
     if (!a) return;
+    stoppingRef.current = true;
     try { a.obj.stop(); } catch { /* ignore */ }
   }, []);
 
@@ -88,18 +92,48 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
     const r = new Rec();
     r.lang = optRef.current.language || navigator.language || 'en-US';
     r.interimResults = true;
-    r.continuous = false;
+    // Continuous, or the recogniser ends at the user's first natural pause —
+    // which is why holding the mic button appeared to "stop after a second".
+    // Push-to-talk ends when the user says it ends, not when they breathe.
+    r.continuous = true;
+
+    // Chrome fires a fresh `results` list per utterance in continuous mode, so
+    // keep what earlier utterances produced and append the current one.
+    let settled = '';
     r.onresult = (e) => {
-      let text = '';
+      let pending = '';
       let final = false;
       for (let i = 0; i < e.results.length; i++) {
-        text += e.results[i][0].transcript;
-        if (e.results[i].isFinal) final = true;
+        const chunk = e.results[i][0].transcript;
+        if (e.results[i].isFinal) { settled += chunk; final = true; }
+        else pending += chunk;
       }
-      onTextRef.current(text.trim(), final);
+      // Report interim text as it grows, but never as `final` — the user
+      // decides when they are done by stopping.
+      onTextRef.current((settled + pending).trim(), false);
+      if (final) lastFinalRef.current = settled.trim();
     };
-    r.onerror = (e) => setError(explainError(String(e?.error || 'error'), secure));
-    r.onend = () => { activeRef.current = null; setListening(false); };
+    r.onerror = (e) => {
+      const code = String(e?.error || 'error');
+      // Silence is not a failure while someone is holding the button down.
+      if (code === 'no-speech' || code === 'aborted') return;
+      setError(explainError(code, secure));
+    };
+    r.onend = () => {
+      // Chrome ends continuous recognition on its own every so often. Restart
+      // while the user still has the button held, or a long sentence is lost
+      // halfway through.
+      if (activeRef.current?.obj === r && !stoppingRef.current) {
+        try { r.start(); return; } catch { /* fall through to a real stop */ }
+      }
+      activeRef.current = null;
+      stoppingRef.current = false;
+      setListening(false);
+      const text = (settled || lastFinalRef.current).trim();
+      if (text) onTextRef.current(text, true);
+    };
+    stoppingRef.current = false;
+    lastFinalRef.current = '';
     activeRef.current = { kind: 'browser', obj: r };
     setListening(true);
     try { r.start(); }

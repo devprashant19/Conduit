@@ -32,10 +32,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { subscribeSpeaking, isSpeaking, isLikelySelfEcho } from '../utils/speech';
+import { UtteranceAssembler } from '../utils/utterance';
 
 const ARM_TIMEOUT = 9000;       // 'wake' mode: disarm if no command follows the phrase
 /** Audio keeps playing briefly after onended/onend fire — let the tail pass. */
 const ECHO_GUARD_MS = 400;
+/**
+ * How long to wait after a final transcript before treating it as complete.
+ *
+ * The Web Speech API emits a final result at every pause, so dispatching each
+ * one immediately meant a sentence with a pause in it executed on its first
+ * half. Fragments are joined until the user has genuinely stopped talking.
+ */
+const COMMAND_SETTLE_MS = 1200;
 /** Consecutive `network` errors before we stop retrying and say so. */
 const NETWORK_GIVE_UP = 3;
 /** Consecutive transcription failures before we stop — each one is billable. */
@@ -43,8 +52,12 @@ const TRANSCRIBE_GIVE_UP = 3;
 
 // --- energy gate (cloud engine) ---------------------------------------
 const VAD_POLL_MS = 50;
-/** Silence after speech that ends an utterance. */
-const SILENCE_MS = 800;
+/**
+ * Silence that ends an utterance. People pause mid-sentence to think, and at
+ * 800ms a pause like "start the agent… called gere" was cut in two and the
+ * first half dispatched as a command.
+ */
+const SILENCE_MS = 1500;
 /** Ignore anything shorter — a cough should not cost an API call. */
 const MIN_UTTERANCE_MS = 350;
 /** Hard cap, so one long noise never uploads an enormous clip. */
@@ -114,6 +127,17 @@ export function useWakeWord({
     let armTimer: ReturnType<typeof setTimeout> | null = null;
     const clearArmTimer = () => { if (armTimer) { clearTimeout(armTimer); armTimer = null; } };
 
+    // A sentence arrives in fragments — the recogniser finalises at every
+    // pause. Join them and dispatch only once the user has actually stopped,
+    // or "start the agent… called gere" runs as "start the agent".
+    // See scripts/test-utterance.mjs for the behaviour this guarantees.
+    const assembler = new UtteranceAssembler(
+      (text) => cbRef.current.onCommand(text),
+      { settleMs: COMMAND_SETTLE_MS },
+    );
+    const clearSettle = () => assembler.reset();
+    const dispatchSettled = (fragment: string) => assembler.push(fragment);
+
     /** Shared by both engines: match the phrase, arm, or fire a command. */
     const handleTranscript = (raw: string) => {
       const text = raw.trim();
@@ -134,14 +158,14 @@ export function useWakeWord({
         const body = hit >= 0
           ? text.slice(hit + term.length).replace(/^[\s.,;:!?，。、：！？]+/, '').trim()
           : text;
-        if (body) cbRef.current.onCommand(body);
+        if (body) dispatchSettled(body);
         return;
       }
 
       if (armedRef.current) {
         clearArmTimer();
         setArmedState(false);
-        cbRef.current.onCommand(text);
+        dispatchSettled(text);
         return;
       }
       const term = phraseRef.current.trim().toLowerCase();
@@ -179,9 +203,23 @@ export function useWakeWord({
       let restarts = 0;
       let networkErrors = 0;
       let muted = false;
+      // Whether the current recogniser ever actually ran. Chrome ends
+      // continuous recognition by itself every so often; that is a normal
+      // cycle, not a failure, and backing off after it left multi-second
+      // windows where the wake phrase simply was not heard — which is why it
+      // worked only sometimes.
+      let ranOk = false;
 
       const scheduleRestart = () => {
         if (stopped || restartTimer) return;
+        if (ranOk) {
+          // Normal end of a healthy session — get back to listening at once.
+          ranOk = false;
+          restarts = 0;
+          restartTimer = setTimeout(() => { restartTimer = null; start(); }, 50);
+          return;
+        }
+        // It never got going: something is wrong, so ease off.
         restarts += 1;
         const delay = Math.min(15_000, 600 * Math.pow(1.5, Math.min(restarts, 8)));
         restartTimer = setTimeout(() => { restartTimer = null; start(); }, delay);
@@ -195,7 +233,7 @@ export function useWakeWord({
         r.lang = lang;
         r.continuous = true;
         r.interimResults = false;
-        r.onstart = () => { setListening(true); setError(null); restarts = 0; };
+        r.onstart = () => { setListening(true); setError(null); restarts = 0; ranOk = true; };
         r.onspeechstart = () => { /* no-op */ };
         r.onresult = (e: SpeechResultEvent) => {
           const last = e.results?.[e.results.length - 1];
@@ -431,6 +469,7 @@ export function useWakeWord({
     return () => {
       stopped = true;
       clearArmTimer();
+      clearSettle();
       setArmedState(false);
       setListening(false);
       teardown();
