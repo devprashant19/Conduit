@@ -2,16 +2,26 @@
   "name": "conduit",
   "version": "1.0.0",
   "private": true,
+  "description": "Human-driven control center for running and supervising multiple coding CLI agents in parallel.",
+  "author": {
+    "name": "Dev Prashant",
+    "email": "adoranto737@gmail.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devprashant19/Conduit.git"
+  },
   "main": "dist/electron/main.mjs",
   "scripts": {
     "dev": "concurrently -k -n tsup,daemon,web,vite -c gray,magenta,cyan,green \"tsup --watch\" \"node --watch dist/src/daemon/daemon.mjs\" \"node --watch dist/src/server.mjs\" \"vite\"",
     "dev:server": "node --watch dist/src/server.mjs",
     "dev:client": "vite",
-    "dev:desktop": "npm run build:server && electron dist/electron/main.mjs",
+    "dev:desktop": "npm run build && electron dist/electron/main.mjs",
     "build": "npm run typecheck && npm run clean && tsup && vite build",
     "build:server": "tsc --noEmit -p tsconfig.json && tsup",
     "build:client": "tsc --noEmit -p client/tsconfig.json && vite build",
-    "build:desktop": "npm run build && electron-builder",
+    "build:desktop": "npm run build:icons && npm run build && electron-builder",
     "daemon": "node dist/src/daemon/daemon.mjs",
     "start": "node dist/src/server.mjs",
     "start:all": "concurrently -n daemon,web \"npm run daemon\" \"npm run start\"",
@@ -21,7 +31,9 @@
     "test": "node --experimental-strip-types --no-warnings scripts/test-gates.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "browser-check": "node scripts/browser-check.mjs --deep",
-    "test:supervisor": "node --experimental-strip-types --no-warnings scripts/test-supervisor.mjs"
+    "test:supervisor": "node --experimental-strip-types --no-warnings scripts/test-supervisor.mjs",
+    "build:icons": "node scripts/make-icons.mjs",
+    "check:agents": "node scripts/check-agents.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1124.0",
@@ -30,6 +42,7 @@
     "@strands-agents/sdk": "^1.16.0",
     "chokidar": "^5.0.0",
     "dotenv": "^16.6.1",
+    "electron-updater": "^6.8.9",
     "express": "^4.21.0",
     "marked": "^18.0.0",
     "uuid": "^10.0.0",
@@ -51,7 +64,6 @@
     "dompurify": "^3.4.14",
     "electron": "^44.1.1",
     "electron-builder": "^26.15.3",
-    "electron-updater": "^6.8.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sharp": "^0.34.5",
