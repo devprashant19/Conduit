@@ -5,12 +5,14 @@
  * to it from the Command panel; it inspects the conduit through the Conduit
  * Orchestrator MCP and reports back.
  *
- * Runtime: **Codex**. Each turn is a `codex exec` invocation that resumes the
- * conversation's own thread, so context is continuous and — because
- * programmatic Codex is subscription-covered (plan §3) — free.
+ * Runtime: **Codex or Claude Code**, whichever is on PATH
+ * (`CONDUIT_KEEPER_ENGINE` pins one). Codex runs a `codex exec` per turn.
+ * Claude Code holds one process open for the whole conversation and streams
+ * turns into it — spawning per turn cost ~15s of start-up and MCP handshake
+ * before any thinking began.
  *
  * The brain keeps **multiple conversations** (like chat threads); each has its
- * own Codex thread. All of them persist to ~/.conduit/brain/state.json and
+ * own thread/session. All of them persist to ~/.conduit/brain/state.json and
  * survive daemon restarts.
  */
 
@@ -46,8 +48,9 @@ const TURN_SUFFIX =
   'conversational.\n' +
   '(1) Before each significant step (reading a project, checking a wiki, ' +
   'asking an agent), write one short, plain, conversational sentence saying ' +
-  'what you are about to do — e.g. "我先看一下 ardi 的 wiki。". These lines ' +
-  'are read aloud so the user hears you working.\n' +
+  'what you are about to do — e.g. "Let me check that project\'s wiki." ' +
+  'These lines are read aloud, so write them in the language the user is ' +
+  'speaking to you in.\n' +
   '(2) End your reply with a final line starting with 🔊 — a spoken summary ' +
   'of 2 to 4 full sentences: what was done, the current state, and what is ' +
   'needed next. Informative and specific, not a one-line platitude.\n' +
@@ -173,6 +176,19 @@ function findConduitMcpServer(): string {
   return candidates[0];
 }
 
+/** One long-lived Claude Code process serving a conversation's turns. */
+interface ClaudeSession {
+  child: ReturnType<typeof spawn>;
+  convId: string;
+  stdoutBuf: string;
+  stderrBuf: string;
+  producedAssistant: boolean;
+  onTurnEnd: ((ok: boolean, detail: string) => void) | null;
+}
+
+/** A single turn should never outlast this. */
+const CLAUDE_TURN_TIMEOUT_MS = 5 * 60 * 1000;
+
 function winQuote(arg: string): string {
   if (arg === '') return '""';
   if (!/[ \t"&|<>()^%]/.test(arg)) return arg;
@@ -184,8 +200,10 @@ export class Orchestrator {
   private currentId = '';
   private status: BrainStatus = 'idle';
   private busy = false;
-  /** The codex child for the in-flight turn, so abortTurn() can kill it. */
+  /** The child for the in-flight turn, so abortTurn() can kill it. */
   private currentChild: ReturnType<typeof spawn> | null = null;
+  /** Long-lived Claude Code process, reused across turns of one conversation. */
+  private claudeSession: ClaudeSession | null = null;
   /** True between an abortTurn() call and the next send() — keeps repeated
    *  Stop presses from spamming "Cancelled by user" messages. */
   private aborting = false;
@@ -373,92 +391,169 @@ export class Orchestrator {
    */
   private runClaudeTurn(conv: Conversation, prompt: string): Promise<void> {
     this.ensureBrainEnv();
-    const mcpConfig = this.writeClaudeMcpConfig();
+    const sess = this.ensureClaudeSession(conv);
+    if (!sess) return Promise.resolve();
 
-    // The prompt goes on stdin and the persona goes in a file. Passing either
-    // as an argument breaks on Windows, where `shell: true` routes the command
-    // through cmd.exe and a newline terminates it — the child then exits 0
-    // having done nothing, which is silent and very hard to spot.
+    return new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        sess.onTurnEnd = null;
+        sess.producedAssistant = false;
+        resolve();
+      };
+
+      sess.onTurnEnd = (ok, detail) => {
+        if (!ok) {
+          this.append(conv, {
+            role: 'error',
+            text: detail || 'The Keeper turn ended without an answer.',
+          });
+        }
+        finish();
+      };
+
+      // A turn that never returns must not wedge the Keeper forever.
+      const guard = setTimeout(() => {
+        if (settled) return;
+        this.append(conv, { role: 'error', text: 'The Keeper timed out. Ask again.' });
+        this.killClaudeSession();
+        finish();
+      }, CLAUDE_TURN_TIMEOUT_MS);
+
+      const done = () => clearTimeout(guard);
+      const originalResolve = resolve;
+      resolve = ((v?: unknown) => { done(); originalResolve(v as void); }) as typeof resolve;
+
+      try {
+        // The spoken-summary rule rides on every turn — the persona file is
+        // only read at session start.
+        sess.child.stdin?.write(JSON.stringify({
+          type: 'user',
+          message: { role: 'user', content: [{ type: 'text', text: prompt + TURN_SUFFIX }] },
+        }) + '\n');
+      } catch (err) {
+        this.append(conv, {
+          role: 'error',
+          text: 'Could not reach the Keeper process: ' + (err instanceof Error ? err.message : String(err)),
+        });
+        this.killClaudeSession();
+        finish();
+      }
+    });
+  }
+
+  /**
+   * A long-lived `claude` process for this conversation.
+   *
+   * Spawning one per turn cost about 15 seconds every time — 5.5s of CLI
+   * start-up, 3s to read the persona, and 6.5s for the MCP handshake — before
+   * any thinking began. Measured against the same process reused: turn one
+   * 15.9s, turn two 2.1s, turn three 4.7s with a tool call. Holding the
+   * process open is worth ~12s on every turn after the first, and the model
+   * choice barely moves it (haiku measured no faster than opus), so this is
+   * the only lever that matters.
+   */
+  private ensureClaudeSession(conv: Conversation): ClaudeSession | null {
+    const live = this.claudeSession;
+    if (live && live.convId === conv.id && live.child.exitCode === null && !live.child.killed) {
+      return live;
+    }
+    this.killClaudeSession();
+
     const args = [
       '-p',
+      '--input-format', 'stream-json',
       '--output-format', 'stream-json',
       '--verbose',
       '--permission-mode', 'bypassPermissions',
       '--append-system-prompt-file', AGENTS_MD_PATH,
-      '--mcp-config', mcpConfig,
+      '--mcp-config', this.writeClaudeMcpConfig(),
     ];
-    // Claude calls it a session; Codex calls it a thread. Same idea, same field.
+    // Resume the transcript when the process died but the conversation lives.
     if (conv.threadId) args.push('--resume', conv.threadId);
 
     const isWin = process.platform === 'win32';
+    let child;
+    try {
+      child = spawn('claude', isWin ? args.map(winQuote) : args, {
+        cwd: BRAIN_DIR,
+        env: { ...process.env },
+        shell: isWin,
+        windowsHide: true,
+      });
+    } catch (err) {
+      this.append(conv, {
+        role: 'error',
+        text: 'Could not start Claude Code. Is the `claude` CLI installed and on PATH? '
+          + (err instanceof Error ? err.message : String(err)),
+      });
+      return null;
+    }
 
-    return new Promise<void>((resolve) => {
-      let child;
-      try {
-        child = spawn('claude', isWin ? args.map(winQuote) : args, {
-          cwd: BRAIN_DIR,
-          env: { ...process.env },
-          shell: isWin,
-          windowsHide: true,
-        });
-      } catch (err) {
-        this.append(conv, {
-          role: 'error',
-          text: 'Could not start Claude Code. Is the `claude` CLI installed and on PATH? '
-            + (err instanceof Error ? err.message : String(err)),
-        });
-        resolve();
-        return;
+    const sess: ClaudeSession = {
+      child, convId: conv.id, stdoutBuf: '', stderrBuf: '',
+      producedAssistant: false, onTurnEnd: null,
+    };
+    this.claudeSession = sess;
+    this.currentChild = child;
+
+    child.stdin?.on('error', () => { /* ignore broken pipe */ });
+
+    child.stdout?.on('data', (d: Buffer) => {
+      sess.stdoutBuf += d.toString();
+      let nl: number;
+      while ((nl = sess.stdoutBuf.indexOf('\n')) >= 0) {
+        const line = sess.stdoutBuf.slice(0, nl).trim();
+        sess.stdoutBuf = sess.stdoutBuf.slice(nl + 1);
+        if (!line) continue;
+        if (this.handleClaudeLine(conv, line)) sess.producedAssistant = true;
+        // `result` closes one turn; the process stays up for the next.
+        if (/"type"\s*:\s*"result"/.test(line)) {
+          const ok = sess.producedAssistant;
+          const detail = ok ? '' : 'The Keeper finished without answering.';
+          sess.onTurnEnd?.(ok, detail);
+        }
       }
-
-      this.currentChild = child;
-      let stdoutBuf = '';
-      let stderrBuf = '';
-      let producedAssistant = false;
-
-      child.stdin?.on('error', () => { /* ignore broken pipe */ });
-      // The spoken-summary rule rides on every turn — `--resume` does not
-      // re-read the persona file for it.
-      child.stdin?.write(prompt + TURN_SUFFIX);
-      child.stdin?.end();
-
-      child.stdout?.on('data', (d: Buffer) => {
-        stdoutBuf += d.toString();
-        let nl: number;
-        while ((nl = stdoutBuf.indexOf('\n')) >= 0) {
-          const line = stdoutBuf.slice(0, nl).trim();
-          stdoutBuf = stdoutBuf.slice(nl + 1);
-          if (line && this.handleClaudeLine(conv, line)) producedAssistant = true;
-        }
-      });
-
-      child.stderr?.on('data', (d: Buffer) => {
-        stderrBuf += d.toString();
-        if (stderrBuf.length > 8000) stderrBuf = stderrBuf.slice(-8000);
-      });
-
-      child.on('error', (err) => {
-        this.append(conv, {
-          role: 'error',
-          text: 'Could not start Claude Code (`claude` CLI not found?): ' + err.message,
-        });
-        resolve();
-      });
-
-      child.on('close', (code) => {
-        if (this.currentChild === child) this.currentChild = null;
-        if (!producedAssistant) {
-          const detail = stderrBuf.trim().split('\n').slice(-4).join('\n');
-          this.append(conv, {
-            role: 'error',
-            text: code === 0
-              ? 'Claude Code finished without answering.' + (detail ? `\n${detail}` : '')
-              : `Claude Code exited with code ${code}.` + (detail ? `\n${detail}` : ''),
-          });
-        }
-        resolve();
-      });
     });
+
+    child.stderr?.on('data', (d: Buffer) => {
+      sess.stderrBuf += d.toString();
+      if (sess.stderrBuf.length > 8000) sess.stderrBuf = sess.stderrBuf.slice(-8000);
+    });
+
+    child.on('error', (err) => {
+      sess.onTurnEnd?.(false, 'Claude Code failed (`claude` CLI not found?): ' + err.message);
+      if (this.claudeSession === sess) this.claudeSession = null;
+    });
+
+    child.on('close', (code) => {
+      if (this.currentChild === child) this.currentChild = null;
+      if (this.claudeSession === sess) this.claudeSession = null;
+      if (sess.onTurnEnd) {
+        const detail = sess.stderrBuf.trim().split('\n').slice(-4).join('\n');
+        sess.onTurnEnd(false, `The Keeper process exited (code ${code}).` + (detail ? `\n${detail}` : ''));
+      }
+    });
+
+    return sess;
+  }
+
+  /** Drop the persistent Keeper process, if any. */
+  private killClaudeSession(): void {
+    const sess = this.claudeSession;
+    if (!sess) return;
+    this.claudeSession = null;
+    if (this.currentChild === sess.child) this.currentChild = null;
+    try {
+      if (process.platform === 'win32' && sess.child.pid) {
+        // shell:true means the child is cmd.exe with claude underneath it.
+        spawn('taskkill', ['/PID', String(sess.child.pid), '/T', '/F'], { windowsHide: true });
+      } else {
+        sess.child.kill();
+      }
+    } catch { /* already gone */ }
   }
 
   /**
