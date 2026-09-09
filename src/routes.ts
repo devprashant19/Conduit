@@ -2,14 +2,14 @@ import { Router, type Request, type Response } from 'express';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import * as storage from './storage.js';
 import * as activity from './activity.js';
 import type { DaemonClient } from './daemon/client.js';
-import type { Agent, WSServerMessage } from './types.js';
+import type { Agent, WSServerMessage, ProjectLayout } from './types.js';
 import { isYesNoPrompt } from './gatePatterns.js';
-
-const VALID_CLIS: Agent['cli'][] = ['claude', 'codex', 'gemini', 'opencode', 'gpt', 'nemotron'];
+import { VALID_CLIS } from './cli-registry.js';
 
 function expandHome(p: string): string {
   if (p === '~') return os.homedir();
@@ -306,7 +306,10 @@ export function createRouter(
     try {
       const r = await daemon.request('agent:start', { projectId: req.params.id, agentId: agent.id });
       if (!r.ok) {
-        res.status(500).json({ error: `Failed to start ${agent.name} — check that the \`${agent.cli}\` CLI is installed and its working directory exists (${agent.cwd}). See the daemon log for details.` });
+        res.status(400).json({
+          error: r.error
+            || `Failed to start ${agent.name} — check that the \`${agent.cli}\` CLI is installed and its working directory exists (${agent.cwd}).`,
+        });
         return;
       }
     } catch (err) {

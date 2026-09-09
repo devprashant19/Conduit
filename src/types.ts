@@ -1,3 +1,8 @@
+import type { CliId } from './cli-registry.js';
+
+export type { CliId };
+export { VALID_CLIS, CLI_SPECS, CLI_IDS, isCliId } from './cli-registry.js';
+
 export interface Project {
   id: string;
   name: string;
@@ -20,7 +25,7 @@ export interface Agent {
   projectId: string;
   name: string;
   role?: string;
-  cli: 'claude' | 'codex' | 'gemini' | 'opencode' | 'gpt' | 'nemotron';
+  cli: CliId;
   cwd: string;
   status: AgentStatus;
   pid?: number;
@@ -57,8 +62,13 @@ export interface Plan {
   createdAt: string;
 }
 
+/**
+ * Persisted pane layout for a project. `mode` matches the client's
+ * `GridLayout` union in client/src/components/AgentGrid.tsx — the two must
+ * stay in step, or saved layouts silently fail validation.
+ */
 export interface ProjectLayout {
-  mode: '1-up' | '2-up' | '3-up' | '4-tmux' | 'freeform';
+  mode: 'single' | '2up' | '3up' | 'grid' | 'canvas';
   splitRatios: number[];
   activeAgentIds: string[];
   focusedAgentId?: string;
@@ -126,4 +136,5 @@ export type WSServerMessage =
   | { type: 'gate:triggered'; agentId: string; projectId: string; prompt: string; source: 'regex' | 'supervisor'; options?: string[] }
   | { type: 'gate:resolved'; agentId: string }
   | { type: 'plan:created'; plan: Plan }
-  | { type: 'plan:resolved'; planId: string; decision: string };
+  | { type: 'plan:resolved'; planId: string; decision: string }
+  | { type: 'layout:changed'; projectId: string; layout: ProjectLayout };

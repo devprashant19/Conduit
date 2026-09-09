@@ -19,6 +19,7 @@ import * as storage from '../storage.js';
 import * as runtime from './runtime.js';
 import type { Agent, Project } from '../types.js';
 import { hookEvents } from './hook-events.js';
+import { VALID_CLIS, isCliId } from '../cli-registry.js';
 
 /** Upper bound on how long `ask_agent` waits for a Claude turn to finish.
  *  When this fires we don't assume the agent failed — we check whether the
@@ -733,7 +734,6 @@ export interface CreateAgentResult {
   error?: string;
 }
 
-const VALID_CLIS = ['claude', 'codex', 'gemini', 'opencode', 'gpt', 'nemotron'];
 
 /** Add an agent to a project. The agent is created stopped. */
 export function createAgentDispatch(
@@ -752,7 +752,7 @@ export function createAgentDispatch(
     return { ok: false, status: 'error', projectName: project.name, error: 'An agent name is required.' };
   }
   const cliNorm = (cli || '').trim().toLowerCase();
-  if (!VALID_CLIS.includes(cliNorm)) {
+  if (!isCliId(cliNorm)) {
     return {
       ok: false,
       status: 'error',
@@ -784,7 +784,7 @@ export function createAgentDispatch(
   const agent = storage.createAgent(
     project.id,
     trimmed,
-    cliNorm as Agent['cli'],
+    cliNorm,
     agentCwd,
     role?.trim() || undefined,
   );

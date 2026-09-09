@@ -25,7 +25,9 @@ src/
   routes.ts            REST: projects, agents, gates, plans, group chat, content, wiki
   auth.ts              CONDUIT_AUTH Basic auth (HTTP + WS upgrade + helper header)
   storage.ts           ~/.conduit JSON/JSONL storage; path-traversal-safe helpers
-  pty-manager.ts       PTY agents (claude/gemini/opencode): spawn, buffer, inject, quoting
+  env.ts               .env loading (cwd + ~/.conduit/.env); import first in every entry point
+  cli-registry.ts      the six CLI ids, their binaries, install hints and required env
+  pty-manager.ts       PTY agents (claude/gemini/opencode/gpt/nemotron): spawn, buffer, inject, quoting
   gatePatterns.ts      stripAnsi + regex gates (y/N prompts, destructive commands)
   activity.ts, usage.ts, hook-config.ts, mcp-config.ts
   daemon/

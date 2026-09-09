@@ -157,7 +157,7 @@ export interface GateEvent {
 
 /** Result shapes for each RPC op (for type-safe clients). */
 export interface DaemonRpcResults {
-  'agent:start': { ok: boolean };
+  'agent:start': { ok: boolean; error?: string };
   'agent:stop': { ok: boolean };
   'agent:restart': { ok: boolean };
   'agent:cleanup': { ok: boolean };

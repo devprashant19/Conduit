@@ -1,8 +1,11 @@
 /**
  * runtime.ts — routes agent operations to the right runtime.
  *
- *   Claude / Gemini / OpenCode → PTY            (pty-manager)
- *   Codex                      → app-server thread (codex-agents)
+ *   Claude / Gemini / OpenCode / GPT / Nemotron → PTY (pty-manager)
+ *   Codex                                       → app-server thread (codex-agents)
+ *
+ * The `gpt` and `nemotron` types are aider invocations against Groq and
+ * OpenRouter respectively; they behave like any other PTY agent.
  *
  * The daemon and the Conduit dispatch layer talk only to this module, so they
  * never branch on CLI themselves.
@@ -12,6 +15,7 @@ import * as pty from '../pty-manager.js';
 import * as codex from './codex-agents.js';
 import type { Agent } from '../types.js';
 import type { CodexItem } from './protocol.js';
+import { checkCliReady } from '../cli-registry.js';
 
 type StatusFn = (agentId: string, status: string) => void;
 
@@ -20,8 +24,17 @@ function isCodex(agentId: string): boolean {
   return codex.isAgentRunning(agentId);
 }
 
-/** Start an agent on its runtime. Async — Codex must create a thread. */
+/**
+ * Start an agent on its runtime. Async — Codex must create a thread.
+ * Throws `AgentStartError` with an actionable message when the agent cannot
+ * start (CLI not installed, missing API key, bad working directory).
+ */
 export async function startAgent(agent: Agent, onStatus: StatusFn): Promise<boolean> {
+  // One preflight for every type, so a missing CLI or API key is reported as
+  // a clear message rather than a terminal that silently does nothing.
+  const ready = checkCliReady(agent.cli);
+  if (!ready.ok) throw new pty.AgentStartError(ready.error || `Cannot start ${agent.cli}.`);
+
   if (agent.cli === 'codex') return codex.startAgent(agent, onStatus);
   return pty.startAgent(agent, onStatus);
 }

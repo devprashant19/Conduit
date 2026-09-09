@@ -271,8 +271,7 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
 
   const cwd = expandHome(agent.cwd);
   if (!fs.existsSync(cwd)) {
-    console.error(`[pty-manager] cwd does not exist for ${agent.name}: ${cwd}`);
-    return false;
+    throw new AgentStartError(`The working directory for ${agent.name} does not exist: ${cwd}`);
   }
 
   // Resolve teammates (all other agents in the same project)

@@ -305,7 +305,11 @@ async function main() {
             name: { type: 'string', description: 'Agent name, e.g. "Backend".' },
             cli: {
               type: 'string',
-              description: 'Which CLI runs this agent: claude, codex, gemini, or opencode.',
+              enum: ['claude', 'codex', 'gemini', 'opencode', 'gpt', 'nemotron'],
+              description:
+                'Which CLI runs this agent. claude = Claude Code, codex = Codex CLI, '
+                + 'gemini = Gemini CLI, opencode = OpenCode, gpt = GPT-OSS 120B on Groq (via aider), '
+                + 'nemotron = Nemotron 3.5 Lightning on OpenRouter (via aider).',
             },
             role: {
               type: 'string',

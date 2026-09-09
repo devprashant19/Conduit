@@ -238,8 +238,16 @@ async function handleRequest(ws: WebSocket, req: DaemonRequest): Promise<void> {
       case 'agent:start': {
         const agent = storage.getAgent(req.projectId, req.agentId);
         if (!agent) return fail('Agent not found');
-        const ok = await runtime.startAgent(agent, onAgentStatus);
-        return reply({ ok });
+        try {
+          const ok = await runtime.startAgent(agent, onAgentStatus);
+          return reply({ ok });
+        } catch (err) {
+          // A start failure is expected (CLI missing, no API key, bad cwd) —
+          // return the reason so the UI can show it, rather than a bare false.
+          const error = err instanceof Error ? err.message : String(err);
+          console.warn(`[daemon] could not start ${agent.name} (${agent.cli}): ${error}`);
+          return reply({ ok: false, error });
+        }
       }
       case 'agent:stop': {
         const ok = runtime.stopAgent(req.agentId);
