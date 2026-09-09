@@ -82,7 +82,40 @@ export function wikiDirFor(projectName: string): string { return wikiDir(project
 // Initialize storage
 ensureDir(PROJECTS_DIR);
 
-// Seed a default demo project if first launch
+/** Marker recording that first-run seeding already happened. */
+const SEED_MARKER = path.join(BASE_DIR, '.seeded');
+
+/**
+ * Create the demo project once, on genuine first run.
+ *
+ * Deliberately explicit and idempotent: it is called only from web-server
+ * startup, never from a read path. An earlier version ran inside
+ * `listProjects()`, which meant deleting your last project silently recreated
+ * it, creating your first project left a demo behind, and the web server and
+ * daemon could each seed a copy. The marker file makes a deleted demo stay
+ * deleted.
+ *
+ * Returns the created project, or null when seeding was not needed.
+ */
+export function seedDefaultDemoProjectOnce(): Project | null {
+  try {
+    if (fs.existsSync(SEED_MARKER)) return null;
+    if (listProjects().length > 0) {
+      // Existing install predating the marker — record it and leave well alone.
+      ensureDir(BASE_DIR);
+      fs.writeFileSync(SEED_MARKER, new Date().toISOString(), 'utf-8');
+      return null;
+    }
+    const project = seedDefaultDemoProject();
+    ensureDir(BASE_DIR);
+    fs.writeFileSync(SEED_MARKER, new Date().toISOString(), 'utf-8');
+    return project;
+  } catch (err) {
+    console.warn('[storage] demo seeding skipped:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 export function seedDefaultDemoProject(): Project {
   const demoCwd = path.join(os.homedir(), '.conduit', 'demo-workspace');
   ensureDir(demoCwd);
@@ -109,9 +142,14 @@ Welcome to your local Conduit control center.
 - **Gemini Reviewer**: Runs unit tests and validates pull request safety.
 
 ## Human-in-the-Loop Protection
-Every risky operation (e.g. \`rm -rf\`, SQL drops, force pushes) is intercepted by Amazon Bedrock and requires human approval before execution.
+Every risky operation (e.g. \`rm -rf\`, SQL drops, force pushes) is intercepted by the Supervisor and requires human approval before execution.
 `;
-  updateWikiFile(project.id, '_index.md', welcomeWiki);
+  // Only write the welcome page if the wiki index is still the generated stub —
+  // never clobber a page the user has edited.
+  const existingIndex = getWikiFile(project.id, '_index.md');
+  if (!existingIndex || existingIndex.content.trim().startsWith('# Project Wiki Index')) {
+    updateWikiFile(project.id, '_index.md', welcomeWiki);
+  }
 
   return project;
 }
@@ -134,12 +172,8 @@ export function listProjects(): Project[] {
     }
   }
 
-  // Auto-seed demo project on first launch so the workspace is immediately alive
-  if (projects.length === 0) {
-    const demo = seedDefaultDemoProject();
-    return [demo];
-  }
-
+  // NOTE: this is a pure read. First-run demo seeding lives in
+  // `seedDefaultDemoProjectOnce()`, called once from web-server startup.
   return projects.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
 }
 
