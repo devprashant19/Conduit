@@ -54,6 +54,27 @@ export class UtteranceAssembler {
     }, this.settleMs);
   }
 
+  /**
+   * Restate the whole utterance so far, restarting the quiet period.
+   *
+   * The Web Speech API's `results` list is cumulative — every event repeats
+   * all previous final results — so appending each event's contents would
+   * duplicate the sentence. Callers that already hold the complete text use
+   * this instead of `push`.
+   */
+  replace(text: string): void {
+    const t = text.trim();
+    if (this.handle !== null) { this.clearTimer(this.handle); this.handle = null; }
+    this.buf = t ? [t] : [];
+    if (!t) return;
+    this.handle = this.setTimer(() => {
+      this.handle = null;
+      const joined = this.buf.join(' ').replace(/\s+/g, ' ').trim();
+      this.buf = [];
+      if (joined) this.onComplete(joined);
+    }, this.settleMs);
+  }
+
   /** Release whatever is buffered immediately (the user pressed stop). */
   flush(): void {
     if (this.handle !== null) { this.clearTimer(this.handle); this.handle = null; }

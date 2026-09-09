@@ -13,6 +13,16 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { UtteranceAssembler } from '../utils/utterance';
+
+/**
+ * Quiet period that ends a spoken command.
+ *
+ * Long enough to survive thinking mid-sentence, short enough that the user
+ * is not left waiting after they have finished. The recogniser's own
+ * end-of-utterance is not usable for this: it fires at the first pause.
+ */
+const SETTLE_MS = 1100;
 
 type SpeechResultHandler = (text: string, final: boolean) => void;
 export interface SpeechOptions {
@@ -54,6 +64,7 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
   /** True between the user pressing stop and the engine actually ending. */
   const stoppingRef = useRef(false);
   const lastFinalRef = useRef('');
+  const assemblerRef = useRef<UtteranceAssembler | null>(null);
   const onTextRef = useRef(onText);
   const optRef = useRef(options);
   useEffect(() => { onTextRef.current = onText; optRef.current = options; });
@@ -75,6 +86,8 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
     const a = activeRef.current;
     if (!a) return;
     stoppingRef.current = true;
+    // Release anything already spoken instead of discarding it.
+    assemblerRef.current?.flush();
     try { a.obj.stop(); } catch { /* ignore */ }
   }, []);
 
@@ -97,22 +110,44 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
     // Push-to-talk ends when the user says it ends, not when they breathe.
     r.continuous = true;
 
-    // Chrome fires a fresh `results` list per utterance in continuous mode, so
-    // keep what earlier utterances produced and append the current one.
-    let settled = '';
+    // Chrome finalises at every pause, so a fragment is not the end of a
+    // command. Collect them and only call it finished once the speaker has
+    // actually stopped — then send automatically, without a second click.
+    let sent = false;
+    const finish = (text: string) => {
+      if (sent || !text.trim()) return;
+      sent = true;
+      onTextRef.current(text.trim(), true);
+      // Push-to-talk is one command per press: close the mic once it is sent.
+      stoppingRef.current = true;
+      try { r.stop(); } catch { /* already stopping */ }
+    };
+    const assembler = new UtteranceAssembler(finish, { settleMs: SETTLE_MS });
+    assemblerRef.current = assembler;
+
+    // Text finalised in earlier recognition sessions. Chrome ends a continuous
+    // session periodically and we restart it, which resets `e.results`.
+    let carried = '';
+    let sessionFinal = '';
+
     r.onresult = (e) => {
-      let pending = '';
-      let final = false;
+      // `e.results` is cumulative for the session, so rebuild rather than
+      // append — appending repeats every earlier final on every event.
+      let final = '';
+      let interim = '';
       for (let i = 0; i < e.results.length; i++) {
         const chunk = e.results[i][0].transcript;
-        if (e.results[i].isFinal) { settled += chunk; final = true; }
-        else pending += chunk;
+        if (e.results[i].isFinal) final += chunk;
+        else interim += chunk;
       }
-      // Report interim text as it grows, but never as `final` — the user
-      // decides when they are done by stopping.
-      onTextRef.current((settled + pending).trim(), false);
-      if (final) lastFinalRef.current = settled.trim();
+      sessionFinal = final;
+      const settledText = (carried + final).replace(/\s+/g, ' ').trim();
+      // Live text for the box; the send happens when the utterance settles.
+      onTextRef.current((settledText + ' ' + interim).replace(/\s+/g, ' ').trim(), false);
+      lastFinalRef.current = settledText;
+      if (final.trim()) assembler.replace(settledText);
     };
+
     r.onerror = (e) => {
       const code = String(e?.error || 'error');
       // Silence is not a failure while someone is holding the button down.
@@ -121,16 +156,20 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
     };
     r.onend = () => {
       // Chrome ends continuous recognition on its own every so often. Restart
-      // while the user still has the button held, or a long sentence is lost
-      // halfway through.
+      // while the user is still talking, or a long sentence is lost halfway.
       if (activeRef.current?.obj === r && !stoppingRef.current) {
+        // Carry this session's final text across, since `e.results` restarts.
+        carried = (carried + sessionFinal).replace(/\s+/g, ' ').trim() + ' ';
+        sessionFinal = '';
         try { r.start(); return; } catch { /* fall through to a real stop */ }
       }
       activeRef.current = null;
       stoppingRef.current = false;
+      assemblerRef.current = null;
       setListening(false);
-      const text = (settled || lastFinalRef.current).trim();
-      if (text) onTextRef.current(text, true);
+      // Pressing stop mid-sentence sends what was said rather than losing it.
+      assembler.flush();
+      if (!sent) finish(lastFinalRef.current);
     };
     stoppingRef.current = false;
     lastFinalRef.current = '';

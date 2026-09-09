@@ -76,6 +76,45 @@ console.log('\nUtterance assembly\n');
   t(out[0] === 'list the agents' && out[1] === 'stop gere', 'and in order', JSON.stringify(out));
 }
 
+// replace(): the recogniser restates the whole utterance every event, so
+// appending would duplicate it. This is the shape Chrome actually sends.
+{
+  const clock = fakeClock();
+  const out = [];
+  const a = new UtteranceAssembler((t) => out.push(t), { settleMs: 1200, ...clock });
+  a.replace('start the agent');
+  clock.advance(500);
+  a.replace('start the agent called gere');       // cumulative restatement
+  clock.advance(1200);
+  t(out.length === 1, 'a restated utterance dispatches once', `got ${out.length}`);
+  t(out[0] === 'start the agent called gere', 'without duplicating the earlier words',
+    JSON.stringify(out[0]));
+}
+
+{
+  const clock = fakeClock();
+  const out = [];
+  const a = new UtteranceAssembler((t) => out.push(t), { settleMs: 1200, ...clock });
+  a.replace('one');
+  clock.advance(1100);
+  a.replace('one two');
+  clock.advance(1100);
+  a.replace('one two three');
+  clock.advance(1200);
+  t(out.length === 1 && out[0] === 'one two three',
+    'each restatement pushes the deadline out', JSON.stringify(out));
+}
+
+{
+  const clock = fakeClock();
+  const out = [];
+  const a = new UtteranceAssembler((t) => out.push(t), { settleMs: 1200, ...clock });
+  a.replace('something');
+  a.replace('');
+  clock.advance(5000);
+  t(out.length === 0, 'replacing with nothing cancels the pending utterance', JSON.stringify(out));
+}
+
 // Housekeeping.
 {
   const clock = fakeClock();
