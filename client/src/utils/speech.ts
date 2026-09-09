@@ -147,7 +147,27 @@ export function extractSpoken(text: string): string {
     const sentences = clean.split(/(?<=[。.!?！?])\s*/).filter((s) => s.trim());
     spoken = sentences.slice(0, 2).join('') || clean;
   }
-  return spoken.slice(0, 500).trim();
+  return capSpokenLength(spoken);
+}
+
+/**
+ * Keep a spoken line short enough to listen to.
+ *
+ * The prompt asks the Keeper for one sentence, but a model that ignores that
+ * would otherwise monologue for half a minute — and under the half-duplex mic
+ * interlock the user cannot interrupt it. Cut at a sentence boundary so the
+ * result still sounds finished, rather than stopping mid-word.
+ */
+export function capSpokenLength(text: string, max = 240): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  const sentences = t.split(/(?<=[。.!?！?])\s*/).filter(Boolean);
+  let out = '';
+  for (const sentence of sentences) {
+    if (out && (out + sentence).length > max) break;
+    out += sentence;
+  }
+  return (out || t.slice(0, max)).trim();
 }
 
 /**
