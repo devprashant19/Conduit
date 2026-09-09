@@ -33,6 +33,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { subscribeSpeaking, isSpeaking, isLikelySelfEcho } from '../utils/speech';
 import { UtteranceAssembler } from '../utils/utterance';
+import { matchWakePhrase } from '../utils/voiceRouting';
 
 const ARM_TIMEOUT = 9000;       // 'wake' mode: disarm if no command follows the phrase
 /** Audio keeps playing briefly after onended/onend fire — let the tail pass. */
@@ -152,12 +153,9 @@ export function useWakeWord({
       if (modeRef.current === 'conversation') {
         clearArmTimer();
         setArmedState(false);
-        const term = phraseRef.current.trim().toLowerCase();
-        const hit = term ? text.toLowerCase().indexOf(term) : -1;
         // Saying the phrase again mid-conversation is harmless — strip it.
-        const body = hit >= 0
-          ? text.slice(hit + term.length).replace(/^[\s.,;:!?，。、：！？]+/, '').trim()
-          : text;
+        const again = matchWakePhrase(text, phraseRef.current);
+        const body = again.hit ? (again.rest || '') : text;
         if (body) dispatchSettled(body);
         return;
       }
@@ -168,12 +166,9 @@ export function useWakeWord({
         dispatchSettled(text);
         return;
       }
-      const term = phraseRef.current.trim().toLowerCase();
-      const hit = term ? text.toLowerCase().indexOf(term) : -1;
-      if (hit < 0) return;
-      // Strip the punctuation a transcriber puts between the wake phrase and
-      // the command ("Jarvis. List the agents" / "Jarvis, list the agents").
-      const after = text.slice(hit + term.length).replace(/^[\s.,;:!?，。、：！？]+/, '').trim();
+      const matched = matchWakePhrase(text, phraseRef.current);
+      if (!matched.hit) return;
+      const after = matched.rest;
       if (after) {
         cbRef.current.onCommand(after);
       } else {

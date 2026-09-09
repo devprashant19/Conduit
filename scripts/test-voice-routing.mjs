@@ -7,7 +7,7 @@
  * a control word being dispatched as a task, and a transcriber mangling an
  * agent's name so the command silently goes to the wrong place.
  */
-import { routeUtterance, matchAgent } from '../client/src/utils/voiceRouting.ts';
+import { routeUtterance, matchAgent, matchWakePhrase } from '../client/src/utils/voiceRouting.ts';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -96,6 +96,43 @@ t(routeUtterance('stop the dev server', ctx).kind === 'keeper',
   '"stop the dev server" is a command, not the stop control');
 t(routeUtterance('yes we should refactor that', gated).kind === 'keeper',
   'a sentence starting with "yes" is not an approval attempt');
+
+// --- the wake phrase, as a recogniser actually hears it ------------------
+// Exact matching made the wake word work "only sometimes": one mis-heard
+// letter and nothing happened at all.
+for (const heard of ['jarvis', 'Jarvis', 'JARVIS', 'jervis', 'javis', 'jarvis.', 'jarvus']) {
+  t(matchWakePhrase(heard, 'jarvis').hit, `"${heard}" wakes it`);
+}
+// "Travis" is three edits away — the same distance as "harvest", which must
+// never wake it. Listing the spelling is the way out.
+t(!matchWakePhrase('travis', 'jarvis').hit, '"travis" does not wake it by default');
+t(matchWakePhrase('travis start the agent', 'jarvis, travis').hit,
+  'until it is listed as an alternate');
+t(matchWakePhrase('travis start the agent', 'jarvis, travis').rest === 'start the agent',
+  'and the command still survives');
+t(matchWakePhrase('jarvis stop', 'jarvis, travis').hit, 'the first spelling still works');
+t(matchWakePhrase('jarvis list the agents', 'jarvis').rest === 'list the agents',
+  'the command after the phrase is kept',
+  JSON.stringify(matchWakePhrase('jarvis list the agents', 'jarvis').rest));
+t(matchWakePhrase('Jarvis. Start the agent', 'jarvis').rest === 'Start the agent',
+  'punctuation between phrase and command is stripped',
+  JSON.stringify(matchWakePhrase('Jarvis. Start the agent', 'jarvis').rest));
+t(matchWakePhrase('hey jarvis what is running', 'jarvis').rest === 'what is running',
+  'the phrase can appear mid-sentence');
+t(matchWakePhrase('jarvis', 'jarvis').rest === '',
+  'the phrase alone leaves no command');
+
+// Must NOT wake — a wake word that fires on ordinary speech is worse than one
+// that misses.
+for (const heard of ['harvest the logs', 'service is down', 'java version', 'the car is red']) {
+  t(!matchWakePhrase(heard, 'jarvis').hit, `"${heard}" does not wake it`);
+}
+t(!matchWakePhrase('', 'jarvis').hit, 'silence does not wake it');
+t(!matchWakePhrase('anything at all', '').hit, 'an empty phrase never matches');
+
+// A short custom phrase stays strict, or every syllable would trigger it.
+t(matchWakePhrase('ok computer', 'ok').hit, 'a short phrase matches exactly');
+t(!matchWakePhrase('of computer', 'ok').hit, 'a short phrase tolerates no slack');
 
 // --- matchAgent directly --------------------------------------------------
 t(matchAgent('claude', AGENTS, 'p1').agent?.id === 'a1', 'matchAgent exact name');

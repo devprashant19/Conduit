@@ -117,9 +117,14 @@ export default function JarvisHud({
                 className="jv-wake-input"
                 value={wake.phrase}
                 onChange={(e) => wake.onPhraseChange(e.target.value)}
-                placeholder="e.g. jarvis"
+                placeholder="e.g. jarvis, travis"
                 spellCheck={false}
                 aria-label="Wake word"
+                // Near-misses already match, but a recogniser that consistently
+                // hears something else (Jarvis → Travis) needs that spelling
+                // listed. Comma separated; any of them wakes it.
+                title={'Say any of these to wake Conduit. Separate spellings with commas — '
+                  + 'add whatever your microphone actually hears.'}
               />
             </div>
           )}

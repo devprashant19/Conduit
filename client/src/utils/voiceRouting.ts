@@ -141,6 +141,65 @@ export function matchAgent(
   return {};
 }
 
+/**
+ * Did the user say the wake phrase, and what followed it?
+ *
+ * An exact substring test fails on the single most common case: a recogniser
+ * writes "Travis" or "Jervis" for "Jarvis", and the wake word then appears to
+ * work only sometimes. This tolerates near-misses the same way agent names do,
+ * with a budget that scales to the word so short phrases stay strict.
+ */
+export function matchWakePhrase(text: string, phrase: string): { hit: boolean; rest: string } {
+  // Several spellings may be configured, comma separated. Edit distance alone
+  // cannot cover every mishearing — "Travis" is three edits from "Jarvis", and
+  // allowing three would also match "harvest" — so whatever a particular
+  // microphone and accent reliably produce can simply be listed.
+  const alternates = phrase.split(/[,/|]/).map((a) => a.trim()).filter(Boolean);
+  if (alternates.length > 1) {
+    for (const alt of alternates) {
+      const m = matchWakePhrase(text, alt);
+      if (m.hit) return m;
+    }
+    return { hit: false, rest: '' };
+  }
+
+  const rawLower = text.toLowerCase();
+  const phraseLower = (alternates[0] || '').toLowerCase();
+  if (!phraseLower) return { hit: false, rest: '' };
+
+  // Exact first — cheapest and most confident, and it preserves the original
+  // casing of whatever followed.
+  const idx = rawLower.indexOf(phraseLower);
+  if (idx >= 0) {
+    const rest = text.slice(idx + phraseLower.length).replace(/^[\s.,;:!?，。、：！？]+/, '').trim();
+    return { hit: true, rest };
+  }
+
+  const words = norm(text).split(' ').filter(Boolean);
+  const target = norm(phraseLower).split(' ').filter(Boolean);
+  if (target.length === 0 || words.length < target.length) return { hit: false, rest: '' };
+
+  for (let i = 0; i + target.length <= words.length; i++) {
+    let ok = true;
+    for (let j = 0; j < target.length; j++) {
+      if (editDistance(words[i + j], target[j]) > wakeBudget(target[j])) { ok = false; break; }
+    }
+    if (ok) return { hit: true, rest: words.slice(i + target.length).join(' ').trim() };
+  }
+  return { hit: false, rest: '' };
+}
+
+/**
+ * How wrong a heard word may be and still count as the wake phrase. Short
+ * words get no slack — at three letters, one edit reaches too many real words
+ * and every stray syllable would wake it.
+ */
+function wakeBudget(word: string): number {
+  if (word.length >= 6) return 2;
+  if (word.length >= 4) return 1;
+  return 0;
+}
+
 /** Directed forms: "tell claude to run the tests" / "claude, run the tests". */
 const DIRECTED = [
   /^(?:tell|ask|have|get)\s+(.+?)\s+(?:to\s+|that\s+)?(.+)$/i,
