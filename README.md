@@ -204,6 +204,7 @@ When an agent starts, Conduit writes a `CLAUDE.md` / `AGENTS.md` section in its 
 | `npm run daemon` / `npm start` | Run either process alone |
 | `npm run smoke` | End-to-end smoke test against a running instance |
 | `npm run check:agents` | Start one agent of every CLI type and report which run (and why the rest don't) |
+| `npm run check:multi` | Several agents on one project at once: concurrency, Supervisor, gates, cross-agent messaging |
 | `npm run build:desktop` | Icon + full build + electron-builder → `dist-desktop/` |
 
 ## Deployment (Docker / EC2)
