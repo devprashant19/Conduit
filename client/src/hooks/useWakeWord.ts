@@ -50,6 +50,14 @@ const COMMAND_SETTLE_MS = 1200;
 const NETWORK_GIVE_UP = 3;
 /** Consecutive transcription failures before we stop — each one is billable. */
 const TRANSCRIBE_GIVE_UP = 3;
+/**
+ * Ceiling on transcriptions per minute for a cloud engine.
+ *
+ * A person speaking constantly does not reach this; a television in the room
+ * would. It bounds what an always-on paid recogniser can spend while the user
+ * is not even in the room.
+ */
+const MAX_UPLOADS_PER_MIN = 30;
 
 // --- energy gate (cloud engine) ---------------------------------------
 const VAD_POLL_MS = 50;
@@ -65,8 +73,13 @@ const MIN_UTTERANCE_MS = 350;
 const MAX_UTTERANCE_MS = 15_000;
 /** Recycle the recorder during silence so its buffer cannot grow forever. */
 const IDLE_RECYCLE_MS = 10_000;
-/** Absolute floor, so a silent room never trips the gate. */
+/**
+ * Two thresholds. Speech clears the higher bar to start and only the lower one
+ * to continue, so the quiet tail of a word does not register as silence and
+ * split a sentence in two.
+ */
 const MIN_SPEECH_RMS = 0.02;
+const HOLD_SPEECH_RMS = 0.008;
 
 export type WakeProvider = 'browser' | 'openai' | 'gemini' | 'groq';
 export type ListenMode = 'wake' | 'conversation';
@@ -321,8 +334,24 @@ export function useWakeWord({
        * every utterance forever, and each one is a billable request.
        */
       let failures = 0;
+      let uploadTimes: number[] = [];
+      let rateWarned = false;
       const transcribe = async (blob: Blob) => {
         if (stopped || blob.size === 0) return;
+
+        // Rate ceiling: sustained speech nearby (a TV, a meeting) would
+        // otherwise upload continuously on a metered API.
+        const now = Date.now();
+        uploadTimes = uploadTimes.filter((t) => now - t < 60_000);
+        if (uploadTimes.length >= MAX_UPLOADS_PER_MIN) {
+          if (!rateWarned) {
+            rateWarned = true;
+            setError('too much speech nearby — pausing transcription for a moment');
+          }
+          return;
+        }
+        uploadTimes.push(now);
+        rateWarned = false;
         const fail = (msg: string) => {
           failures += 1;
           setError(msg);
@@ -451,11 +480,13 @@ export function useWakeWord({
           const rms = Math.sqrt(sum / buf.length);
 
           const now = Date.now();
-          const speaking = rms > Math.max(MIN_SPEECH_RMS, noiseFloor * 2.5);
+          const startGate = Math.max(MIN_SPEECH_RMS, noiseFloor * 2.5);
+          const holdGate = Math.max(HOLD_SPEECH_RMS, noiseFloor * 1.5);
+          const speaking = speechStart ? rms > holdGate : rms > startGate;
           if (speaking) {
             if (!speechStart) speechStart = now;
             lastVoiceAt = now;
-          } else {
+          } else if (!speechStart) {
             // Only adapt the floor while quiet, so speech cannot raise it.
             noiseFloor = noiseFloor * 0.95 + rms * 0.05;
           }

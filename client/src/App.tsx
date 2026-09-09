@@ -680,11 +680,13 @@ export default function App() {
   // acknowledges it, and it stays open for follow-ups until you go quiet.
   // Push-to-talk and the session share one microphone, so the session pauses
   // while the user is holding the header mic.
-  const isDesktop = !!window.conduitDesktop?.isDesktop;
-  // The free browser recogniser cannot work inside Electron, and a cloud
-  // engine bills per utterance — so only the free-engine web case listens
-  // continuously. Everywhere else a session is opened deliberately.
-  const alwaysOn = voice.cfg.stt.provider === 'browser' && !isDesktop;
+  // Switching the wake word on is a statement of intent: listen for the
+  // phrase. Gating that on the engine meant choosing a more accurate
+  // recogniser silently turned the feature off, which is not a trade the user
+  // ever agreed to. A cloud engine only uploads actual speech (the energy gate
+  // discards silence) and useWakeWord caps the rate, so the cost of leaving it
+  // on is bounded.
+  const alwaysOn = wakeEnabled;
 
   /** Flat roster across every project, for addressing an agent by name. */
   const voiceRoster: RosterAgent[] = useMemo(() => {

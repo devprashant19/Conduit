@@ -30,13 +30,24 @@ const SETTLE_MS = 1100;
 // until the button was pressed a second time. These drive an energy gate that
 // closes the recording on its own.
 const VAD_POLL_MS = 50;
-/** Silence that ends the recording, once speech has actually been heard. */
-const VAD_SILENCE_MS = 1300;
+/**
+ * Silence that ends the recording, once speech has actually been heard.
+ * Generous on purpose: being cut off mid-sentence costs the whole command,
+ * while waiting an extra moment costs a moment — and the button still stops
+ * it immediately for anyone in a hurry.
+ */
+const VAD_SILENCE_MS = 1800;
 /** Nothing said at all — close the mic rather than record an empty room. */
 const VAD_NO_SPEECH_MS = 8000;
 /** Never record longer than this in one press. */
 const VAD_MAX_MS = 60_000;
-const VAD_MIN_RMS = 0.02;
+/**
+ * Two thresholds, not one. Speech has to clear the higher bar to start, but
+ * only the lower one to continue — otherwise the quiet tail of a word, or a
+ * breath between clauses, reads as silence and the sentence is cut in half.
+ */
+const VAD_START_RMS = 0.02;
+const VAD_CONTINUE_RMS = 0.008;
 
 type SpeechResultHandler = (text: string, final: boolean) => void;
 export interface SpeechOptions {
@@ -305,6 +316,7 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
 
       const startedAt = Date.now();
       let heardSpeech = false;
+      let inSpeech = false;
       let lastVoiceAt = 0;
       let noiseFloor = 0.005;
 
@@ -316,15 +328,24 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
         const rms = Math.sqrt(sum / buf.length);
         const now = Date.now();
 
-        if (rms > Math.max(VAD_MIN_RMS, noiseFloor * 2.5)) {
+        const startGate = Math.max(VAD_START_RMS, noiseFloor * 2.5);
+        const holdGate = Math.max(VAD_CONTINUE_RMS, noiseFloor * 1.5);
+
+        if (!inSpeech && rms > startGate) {
+          inSpeech = true;
           heardSpeech = true;
           lastVoiceAt = now;
-        } else {
+        } else if (inSpeech && rms > holdGate) {
+          lastVoiceAt = now;
+        } else if (!inSpeech) {
+          // Only adapt the floor while genuinely quiet, so speech cannot raise it.
           noiseFloor = noiseFloor * 0.95 + rms * 0.05;
         }
 
+        if (inSpeech && now - lastVoiceAt > VAD_SILENCE_MS) inSpeech = false;
+
         const done =
-          (heardSpeech && now - lastVoiceAt > VAD_SILENCE_MS) ||
+          (heardSpeech && !inSpeech && now - lastVoiceAt > VAD_SILENCE_MS) ||
           (!heardSpeech && now - startedAt > VAD_NO_SPEECH_MS) ||
           (now - startedAt > VAD_MAX_MS);
         if (done) { stopVad(); stop(); }
