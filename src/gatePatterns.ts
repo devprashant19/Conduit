@@ -16,6 +16,10 @@ export const COMMON_GATE_PATTERNS = [
   /\[Y\/n\]/i,
   /\(yes\/no\)/i,
   /\(y\/n\)/i,
+  // aider's own form, e.g. "create one to track aider's changes
+  // (recommended)? (Y)es/(N)o [Yes]:" — the gpt and nemotron agent types run on
+  // aider, and this blocks them on start until someone answers.
+  /\(Y\)es\s*\/\s*\(N\)o/i,
   /Do you want to proceed\?/i,
   /Do you want to (?:make this edit|run this command|allow)/i,
   /Allow (?:edit|command|tool)\?/i,
@@ -65,5 +69,5 @@ export function checkGate(text: string): { matches: boolean; highRisk: boolean; 
 
 /** True when the prompt text looks like it expects a literal y / n answer. */
 export function isYesNoPrompt(text: string): boolean {
-  return /\[y\/N\]|\[Y\/n\]|\(yes\/no\)|\(y\/n\)/i.test(text);
+  return /\[y\/N\]|\[Y\/n\]|\(yes\/no\)|\(y\/n\)|\(Y\)es\s*\/\s*\(N\)o/i.test(text);
 }

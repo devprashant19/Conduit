@@ -20,6 +20,13 @@ t(checkGate('Do you want to proceed?').matches, '"Do you want to proceed?" is a 
 t(isYesNoPrompt('Overwrite file? (yes/no)'), '(yes/no) counts as a yes/no prompt');
 t(!isYesNoPrompt('Do you want to proceed?'), 'Claude-style prompt is not a literal y/n prompt');
 
+// aider's form — the gpt and nemotron agent types block on this at start-up,
+// and it went unnoticed until a real multi-agent session hit it.
+const AIDER = "No git repo found, create one to track aider's changes (recommended)? (Y)es/(N)o [Yes]: ";
+t(checkGate(AIDER).matches && !checkGate(AIDER).highRisk, "aider's (Y)es/(N)o is a prompt gate");
+t(isYesNoPrompt(AIDER), "aider's (Y)es/(N)o counts as a yes/no prompt");
+t(!checkGate('The (N)o-op case is described in yes.md').matches, 'prose mentioning (N)o does not gate');
+
 // Destructive commands
 t(checkGate('$ rm -rf ./build').highRisk, 'rm -rf is high risk');
 t(checkGate('git push origin main --force').highRisk, 'force push is high risk');
