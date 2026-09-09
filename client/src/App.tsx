@@ -38,8 +38,8 @@ const LAYOUT_ICONS: { v: GridLayout; Icon: (p: { size?: number }) => JSX.Element
   { v: 'single', Icon: Ic.single, title: 'Single' },
   { v: '2up', Icon: Ic.twoup, title: '2-up' },
   { v: '3up', Icon: Ic.threeup, title: '3-up' },
-  { v: 'grid', Icon: Ic.grid, title: 'Grid (splits & resize)' },
-  { v: 'canvas', Icon: Ic.canvas, title: 'Canvas (drag & resize)' },
+  { v: 'grid', Icon: Ic.grid, title: 'Tmux Grid' },
+  { v: 'canvas', Icon: Ic.canvas, title: 'Canvas' },
 ];
 
 export default function App() {
@@ -99,8 +99,10 @@ export default function App() {
   });
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const [helpMenuOpen, setHelpMenuOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const layoutMenuRef = useRef<HTMLDivElement>(null);
   const helpMenuRef = useRef<HTMLDivElement>(null);
+  const shortcutsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -109,6 +111,9 @@ export default function App() {
       }
       if (helpMenuRef.current && !helpMenuRef.current.contains(e.target as Node)) {
         setHelpMenuOpen(false);
+      }
+      if (shortcutsRef.current && !shortcutsRef.current.contains(e.target as Node)) {
+        setShortcutsOpen(false);
       }
     };
     document.addEventListener('mousedown', onDocClick);
@@ -1167,35 +1172,70 @@ export default function App() {
 
       <footer className="st">
         <div className="st-l" data-tour="supervisor">
-          {selectedProjectId && (
-            <>
-              <span className="st-item">
-                <span className="sdot running" style={{ width: 6, height: 6 }} /> {runningCount} running
+          {selectedProjectId ? (
+            <div className="st-counts">
+              <span className="st-count-item running">
+                <span className="sdot running" style={{ width: 6, height: 6 }} />
+                <span>{runningCount} running</span>
               </span>
+              <span className="st-dot-sep">·</span>
               {awaitingCount > 0 && (
-                <span className="st-item" style={{ color: 'var(--attn)' }}>
-                  <span className="sdot awaiting_input" style={{ width: 6, height: 6 }} /> {awaitingCount} awaiting you
-                </span>
+                <>
+                  <span className="st-count-item awaiting">
+                    <span className="sdot awaiting_input" style={{ width: 6, height: 6 }} />
+                    <span>{awaitingCount} awaiting you</span>
+                  </span>
+                  <span className="st-dot-sep">·</span>
+                </>
               )}
               {idleCount > 0 && (
-                <span className="st-item" style={{ color: 'var(--text-2)' }}>
-                  <span className="sdot idle" style={{ width: 6, height: 6 }} /> {idleCount} idle
-                </span>
+                <>
+                  <span className="st-count-item idle">
+                    <span className="sdot idle" style={{ width: 6, height: 6 }} />
+                    <span>{idleCount} idle</span>
+                  </span>
+                  <span className="st-dot-sep">·</span>
+                </>
               )}
-              <span className="st-item" style={{ color: 'var(--text-2)' }}>
-                <span className="sdot stopped" style={{ width: 6, height: 6 }} /> {stoppedCount} stopped
+              <span className="st-count-item stopped">
+                <span className="sdot stopped" style={{ width: 6, height: 6 }} />
+                <span>{stoppedCount} stopped</span>
               </span>
-            </>
+            </div>
+          ) : (
+            <span className="st-count-item stopped">Select a workspace</span>
           )}
         </div>
         <div className="st-r">
-          <span className="st-kbd"><kbd>{MOD}K</kbd> palette</span>
-          <span className="st-kbd"><kbd>{MOD}J</kbd> command</span>
-          <span className="st-kbd"><kbd>{MOD};</kbd> voice</span>
-          <span className="st-kbd"><kbd>{MOD}1-9</kbd> agent</span>
-          <span className={'st-item ' + (ws.connected ? 'ok' : 'err')} title={ws.connected ? 'Live connection to the Conduit server' : 'Reconnecting to the Conduit server…'}>
+          <div className="st-shortcuts-wrap" ref={shortcutsRef}>
+            <button
+              className="st-shortcuts-btn"
+              title="Keyboard shortcuts"
+              onClick={() => setShortcutsOpen(!shortcutsOpen)}
+            >
+              <span>Shortcuts</span>
+              <Ic.chevDown size={9} />
+            </button>
+            {shortcutsOpen && (
+              <div className="st-shortcuts-popover">
+                <div className="st-shortcuts-header">Keyboard Shortcuts</div>
+                <div className="st-shortcuts-list">
+                  <div className="st-shortcut-row"><span>Search & Palette</span><kbd>{MOD}K</kbd></div>
+                  <div className="st-shortcut-row"><span>The Keeper</span><kbd>{MOD}J</kbd></div>
+                  <div className="st-shortcut-row"><span>Voice Input</span><kbd>{MOD};</kbd></div>
+                  <div className="st-shortcut-row"><span>Select Agent</span><kbd>{MOD}1-9</kbd></div>
+                  <div className="st-shortcut-row"><span>Start Agent</span><kbd>{MOD}Enter</kbd></div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <span
+            className={'st-item ' + (ws.connected ? 'ok' : 'err')}
+            title={ws.connected ? 'Live connection to the Conduit server' : 'Reconnecting to the Conduit server…'}
+          >
             <span className={'sdot ' + (ws.connected ? 'running' : 'stopped')} style={{ width: 6, height: 6 }} />
-            {ws.connected ? 'connected' : 'reconnecting…'}
+            <span>{ws.connected ? 'connected' : 'reconnecting…'}</span>
           </span>
           {ws.connected && !ws.daemon && (
             <span className="st-item err" title="The agent daemon is not reachable. Start it with: npm run daemon">

@@ -85,12 +85,18 @@ export default function CommandPalette({
     else if (e.key === 'Enter') { e.preventDefault(); filtered[focus]?.run(); }
   };
 
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    itemRefs.current[focus]?.scrollIntoView({ block: 'nearest' });
+  }, [focus]);
+
   let currentGroup: string | null = null;
   return (
     <div className="palette-scrim" onClick={onClose}>
       <div className="palette" onClick={(e) => e.stopPropagation()}>
         <div className="palette-in">
-          <Ic.search size={18} style={{ color: 'var(--text-2)' }} />
+          <Ic.search size={16} style={{ color: 'var(--text-2)', flexShrink: 0 }} />
           <input
             ref={inputRef}
             value={q}
@@ -110,6 +116,7 @@ export default function CommandPalette({
               <Fragment key={i}>
                 {groupH}
                 <div
+                  ref={(el) => { itemRefs.current[i] = el; }}
                   className={'palette-it' + (i === focus ? ' focus' : '')}
                   onMouseEnter={() => setFocus(i)}
                   onClick={() => c.run()}
@@ -122,10 +129,15 @@ export default function CommandPalette({
             );
           })}
           {filtered.length === 0 && (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>
-              No matches
+            <div style={{ padding: 28, textAlign: 'center', color: 'var(--text-3)', fontSize: 12 }}>
+              No matches found
             </div>
           )}
+        </div>
+        <div className="palette-footer">
+          <div className="palette-footer-item"><kbd>↑</kbd><kbd>↓</kbd> <span>navigate</span></div>
+          <div className="palette-footer-item"><kbd>↵</kbd> <span>select</span></div>
+          <div className="palette-footer-item"><kbd>esc</kbd> <span>close</span></div>
         </div>
       </div>
     </div>

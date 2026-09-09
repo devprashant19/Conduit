@@ -15,7 +15,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
 import Terminal from './Terminal';
 import CodexAgentView from './CodexAgentView';
-import Ic from './Icons';
+import Ic, { MOD } from './Icons';
 import { agentHue, agentInitials } from '../utils/agentIdentity';
 import type { Agent } from '../api';
 import type { WsApi } from '../hooks/useWebSocket';
@@ -150,10 +150,19 @@ function AgentPane({
   // status — running, awaiting_input, or idle all mean the process exists.
   const isAlive = agent.status !== 'stopped';
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isAlive) {
+      e.preventDefault();
+      onStart(agent);
+    }
+  };
+
   return (
     <div
       className={cls.join(' ')}
       onClick={onFocus}
+      onKeyDown={handleKeyDown}
+      tabIndex={focused ? 0 : -1}
       onDragOver={dragHandlers?.onDragOver}
       onDragLeave={dragHandlers?.onDragLeave}
       onDrop={dragHandlers?.onDrop}
@@ -232,11 +241,23 @@ function AgentPane({
           )
         ) : (
           <div className="pane-stopped">
-            <div className="label">agent stopped</div>
-            <div className="meta">{agent.cli} · {agent.cwd}</div>
-            <button className="batch-btn primary" onClick={(e) => { e.stopPropagation(); onStart(agent); }}>
-              <Ic.play size={10} /> Start agent
-            </button>
+            <div className="pane-stopped-card">
+              <div className="pane-stopped-badge">
+                <span className="sdot stopped" />
+                <span>Agent Stopped</span>
+              </div>
+              <div className="pane-stopped-title">{agent.name}</div>
+              <div className="pane-stopped-meta">{agent.cli} · {agent.cwd}</div>
+              <div className="pane-stopped-desc">Ready to execute tasks</div>
+              <button
+                className="pane-stopped-btn"
+                onClick={(e) => { e.stopPropagation(); onStart(agent); }}
+                title={`Start agent (${MOD}Enter)`}
+              >
+                <Ic.play size={11} /> Start agent
+              </button>
+              <span className="pane-stopped-hint">or press <kbd>{MOD}Enter</kbd></span>
+            </div>
           </div>
         )}
       </div>
@@ -249,7 +270,9 @@ function AgentPane({
  * an unmount mid-drag never leaks listeners or a stuck cursor.
  */
 function trackDrag(move: (ev: MouseEvent) => void, cursor: string): () => void {
+  document.body.classList.add('is-resizing');
   const up = () => {
+    document.body.classList.remove('is-resizing');
     window.removeEventListener('mousemove', move);
     window.removeEventListener('mouseup', up);
     window.removeEventListener('blur', up);
@@ -902,7 +925,16 @@ export default function AgentGrid({
   if (ordered.length === 0) {
     return (
       <div className="gr-body layout-single">
-        <div className="panel-empty">No agents yet. Add one from the sidebar.</div>
+        <div className="pane-stopped" style={{ width: '100%', height: '100%' }}>
+          <div className="pane-stopped-card">
+            <div className="pane-stopped-badge">
+              <span className="sdot" />
+              <span>No Agents</span>
+            </div>
+            <div className="pane-stopped-title">No agents in this workspace</div>
+            <div className="pane-stopped-desc">Create or launch an agent from the sidebar or header to get started.</div>
+          </div>
+        </div>
       </div>
     );
   }
