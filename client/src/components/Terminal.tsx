@@ -14,7 +14,7 @@ interface Props {
 
 const DARK_THEME = {
   background: '#09090b',
-  foreground: '#000000',
+  foreground: '#f4f4f5',
   cursor: '#3b82f6',
   selectionBackground: 'rgba(59, 130, 246, 0.3)',
   black: '#09090b',
@@ -38,7 +38,7 @@ const DARK_THEME = {
 // Light palette matched to Claude Code's light theme (ansi color names)
 const LIGHT_THEME = {
   background: '#f7f7f5',
-  foreground: '#37352f',
+  foreground: '#000000',
   cursor: '#2383e2',
   selectionBackground: 'rgba(0, 153, 153, 0.2)',
   black: '#37352f',
@@ -94,7 +94,7 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
       cursorBlink: true,
       fontSize: 12.25,
       fontFamily: "'Consolas', 'Fira Code', monospace",
-      theme: DARK_THEME,
+      theme: isLight ? LIGHT_THEME : DARK_THEME,
       scrollback: 5000,
       allowProposedApi: true,
     });
