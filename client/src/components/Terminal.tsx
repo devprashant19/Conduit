@@ -78,7 +78,7 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
     const apply = () => {
       const t = termRef.current;
       if (!t) return;
-      t.options.theme = el.getAttribute('data-theme') === 'light' ? LIGHT_THEME : DARK_THEME;
+      t.options.theme = LIGHT_THEME;
     };
     const obs = new MutationObserver(apply);
     obs.observe(el, { attributes: true, attributeFilter: ['data-theme'] });
@@ -94,7 +94,7 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
       cursorBlink: true,
       fontSize: 12.25,
       fontFamily: "'Consolas', 'Fira Code', monospace",
-      theme: isLight ? LIGHT_THEME : DARK_THEME,
+      theme: LIGHT_THEME,
       scrollback: 5000,
       allowProposedApi: true,
     });
