@@ -14,7 +14,7 @@ interface Props {
 
 const DARK_THEME = {
   background: '#09090b',
-  foreground: '#f4f4f5',
+  foreground: '#000000',
   cursor: '#3b82f6',
   selectionBackground: 'rgba(59, 130, 246, 0.3)',
   black: '#09090b',
