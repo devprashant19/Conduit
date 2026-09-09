@@ -592,8 +592,17 @@ export default function App() {
     enabled: wakeEnabled && !quickSpeech.listening,
     phrase: wakePhrase,
     language: voice.cfg.stt.language,
+    // Same engine as push-to-talk. 'browser' cannot work inside the desktop
+    // app (no Chromium speech service), so the provider choice matters here.
+    provider: voice.cfg.stt.provider,
     onWake: () => { setToast(`Listening — say your command for The Keeper.`); },
     onCommand: (text) => fireQuickCmd(text),
+    // Listening is impossible, not merely quiet. Turn the switch off so the
+    // HUD stops claiming to listen, and say why.
+    onUnavailable: (reason) => {
+      setWakeEnabled(false);
+      setToast(`Wake word off — ${reason}`);
+    },
   });
   useEffect(() => {
     localStorage.setItem('conduit:wake', wakeEnabled ? '1' : '0');

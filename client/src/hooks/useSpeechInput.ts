@@ -31,7 +31,12 @@ function explainError(code: string, secure: boolean): string {
     case 'audio-capture':
       return 'no microphone found';
     case 'network':
-      return 'speech service unreachable — check the network';
+      // Inside Electron this is not a network problem and never recovers:
+      // Chromium proxies recognition to a Google service using API keys the
+      // desktop build does not ship.
+      return typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent)
+        ? 'browser speech recognition does not work in the desktop app — choose OpenAI or Gemini in Voice settings'
+        : 'speech service unreachable — check the network';
     default:
       return code || 'unknown error';
   }
