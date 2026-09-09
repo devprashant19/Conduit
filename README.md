@@ -1,195 +1,191 @@
 # Conduit
 
-**The human-driven multi-agent control center for professional engineers.**
+**The multi-agent control center for engineers**
+*You decide, the agents work*
 
-Conduit is a web dashboard for running and supervising several AI coding agents (Claude Code, Codex, Gemini CLI, OpenCode, GPT-OSS on Groq, Nemotron on OpenRouter) side by side. Every agent runs in a real terminal you can see and type into. An AI Supervisor built on the **AWS Strands Agents SDK** and **Amazon Bedrock** watches their output, tells you what matters, and asks for your approval before anything risky happens.
+Running one coding agent is a conversation. Running five is a management problem. They
+finish at different times and stop asking for you politely; one has been sitting on a
+`[y/N]` prompt for ten minutes; one decided the fastest way past a failing test was to
+delete it; one is confidently editing a file another one is also editing. You end up
+alt-tabbing between terminals to find out which of them needs you, and the answer is
+usually "the one you looked at last".
 
-While autonomous agent platforms hand the steering wheel to the AI, Conduit keeps you in the driver's seat.
+Conduit runs them side by side in real terminals you can see and type into, and puts a
+Supervisor in front of them that reads every line of output, tells you which agent needs
+you and why, and **stops an agent before it does something destructive** until you say yes.
 
-## Project provenance (Agents for Humans hackathon)
+Conduit is a control centre, not an autonomous system. It starts nothing on its own, and
+the Supervisor cannot instruct an agent — it can only *propose*, and a proposal sits
+unexecuted until you approve it. When it is unsure, it asks rather than guesses.
 
-Built during the submission window for the "Agents for Humans" hackathon (Professional Agents track):
+---
 
-- **Strands Supervisor Agent** (`src/strands/`) — a Bedrock-backed classifier that watches every running agent's output and reports progress, blockers, questions and risky actions.
-- **Approval Gates** — fast-path pattern detection (y/N prompts, destructive commands) plus Supervisor classification; the agent's terminal is surfaced in a modal and you decide.
-- **Plan-Approve safety valve** — the Supervisor can only *propose* instructions to agents via `plan_action`; nothing is sent until you approve it.
-- **Group Chat** — one stream per project with your messages, Supervisor summaries, gates and plan decisions; what you type is delivered into the agents' terminals.
-- **Voice pipeline** — speech in, spoken summaries out (browser engines by default, OpenAI/Gemini optional).
-- **Usage dashboard** and **AWS deployment** (Docker on EC2, IAM role scoped to Bedrock).
+## Run it
 
-The base scaffolding (PTY runner, React shell, Express server, file storage, project/agent CRUD, shared content, wiki, MCP messaging, Codex orchestrator) pre-dates the hackathon.
-
-## Architecture
-
-![Architecture Diagram](architecture.png)
-
-```
-                       You (browser)
-                            │  REST + WebSocket (Basic auth optional)
-                   ┌────────▼────────┐
-                   │  Web server     │  :3200  React UI · REST · voice proxy
-                   │  (Express)      │         relays terminal I/O, never owns processes
-                   └────────┬────────┘
-                            │  local WebSocket
-                   ┌────────▼────────┐
-                   │  Daemon         │  :3210 (loopback only)
-                   │                 │  owns every agent process, survives web restarts
-                   │  ┌────────────┐ │
-                   │  │ PTY agents │ │  claude / gemini / opencode in real terminals
-                   │  │ Codex      │ │  codex app-server threads (structured view)
-                   │  │ Watcher    │─┼──► Strands Supervisor → Amazon Bedrock
-                   │  │ The Keeper │ │  Codex-powered orchestrator (Command panel)
-                   │  └────────────┘ │
-                   └─────────────────┘
-```
-
-Two brains, two roles:
-
-| | The Supervisor | The Keeper |
-|---|---|---|
-| Runs on | AWS Strands Agents SDK + Bedrock | Codex CLI (`codex exec`) |
-| Job | Watches agent output, classifies it, raises gates, proposes plans | Answers your questions about the whole org, relays instructions when you ask |
-| Can act without you? | **No** — write intent must go through `plan_action` and your approval | Only what you ask it in the Command panel |
-| Needs | AWS credentials + Bedrock model access | `codex` CLI logged in |
-
-## Quick start (local)
+Needs **Node 20+** and at least one agent CLI installed and logged in.
 
 ```bash
 git clone https://github.com/devprashant19/Conduit.git
 cd Conduit
-npm install
-npm run build
-npm run start:all        # daemon (:3210) + web server (:3200)
+npm install            # .npmrc pins legacy-peer-deps: Strands wants Express 5, we use 4
+npm run build          # type-checks both sides, then builds server and client
+npm run start:all      # daemon + web server
 ```
 
-Open http://localhost:3200. For development with hot reload use `npm run dev` and open http://localhost:5173.
+Then open **http://localhost:3200**.
 
-### Native Desktop Application (macOS / Linux / Windows)
+Nothing else is required. With no AWS credentials the Supervisor falls back to the
+Anthropic API, and with neither it logs one warning and backs off — agents still run,
+gates still fire from pattern matching, and nothing else changes.
 
-Conduit can be packaged and run as a standalone native desktop application bundling the local daemon, PTY terminal grid, and Bedrock supervisor:
+| Command | What it does |
+|---|---|
+| `npm run dev` | daemon + server + Vite with hot reload, on `:5173` |
+| `npm run start:all` | production: daemon on `:3210`, web on `:3200` |
+| `npm run build:desktop` | packages the Electron app into `dist-desktop/` |
+
+### Prove it rather than read about it
+
+Every claim below is executable. These run against a live instance and exit non-zero on
+failure:
 
 ```bash
-# Run desktop app locally in development
-npm run dev:desktop
-
-# Package standalone native binaries (.dmg, .AppImage, .deb, .exe)
-npm run build:desktop
+npm test                  # 108 unit checks: gate patterns, voice routing, utterance
+                          # assembly, voice selection, supervisor concurrency
+npm run smoke             # 61 checks end to end — starts a real agent, streams its
+                          # terminal, exercises every REST route and WebSocket event
+npm run browser-check     # 12 UI interactions driven through headless Edge
+npm run check:agents      # starts one agent of each of the six types
+npm run check:keeper      # asks The Keeper a question and reports what it called
+npm run test:supervisor   # five live classifications against the real model
+npm run check:multi       # four agents working one project concurrently
 ```
 
-### Prerequisites
+`npm run check:agents` is the one worth running first. It answers the only question that
+matters on a new machine — which agents actually work here — and it distinguishes *running*
+from *silently broken*:
 
-- Node.js 20+
-- Build tools for `node-pty` (Windows: Visual Studio Build Tools; macOS: `xcode-select --install`; Linux: `build-essential`)
-- At least one agent CLI on your PATH and logged in: `claude`, `codex`, `gemini`, or `opencode`
-- For the `gpt` and `nemotron` agent types, [aider](https://aider.chat) plus the matching API key:
-
-  ```bash
-  uv tool install --python 3.12 aider-chat   # aider supports Python >=3.10,<3.13
-  ```
-
-  then set `GROQ_API_KEY` (gpt → `openai/gpt-oss-120b`) and/or `OPENROUTER_API_KEY`
-  (nemotron → `nvidia/nemotron-3.5-lightning:free`) in `.env`. Conduit checks for the
-  binary and the key before starting an agent and tells you which one is missing.
-- `curl` (used by Claude Code lifecycle hooks; present on Windows 10+, macOS and most Linux)
-
-Optional:
-
-- **AWS credentials with Bedrock access** for the Supervisor. Without them Conduit still works; the Supervisor logs one warning and backs off. Set `CONDUIT_SUPERVISOR=off` to disable it explicitly.
-- A CLI for The Keeper (Command panel): `codex`, or `claude` — whichever is on PATH.
-  Set `CONDUIT_KEEPER_ENGINE=claude` (or `codex`) to pin one; otherwise Conduit prefers
-  `codex` and falls back to `claude`, so a Claude Code login is enough on its own.
-- Speech-to-text: the browser engine is free and needs no key, but it is less
-  accurate on names and **cannot run inside the desktop app** (Chromium proxies
-  it to a Google service Electron has no keys for). For accuracy, latency, or
-  desktop voice, set the STT provider to **Groq Whisper** in Settings → Voice —
-  it reuses `GROQ_API_KEY`, costs about $0.04/hour, and answers in under a
-  second. `OPENAI_API_KEY` / `GEMINI_API_KEY` also work.
-- Text-to-speech is best left on the browser engine: local, free and unlimited.
-  OpenAI and Gemini are available if you want a better-sounding voice.
-- `ANTHROPIC_API_KEY` — lets the Supervisor fall back to the Anthropic Messages API when
-  Bedrock is unavailable. Without it Conduit reuses the Claude Code OAuth token if present.
-
-Copy `.env.example` to `.env` to configure any of this.
-
-**Where `.env` is read from.** Conduit loads `./.env` (next to the server) *and*
-`~/.conduit/.env`, in that order — the first file to define a key wins, and a real
-environment variable beats both. The desktop app runs from its install directory and
-has no repo, so **`~/.conduit/.env` is where desktop configuration goes**: Bedrock
-settings, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `CONDUIT_AUTH`. `GET /api/health`
-reports which files were actually read (`envFiles`) — check it there if a setting
-doesn't seem to apply.
-
-Credentials that live outside `.env` work in both modes without any of this:
-`~/.aws/credentials` (Bedrock), `~/.claude/.credentials.json` (the Supervisor's
-Anthropic fallback), and each agent CLI's own login.
-
-### Verify the install
-
-With `npm run start:all` running in one terminal:
-
-```bash
-npm run smoke
+```
+✓ claude    running — 1795 bytes of terminal output
+✓ codex     refused (400) — Codex CLI needs the `codex` command, which is not on PATH.
+                            Install it with:  npm install -g @openai/codex
+✓ gemini    running — 846 bytes of terminal output
+✓ opencode  running — 287 bytes of terminal output
+✓ gpt       running — 553 bytes of terminal output
+✓ nemotron  running — 595 bytes of terminal output
 ```
 
-This creates a throwaway project, exercises every REST route and WebSocket event, starts a real agent (Claude by default; `SMOKE_CLI=gemini` to change, `SMOKE_SKIP_AGENT=1` to skip), triggers and resolves an approval gate, and cleans up after itself.
+A missing CLI is a pass, because saying so is the correct behaviour. What is never
+acceptable — and what these checks exist to prevent — is a terminal that looks alive and
+has silently printed `'gemini' is not recognized`.
 
-## How the safety loop works
+---
 
-1. **Watch.** The daemon strips ANSI from each agent's output and runs two checks: a fast regex pass (y/N prompts, `rm -rf`, force pushes, `DROP TABLE`, `kubectl delete`, …) and, every ~10–20 seconds of activity, a Supervisor call on Bedrock.
-2. **Gate.** A match sets `pendingGate` on the agent, posts to the project's Group Chat, and opens a modal in every connected browser. Nothing is auto-answered.
-   - *Approve* answers a literal y/N prompt with `y`; for anything else it just lets the agent continue.
-   - *Reject* answers `n`, or sends Escape and tells the agent to stop.
-   - *Type a reply* sends your text to the terminal.
-   - Keyboard: `y` / `n` / `Esc`.
-3. **Plan.** When the Supervisor wants an agent to *do* something it calls `plan_action`. The plan appears in a modal with the exact message that would be sent. Approve to deliver it, reject with a reason the Supervisor sees on its next turn. Every decision is written to `~/.conduit/projects/<id>/audit.jsonl`.
+## The safety loop
 
-## Features
+This is the part that makes Conduit different from a terminal multiplexer, so it is worth
+understanding before anything else.
 
-- **Multi-vendor** — Claude Code, Codex CLI, Gemini CLI, OpenCode in one UI
-- **Projects** — group agents by project; each project gets a shared content folder and a wiki
-- **Real terminals** — xterm.js over WebSocket, with scrollback replay for late viewers and automatic reconnect
-- **Five layouts** — single, 2-up, 3-up, tmux-style grid, free-form canvas; per-project, persisted
-- **Command palette** — `⌘K` / `Ctrl+K`
-- **Group Chat** — talk to all running agents at once or `@name` one of them
-- **MCP messaging** — Claude agents in the same project can message each other (`message_agent`, `list_teammates`)
-- **Project wiki** — persistent, agent-maintained knowledge base (Karpathy's LLM-wiki pattern)
-- **Activity feed** — file changes in shared content, agent lifecycle, messages
-- **Usage monitor** — Claude and Codex rate-limit windows in the sidebar
-- **Voice** — push-to-talk (`⌘;`), optional wake word, spoken Keeper summaries
-- **4 themes**, collapsible sidebar, mobile layout
+Every line an agent prints is read twice.
 
-## Configuration
+**First, by pattern.** 24 regular expressions in `src/gatePatterns.ts`, run on ANSI-stripped
+output, in-process, with no model call. They catch two things: a prompt waiting for a
+human (`[y/N]`, `(yes/no)`, aider's `(Y)es/(N)o`) and a command that is expensive to undo
+(`rm -rf`, `git push --force`, `git reset --hard`, `DROP TABLE`, `kubectl delete`). This
+path is instant and costs nothing, which is why it exists — a destructive command must not
+wait on an API round trip.
 
-| Variable | Default | Purpose |
+**Then, by the Supervisor**, in batches, debounced ten seconds and never more often than
+once every twenty seconds per agent. It classifies output as progress, a question, a
+blocker or a risky action, writes the interesting ones into the project's Group Chat, and
+raises a gate on anything risky.
+
+A gate **stops being a notification and becomes a decision**: the agent sits there, its
+terminal is put in front of you, and it waits. Approve and it continues. Reject and Conduit
+sends Escape to interrupt it and tells it to stop.
+
+The Supervisor is deliberately unable to act on its own. Its only write tool is
+`plan_action`, which creates a *proposal* — a pending plan attached to the project, shown to
+you with the exact message it wants to send. Nothing reaches an agent until you approve it,
+and every decision is appended to `audit.jsonl`. Approving and rejecting are equally
+one-click, because a safety valve that is tedious to reject gets approved by reflex.
+
+**Voice inherits this asymmetry.** You can reject a gate by saying so. You cannot approve
+one. That is not a setting — the router's type has no approve action in it
+(`client/src/utils/voiceRouting.ts`), so no transcript can produce one, and the unit tests
+assert it. A misheard word must never be able to authorise `rm -rf`.
+
+---
+
+## Architecture
+
+![Architecture](architecture.png)
+
+```
+                       You (browser or desktop app)
+                            │  REST + WebSocket (Basic auth optional)
+                   ┌────────▼────────┐
+                   │  Web server     │  :3200  React UI · 34 REST routes · voice proxy
+                   │  (Express)      │         relays terminal I/O, owns no processes
+                   └────────┬────────┘
+                            │  local WebSocket, auto-reconnecting
+                   ┌────────▼────────┐
+                   │  Daemon         │  :3210, loopback only
+                   │                 │  owns every agent process
+                   │  ┌────────────┐ │
+                   │  │ PTY agents │ │  claude / gemini / opencode / gpt / nemotron
+                   │  │ Codex      │ │  codex app-server threads (structured items)
+                   │  │ Watcher    │─┼──► Supervisor → Bedrock, or the Anthropic API
+                   │  │ The Keeper │ │  orchestrator: codex exec, or claude -p
+                   │  └────────────┘ │
+                   └─────────────────┘
+```
+
+**The split is the important decision.** The web server owns no processes. Restart it,
+crash it, redeploy it — every agent keeps running, because the daemon holds the PTYs and the
+browser reattaches on reconnect. The alternative, one process owning both, means a UI
+restart kills work in progress. The cost is a second process and a relay protocol
+(`src/daemon/protocol.ts`), and it is worth it.
+
+The daemon binds loopback only and is never exposed.
+
+### Two brains, different jobs
+
+|  | The Supervisor | The Keeper |
 |---|---|---|
-| `PORT` | `3200` | Web server port |
-| `HOST` | `0.0.0.0` | Bind address (`127.0.0.1` to stay local-only) |
-| `CONDUIT_AUTH` | *(off)* | `user:password` — HTTP Basic auth for UI, API and WebSocket. **Set this before exposing the port.** |
-| `CONDUIT_DAEMON_PORT` | `3210` | Daemon port (loopback only) |
-| `AWS_REGION` | `us-east-1` | Bedrock region |
-| `BEDROCK_MODEL_ID` | `anthropic.claude-3-5-sonnet-20240620-v1:0` | Supervisor model; must match your IAM policy |
-| `CONDUIT_SUPERVISOR` | `on` | `off` disables all Bedrock calls |
-| `OPENAI_API_KEY`, `GEMINI_API_KEY` | | Cloud speech providers (can also be entered in Settings) |
+| Runs on | Strands Agents SDK + Bedrock, or the Anthropic Messages API | `codex exec`, or `claude -p` |
+| Job | Reads agent output, classifies it, raises gates, proposes plans | Answers questions about the whole org and acts when you ask |
+| Acts on its own? | **Never.** Write intent goes through `plan_action` and your approval | Only what you ask it in the Command panel |
+| Tools | `report_update`, `plan_action` | 12 Conduit tools — list, inspect, start, stop, ask, broadcast |
+| Needs | AWS credentials, or `ANTHROPIC_API_KEY`, or a Claude Code login | `codex` or `claude` on PATH |
 
-## Data on disk
+The Keeper picks its engine automatically: `codex` when it is installed, otherwise
+`claude`. `CONDUIT_KEEPER_ENGINE` pins one. This matters because Codex needs either API
+credits or a ChatGPT subscription, and without a fallback the entire Command panel — and
+every spoken command, since voice routes there by default — simply failed.
+
+It holds one process open for the length of a conversation rather than spawning per turn.
+Spawning cost about fifteen seconds every time, before any thinking began:
+
+| | |
+|---|---|
+| bare CLI start-up | 5.5s |
+| + the 4.2 KB persona file | 8.5s |
+| + the Conduit MCP server handshake | 15.0s |
+
+Model choice is not the lever — haiku measured 17.7s and sonnet 17.6s against opus at 15.0s,
+because the cost is fixed overhead rather than tokens. Holding the process open pays it
+once:
 
 ```
-~/.conduit/
-├── projects/<id>/project.json     # project + agents (+ pending plans, gates)
-├── projects/<id>/groupchat.jsonl  # group chat history
-├── projects/<id>/audit.jsonl      # gate + plan decisions
-├── shared_content/<name>/         # files shared between agents (passed via --add-dir)
-├── wiki/<name>/                   # project wiki
-├── brain/                         # The Keeper's conversations
-├── codex-history/                 # Codex agent transcripts
-├── mcp-configs/, hook-configs/    # per-agent Claude Code config (auto-managed)
-├── supervisor-log.jsonl           # every Supervisor classification
-└── voice.json, api-keys.json      # voice settings / optional API keys
+turn 1  13.5s   (start-up + MCP handshake)
+turn 2   2.7s
+turn 3   4.9s   (including a tool call)
 ```
 
-Project names are used as folder names under `shared_content/` and `wiki/`; renaming a project moves the folders.
+---
 
-## Agent integration details
+## The six agent types
 
 | CLI | Runs as | Shared dir / wiki | Status engine | MCP messaging |
 |---|---|---|---|---|
@@ -200,69 +196,254 @@ Project names are used as folder names under `shared_content/` and `wiki/`; rena
 | GPT-OSS (Groq) | PTY via `aider` | `--read AGENTS.md` | process only | ❌ |
 | Nemotron (OpenRouter) | PTY via `aider` | `--read AGENTS.md` | process only | ❌ |
 
-When an agent starts, Conduit writes a `CLAUDE.md` / `AGENTS.md` section in its working directory describing the shared folder, the wiki, and (for Claude) its teammates.
+`src/cli-registry.ts` is the single source of truth: the id, the binary that must be on
+PATH, the command that installs it, and any environment variable it needs. Adding a CLI is
+one edit there.
 
-## Scripts
+**Every type is checked before it is spawned.** A missing binary or an unset key fails
+immediately with the install command, rather than opening a PTY that lands in a shell and
+looks alive.
 
-| Command | Description |
+Claude and Codex agents report fine-grained status — `running`, `awaiting_input`, `idle` —
+because they emit lifecycle events. The others report process liveness only. That
+distinction is real and is not smoothed over in the UI.
+
+`aider` drives the two hosted models. It gets `--read AGENTS.md` so the Conduit
+instructions actually load, and `--no-auto-commits` so an agent cannot quietly commit to
+your repository behind the approval gates. `--yes-always` is deliberately **not** passed: it
+would auto-approve prompts and defeat the gates entirely.
+
+---
+
+## Voice
+
+Conduit can be driven by voice, hands-free. Say the wake phrase, hear a spoken greeting,
+give a command, and keep talking — the conversation stays open until you go quiet.
+
+```
+"Jarvis"                        → "Yes? What can I do?"
+"list the agents"               → The Keeper answers, aloud
+"tell Claude to fix the tests"  → typed into that agent's terminal
+"reject"                        → declines a waiting approval gate
+```
+
+Commands route by name: bare commands go to The Keeper, and naming an agent sends the
+message straight to that agent. Names are matched phonetically, because a recogniser
+writes "cloud" and "Klaus" for Claude.
+
+**Speech in.** The browser's own recogniser is free and needs no key, but it is
+noticeably less accurate on names and **cannot run inside the desktop app at all** —
+Chromium proxies it to a Google service that Electron ships no keys for, and it fails with
+`error: 'network'` every time. For accuracy, latency and desktop support, set the STT
+provider to **Groq Whisper**, which reuses `GROQ_API_KEY` and costs about $0.04/hour:
+
+```
+whisper-large-v3-turbo    985ms
+whisper-large-v3          551ms
+through /api/voice/transcribe, end to end   1198ms
+```
+
+**Speech out** uses the browser's own synthesis: local, free, offline, unlimited. Voices
+are ranked rather than taken first-match, so a machine with Microsoft Aria installed speaks
+as Aria and not as Microsoft David. OpenAI and Gemini are available for a better voice at a
+per-character cost.
+
+Two details that are easy to get wrong and are handled here. The microphone is **muted
+while Conduit speaks**, or an open mic transcribes its own greeting and runs it as a
+command — a loop that also bills a request per lap. And a recogniser finalises at every
+pause, so fragments are joined and dispatched only once you have genuinely stopped;
+otherwise "start the agent… called gere" executes as "start the agent".
+
+---
+
+## What is verified, and what is not
+
+**Verified, by running it.**
+
+| | Result |
 |---|---|
-| `npm run dev` | Daemon + web server + Vite with hot reload |
-| `npm run build` | Type-check both sides, then build server and client |
-| `npm run typecheck` | Type-check only |
-| `npm run start:all` | Production: daemon + web server |
-| `npm run daemon` / `npm start` | Run either process alone |
-| `npm run smoke` | End-to-end smoke test against a running instance |
-| `npm run check:agents` | Start one agent of every CLI type and report which run (and why the rest don't) |
-| `npm run check:multi` | Several agents on one project at once: concurrency, Supervisor, gates, cross-agent messaging |
-| `npm run build:desktop` | Icon + full build + electron-builder → `dist-desktop/` |
+| Agent types that start or explain themselves | **6 of 6** (`npm run check:agents`) |
+| End-to-end REST + WebSocket + a live agent | **61 checks** (`npm run smoke`) |
+| UI interactions in a real browser | **12 checks** (`npm run browser-check`) |
+| Unit checks | **108** across gate patterns, voice routing, utterance assembly, voice selection, supervisor concurrency |
+| Supervisor classification against the real model | **5 checks** (`npm run test:supervisor`) |
+| The Keeper reading and acting | listed projects, started an agent, verified it, stopped it |
+| Concurrent agents | four agent types in one project, supervised, gated and resolved |
+| Desktop app | packaged, launched, drove real terminals, exited without orphaning agents |
 
-## Deployment (Docker / EC2)
+**Not verified, and it should be.**
 
-The image installs the agent CLIs (including `aider` for the gpt/nemotron types), `curl` and `git`. Agents still need to be logged in: mount your `~/.claude`, `~/.codex`, `~/.gemini` folders (as the compose file does) or run `docker compose exec conduit claude login` once. Put your repositories under the mounted `workspace` folder and use `/workspace/<repo>` as the project directory.
+1. **The Supervisor's classification accuracy is not measured.** There is no labelled set
+   of agent output, no held-out split, and therefore no precision or recall figure — so
+   none is quoted. `npm run test:supervisor` proves the path works end to end and that
+   obviously-risky text is classified as risky. It does not establish how often the
+   Supervisor is right on ordinary output, and that is the number that would matter.
+2. **There is no end-to-end approval-gate test.** The one that existed relied on a missing
+   CLI dropping the PTY into a plain shell, which the start-up preflight now deliberately
+   prevents. Gate patterns are covered by 22 unit checks and the classifier by five live
+   ones, but nothing exercises output → gate → decision → agent in a single automated run.
+3. **The hands-free voice loop is not covered by automation.** `check-voice-pause.mjs`
+   drives real audio through a fake microphone and asserts a paused sentence is not split,
+   but the full wake → greeting → command → reply cycle is verified by hand. The browser
+   recogniser also returns empty transcripts in some environments, which reproduces with no
+   Conduit code involved and cannot be fixed here.
+4. **No load testing.** Four concurrent agents are exercised. Twenty are not, and the
+   Supervisor's per-agent call rate is the thing that would break first.
+
+---
+
+## Design decisions worth explaining
+
+### The daemon owns the processes, not the web server
+
+So that restarting the UI does not kill work in progress. Every agent survives a web-server
+restart or redeploy, and the browser reattaches on reconnect. A browser that attaches to an
+agent before it starts is remembered (`clientWanted`) and bound when it does.
+
+### Patterns first, the model second
+
+A destructive command must not wait on an API round trip, and a gate that depends on a
+model is a gate that stops working when the credential expires. So regexes catch the
+unambiguous cases instantly and for free, and the Supervisor adds judgement on top. With no
+model access at all, gates still fire.
+
+### Approve is structurally unreachable by voice
+
+Not disabled by a flag someone can flip — absent from the type. `Route` has no approve
+member, so `routeUtterance` cannot express approval, and the call site hard-codes the
+literal `'reject'` rather than taking a decision parameter. Speaking "approve" is matched
+and answered out loud, because silence would read as "it did not hear me" and invite
+repetition.
+
+### The Supervisor backs off globally only for provider failures
+
+An exhausted quota or a dead credential affects every agent, so pausing everything is
+right. A one-off error on a single agent is not, and letting it mute supervision for the
+whole conduit means gates silently stop being raised. Classifications are also capped at
+two in flight: several agents finishing together would otherwise fire simultaneously,
+which is what trips a rate limit in the first place.
+
+### Project names are folder names
+
+A project's name is its directory under `shared_content/` and `wiki/`, sanitised. This
+makes the layout obvious on disk and greppable, at the cost of a rename having to move
+folders — and of needing a real uniqueness check, since two projects sharing one directory
+means deleting either destroys both.
+
+---
+
+## Data on disk
+
+Everything lives in `~/.conduit`, as plain JSON and JSONL you can read, diff and delete:
+
+```
+~/.conduit/
+├── projects/<id>/project.json    project, its agents, pending plans, layout
+├── projects/<id>/groupchat.jsonl one line per message
+├── projects/<id>/audit.jsonl     plan decisions, append-only
+├── shared_content/<project>/     files agents read and write for each other
+├── wiki/<project>/               the project's living knowledge base
+├── brain/                        The Keeper's conversations and its own CODEX_HOME
+├── supervisor-log.jsonl          every classification
+├── voice.json, api-keys.json     voice settings; keys, mode 600
+└── .env                          desktop configuration (see below)
+```
+
+No database. Writes are write-then-rename, so a crash mid-write cannot leave a truncated
+file.
+
+---
+
+## Configuration
+
+Copy `.env.example` to `.env`. Nothing is required locally.
+
+Conduit reads **both** `./.env` and `~/.conduit/.env`, first definition winning. The
+packaged desktop app runs from its install directory and has no repo, so `~/.conduit/.env`
+is the only file it sees — put desktop settings there. `GET /api/health` reports which files
+were actually read, which is how you tell whether a setting reached the process.
+
+| Variable | Default | What |
+|---|---|---|
+| `CONDUIT_AUTH` | unset | `user:pass` Basic auth. **Required before exposing the port.** |
+| `PORT` / `HOST` | `3200` / `0.0.0.0` | web server bind |
+| `CONDUIT_SUPERVISOR` | on | `off` disables all model calls |
+| `SUPERVISOR_PROVIDER` | auto | `bedrock`, `anthropic`, or auto (Bedrock, then Anthropic) |
+| `BEDROCK_MODEL_ID` | claude-3-5-sonnet | must match the IAM policy |
+| `ANTHROPIC_API_KEY` | unset | Supervisor fallback; the Claude Code OAuth token is used otherwise |
+| `CONDUIT_KEEPER_ENGINE` | auto | `codex` or `claude` |
+| `GROQ_API_KEY` | unset | the `gpt` agent, and Groq Whisper speech-to-text |
+| `OPENROUTER_API_KEY` | unset | the `nemotron` agent |
+
+---
+
+## Desktop app
 
 ```bash
-export CONDUIT_AUTH=admin:choose-a-strong-password   # required by the compose file
+npm run build:desktop     # → dist-desktop/
+```
+
+Produces a 119 MB installer, about 420 MB unpacked. Three constraints are not obvious from the
+config and each fails silently:
+
+- **`asar` must be `false`.** node-pty spawns a `worker_threads` Worker whose path rewrite
+  hardcodes VS Code's `node_modules.asar` layout and cannot find it inside ours.
+  `asarUnpack` is not enough. No native rebuild is needed either way — node-pty uses N-API,
+  which is ABI-stable across Electron.
+- **`@strands-agents/sdk` drags in 671 MB of unused binaries** via `@tobilu/qmd` →
+  `node-llama-cpp`, plus better-sqlite3 and tree-sitter grammars. Nothing references them.
+  Excluding them took the app from roughly 1.3 GB to 420 MB, and the installer from
+  398 MB to 119 MB.
+- **`backgroundThrottling: false`.** Chromium throttles timers to ~1/sec in an unfocused
+  window; the voice energy gate polls at 50ms. Measured 6 samples in 12s backgrounded
+  against 239 focused.
+
+---
+
+## Deployment
+
+```bash
+export CONDUIT_AUTH=admin:choose-a-strong-password    # required by the compose file
 docker compose up -d --build
 ```
 
-On EC2:
+The image installs the agent CLIs, `aider` (via `uv` on Python 3.12 — aider needs
+`>=3.10,<3.13`), `curl` and `git`. Agents still need to be logged in: mount `~/.claude`,
+`~/.codex` and `~/.gemini` as the compose file does, or run
+`docker compose exec conduit claude login` once.
 
-1. `t3.small`/`t3.medium`, Amazon Linux 2023 or Ubuntu, Docker + compose plugin installed.
-2. Security group: TCP `3200` only from IPs you trust (or put it behind a TLS reverse proxy). Port `3210` stays closed. SSH from your IP only.
-3. IAM instance role for the Supervisor — the resource must match `BEDROCK_MODEL_ID`:
+On EC2: `t3.small` or larger, port `3200` open only to addresses you trust or behind a TLS
+proxy, port `3210` closed, and an IAM instance role scoped to `InvokeModel` on exactly the
+model in `BEDROCK_MODEL_ID`.
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-    "Resource": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0"
-  }]
-}
-```
+**Security.** `CONDUIT_AUTH` covers HTTP and the WebSocket upgrade. Paths from user input
+never reach `path.join` directly — `storage.resolveInside` and friends enforce containment.
+Everything rendered from model or agent text goes through DOMPurify.
 
-Check that the model id is still available in your region and adjust `BEDROCK_MODEL_ID` and the policy together.
+One thing to know rather than discover: **the daemon's `/org/*` HTTP endpoints are
+unauthenticated on loopback.** Any local process — including an agent Conduit is running —
+can drive any agent through them, bypassing gates and plan approval. That is a deliberate
+trade for a single-user local tool and it is the wrong trade on a shared machine.
 
-## Security notes
+---
 
-- Without `CONDUIT_AUTH`, anyone who can reach port 3200 can type into your agents' shells. Keep it on localhost or set a password.
-- Shared content and wiki routes are confined to their project folders (path traversal is rejected).
-- The Keeper runs Codex with approvals bypassed so it can use its MCP tools headlessly; its only tools are Conduit's org tools, and it is reachable only through the authenticated UI.
-- Markdown from agents and models is sanitized before rendering.
+## Built with
 
-## Tech stack
+TypeScript throughout, 92 source files. Express 4, `ws`, node-pty, chokidar. React 18,
+Vite, xterm.js, marked with DOMPurify. AWS Strands Agents SDK with Amazon Bedrock, and the
+Anthropic Messages API as a fallback. Model Context Protocol for agent-to-agent messaging
+and for the Keeper's tools. Electron with electron-builder for the desktop app.
 
-| Layer | Tech |
-|---|---|
-| Backend | Node.js, Express, TypeScript |
-| Frontend | React, Vite, xterm.js |
-| AI Supervisor | AWS Strands Agents SDK + Amazon Bedrock |
-| PTY | node-pty |
-| Transport | WebSocket (terminal I/O, events) + REST |
-| Storage | JSON / JSONL files under `~/.conduit/` |
-| Build | tsup (server) + Vite (client) |
+No test framework — the suites are plain Node scripts that print what they checked and exit
+non-zero. `--experimental-strip-types` runs the TypeScript ones directly, which is why the
+testable pieces are pure functions with no React import.
+
+## Documentation
+
+- [`architecture.md`](architecture.md) — components, data flow, sequence diagrams
+- [`CLAUDE.md`](CLAUDE.md) — orientation for coding agents working on Conduit itself
+- [`.env.example`](.env.example) — every setting, with what it costs and what it needs
 
 ## License
 
-MIT
+MIT.
