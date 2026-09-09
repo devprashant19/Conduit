@@ -330,20 +330,84 @@ async function playApi(text: string, cfg: TtsCfg): Promise<void> {
   });
 }
 
+/**
+ * The browser populates its voice list asynchronously.
+ *
+ * `getVoices()` returns an empty array on a cold page — measured 0
+ * synchronously against 23 after `voiceschanged` — so picking immediately
+ * silently fell through to whatever default the browser felt like, which is
+ * how a machine with Microsoft Aria ended up speaking as Microsoft David.
+ */
+function loadVoices(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    const synth = window.speechSynthesis;
+    const ready = synth.getVoices();
+    if (ready.length) { resolve(ready); return; }
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve(synth.getVoices());
+    };
+    synth.addEventListener?.('voiceschanged', done, { once: true });
+    // Some engines never fire the event; do not hang the queue on it.
+    setTimeout(done, 1500);
+  });
+}
+
+/** Modern neural voices announce themselves in the name. */
+const LIFELIKE = /natural|neural|online|premium|enhanced|wavenet|studio/i;
+/** The old formant-synthesis voices — intelligible, obviously synthetic. */
+const ROBOTIC = /\b(david|zira|mark|hazel|susan|sam|anna|desktop)\b/i;
+
+/**
+ * Rank voices rather than taking the first language match.
+ *
+ * `find(v => v.lang === 'en-US')` returned whichever the browser happened to
+ * list first, which is normally a legacy local voice — so the good voices
+ * already installed went unused.
+ */
+export function pickVoice(
+  voices: SpeechSynthesisVoice[],
+  lang: string,
+  preferredName?: string,
+): SpeechSynthesisVoice | undefined {
+  if (preferredName) {
+    const exact = voices.find((v) => v.name === preferredName);
+    if (exact) return exact;
+  }
+  const want = lang.toLowerCase();
+  const base = want.split('-')[0];
+
+  let best: SpeechSynthesisVoice | undefined;
+  let bestScore = -Infinity;
+  for (const v of voices) {
+    const vlang = v.lang.toLowerCase().replace('_', '-');
+    let score: number;
+    if (vlang === want) score = 100;
+    else if (vlang.startsWith(base)) score = 60;
+    else continue;                       // a different language is never right
+
+    if (LIFELIKE.test(v.name)) score += 40;
+    if (ROBOTIC.test(v.name)) score -= 30;
+    if (v.default) score += 5;
+
+    if (score > bestScore) { bestScore = score; best = v; }
+  }
+  return best;
+}
+
 async function playBrowser(text: string, cfg: TtsCfg): Promise<void> {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
   const myGen = speakGen;
   const synth = window.speechSynthesis;
+  const lang = cfg.language || navigator.language || 'en-US';
+  const voices = await loadVoices();
+  if (myGen !== speakGen) return;        // cancelled while the list loaded
   return new Promise((resolve) => {
     // If we were cancelled while waiting for the queue, don't queue more.
     if (myGen !== speakGen) { resolve(); return; }
-    const lang = cfg.language || navigator.language || 'en-US';
-    const base = lang.split('-')[0].toLowerCase();
-    const voices = synth.getVoices();
-    const voice =
-      (cfg.voice && voices.find((v) => v.name === cfg.voice)) ||
-      voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase()) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith(base));
+    const voice = pickVoice(voices, lang, cfg.voice);
     const u = new SpeechSynthesisUtterance(text);
     u.lang = lang;
     u.rate = Math.max(0.5, Math.min(2, cfg.speed || 1));

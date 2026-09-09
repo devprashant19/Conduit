@@ -53,6 +53,31 @@ const LANGS: ModelOption[] = [
 export default function SettingsModal({ open, onClose, onSaved, onRestartTour }: Props) {
   const [cfg, setCfg] = useState<VoiceConfig | null>(null);
   const [providers, setProviders] = useState<ProviderSpec[]>([]);
+  /**
+   * Voices installed in this browser. The list arrives asynchronously — it is
+   * empty on first call — so wait for `voiceschanged` before rendering it.
+   */
+  const [browserVoices, setBrowserVoices] = useState<{ name: string; lifelike: boolean }[]>([]);
+  useEffect(() => {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    const read = () => {
+      const lang = (navigator.language || 'en').split('-')[0].toLowerCase();
+      setBrowserVoices(
+        synth.getVoices()
+          .filter((v) => v.lang.toLowerCase().startsWith(lang))
+          .map((v) => ({
+            name: v.name,
+            lifelike: /natural|neural|online|premium|enhanced|wavenet|studio/i.test(v.name),
+          }))
+          // Show the good ones first — they are the reason this list exists.
+          .sort((a, b) => Number(b.lifelike) - Number(a.lifelike) || a.name.localeCompare(b.name)),
+      );
+    };
+    read();
+    synth.addEventListener?.('voiceschanged', read);
+    return () => synth.removeEventListener?.('voiceschanged', read);
+  }, []);
   const [keys, setKeys] = useState<{ openai: boolean; gemini: boolean }>({ openai: false, gemini: false });
   const [openaiInput, setOpenaiInput] = useState('');
   const [geminiInput, setGeminiInput] = useState('');
@@ -264,6 +289,23 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
                 >
                   {ttsProv.ttsModels.map((m) => (
                     <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+              </Row>
+            )}
+            {/* The browser's own voices were never listed, so a machine with
+                good neural voices installed could not be pointed at one. */}
+            {cfg.tts.provider === 'browser' && (
+              <Row label="Voice">
+                <select
+                  value={cfg.tts.voice}
+                  onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, voice: e.target.value } })}
+                >
+                  <option value="">Best available (recommended)</option>
+                  {browserVoices.map((v) => (
+                    <option key={v.name} value={v.name}>
+                      {v.name}{v.lifelike ? ' — natural' : ''}
+                    </option>
                   ))}
                 </select>
               </Row>
