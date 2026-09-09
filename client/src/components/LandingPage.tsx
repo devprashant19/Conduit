@@ -48,15 +48,18 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
           {onStartTour && (
             <button
               type="button"
-              className="landing-nav-link"
+              className="landing-nav-tour-btn"
               onClick={onStartTour}
-              style={{ fontWeight: 600, color: 'var(--text-0, #0f0f11)' }}
+              title="Start Interactive Product Tour"
             >
-              Tour
+              <Ic.sparkles size={13} />
+              <span>Tour</span>
             </button>
           )}
           <button className="landing-btn-black" onClick={onOpenConsole}>
-            Open Control Center <Ic.chevR size={12} />
+            <span className="btn-text-full">Open Control Center</span>
+            <span className="btn-text-short">Console</span>
+            <Ic.chevR size={12} />
           </button>
         </div>
       </header>
