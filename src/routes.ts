@@ -21,6 +21,113 @@ function str(v: unknown, max = 4000): string {
   return typeof v === 'string' ? v.slice(0, max) : '';
 }
 
+/** Pane layout modes the client can ask us to persist. */
+const LAYOUT_MODES: ProjectLayout['mode'][] = ['single', '2up', '3up', 'grid', 'canvas'];
+
+/**
+ * Validate a layout body. Returns a normalised layout, or null when the shape
+ * is wrong — nothing unvalidated reaches project.json.
+ */
+function parseLayout(v: unknown): ProjectLayout | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  if (!LAYOUT_MODES.includes(o.mode as ProjectLayout['mode'])) return null;
+
+  const ratios = Array.isArray(o.splitRatios) ? o.splitRatios : [];
+  if (ratios.length > 16 || !ratios.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+
+  const ids = Array.isArray(o.activeAgentIds) ? o.activeAgentIds : [];
+  if (ids.length > 64 || !ids.every((s) => typeof s === 'string' && s.length <= 64)) return null;
+
+  const focused = typeof o.focusedAgentId === 'string' && o.focusedAgentId.length <= 64
+    ? o.focusedAgentId
+    : undefined;
+
+  return {
+    mode: o.mode as ProjectLayout['mode'],
+    splitRatios: ratios as number[],
+    activeAgentIds: ids as string[],
+    ...(focused ? { focusedAgentId: focused } : {}),
+  };
+}
+
+/** Where electron-builder writes packaged desktop artifacts. */
+function desktopArtifactDirs(): string[] {
+  // This module is bundled into dist/src/server.mjs, so __dirname is dist/src
+  // and the repo root is two levels up. process.cwd() is not reliable here —
+  // in a packaged app it is wherever the user launched from.
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const repoRoot = path.resolve(here, '..', '..');
+  // Deliberately NOT dist-desktop/win-unpacked: the Conduit.exe in there is
+  // the bare Electron binary and is useless without the rest of the folder,
+  // so offering it as a download hands the user something that cannot run.
+  return [
+    path.join(repoRoot, 'dist-desktop'),             // installers: nsis / zip / AppImage / deb
+    path.join(repoRoot, 'client', 'public', 'downloads'),
+  ];
+}
+
+/**
+ * Serves packaged desktop builds at `/downloads/<file>` — the path the
+ * landing page's download button actually requests. When the artifact isn't
+ * on disk we redirect to the GitHub release of the same name.
+ */
+/** Installer extensions worth advertising — everything else in dist-desktop is build scaffolding. */
+const ARTIFACT_EXT = /\.(exe|zip|dmg|AppImage|deb|rpm|snap)$/i;
+
+export function createDownloadRouter() {
+  const router = Router();
+
+  /**
+   * What is actually downloadable right now. The landing page uses this
+   * instead of a hardcoded list, so it can never offer a build that does not
+   * exist or quote a made-up file size.
+   */
+  router.get('/', (_req: Request, res: Response) => {
+    const seen = new Map<string, number>();
+    for (const dir of desktopArtifactDirs()) {
+      let entries: string[];
+      try { entries = fs.readdirSync(dir); } catch { continue; }
+      for (const name of entries) {
+        if (seen.has(name) || !ARTIFACT_EXT.test(name)) continue;
+        try {
+          const st = fs.statSync(path.join(dir, name));
+          if (st.isFile()) seen.set(name, st.size);
+        } catch { /* vanished between readdir and stat */ }
+      }
+    }
+    res.json({
+      files: [...seen.entries()].map(([name, size]) => ({ name, size })).sort((a, b) => a.name.localeCompare(b.name)),
+    });
+  });
+
+  router.get('/:file', (req: Request, res: Response) => {
+    // basename collapses any traversal attempt to a single path segment.
+    const filename = path.basename(req.params.file);
+    if (!filename || filename === '.' || filename === '..') {
+      res.status(400).json({ error: 'Invalid filename' });
+      return;
+    }
+
+    for (const dir of desktopArtifactDirs()) {
+      const candidate = path.join(dir, filename);
+      try {
+        // Must be a real file — `res.download` on a directory throws EISDIR.
+        if (fs.statSync(candidate).isFile()) {
+          res.download(candidate, filename);
+          return;
+        }
+      } catch { /* not here, try the next */ }
+    }
+
+    res.redirect(
+      `https://github.com/devprashant19/Conduit/releases/latest/download/${encodeURIComponent(filename)}`,
+    );
+  });
+
+  return router;
+}
+
 /**
  * REST API. Agent runtime operations (start/stop/status/inject) are delegated
  * to conduit-daemon over `daemon` — the web server no longer owns PTYs.
@@ -35,26 +142,6 @@ export function createRouter(
     broadcast({ type: 'agent:status', agentId, status });
   const broadcastContentUpdate = (projectId: string, filename: string) =>
     broadcast({ type: 'content:updated', projectId, filename });
-
-  // --- Desktop Binary Distribution Route ---
-  router.get('/download/:file', (req: Request, res: Response) => {
-    const filename = path.basename(req.params.file);
-
-    // If local built executable exists, serve it directly
-    const localExePath = path.resolve(process.cwd(), 'dist-desktop', 'win-unpacked', filename);
-    const publicExePath = path.resolve(process.cwd(), 'client', 'public', 'downloads', filename);
-
-    if (fs.existsSync(localExePath)) {
-      return res.download(localExePath, filename);
-    }
-    if (fs.existsSync(publicExePath)) {
-      return res.download(publicExePath, filename);
-    }
-
-    // Otherwise redirect to GitHub release binary asset
-    const releaseUrl = `https://github.com/devprashant19/Conduit/releases/latest/download/${encodeURIComponent(filename)}`;
-    res.redirect(releaseUrl);
-  });
 
   /** Fetch the fine-grained agent status map from the daemon.
    *  If the daemon is unreachable, nothing is running (it owns every PTY). */

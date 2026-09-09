@@ -7,7 +7,7 @@ import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createRouter } from './routes.js';
+import { createRouter, createDownloadRouter } from './routes.js';
 import * as storage from './storage.js';
 import * as activity from './activity.js';
 import * as usage from './usage.js';
@@ -146,27 +146,21 @@ activity.setBroadcast((event: ActivityEvent) => {
   }
 });
 
+// First run only: create the demo project so a fresh install has something to
+// look at. Guarded by a marker file, so deleting it makes it stay deleted.
+{
+  const demo = storage.seedDefaultDemoProjectOnce();
+  if (demo) console.log(`[server] first run — created demo project "${demo.name}"`);
+}
+
 // Start file watchers for all existing projects
 for (const project of storage.listProjects()) {
   activity.watchProject(project.id, project.name);
 }
 
-// Direct desktop download route
-app.get('/download/:file', (req, res) => {
-  const filename = path.basename(req.params.file);
-  const localExePath = path.resolve(process.cwd(), 'dist-desktop', 'win-unpacked', filename);
-  const publicExePath = path.resolve(process.cwd(), 'client', 'public', 'downloads', filename);
-
-  if (fs.existsSync(localExePath)) {
-    return res.download(localExePath, filename);
-  }
-  if (fs.existsSync(publicExePath)) {
-    return res.download(publicExePath, filename);
-  }
-
-  const releaseUrl = `https://github.com/devprashant19/Conduit/releases/latest/download/${encodeURIComponent(filename)}`;
-  res.redirect(releaseUrl);
-});
+// Desktop binaries. The UI links to /downloads/<file>; the handler lives in
+// routes.ts and is mounted here (not under /api) so the plain link works.
+app.use('/downloads', createDownloadRouter());
 
 // API routes
 app.use('/api', createRouter(daemon, broadcast));
