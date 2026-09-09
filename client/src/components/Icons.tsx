@@ -229,6 +229,17 @@ const Ic = {
       <path d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
     </svg>
   ),
+  chevDown: (p: IconProps = {}) => (
+    <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.5} strokeLinecap="round" strokeLinejoin="round" style={p.style}>
+      <path d="M4 6l4 4 4-4" />
+    </svg>
+  ),
+  help: (p: IconProps = {}) => (
+    <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.5} strokeLinecap="round" strokeLinejoin="round" style={p.style}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M6.5 6.2a1.8 1.8 0 013.2.9c0 1.1-1.7 1.4-1.7 2.4M8 12.2h.01" />
+    </svg>
+  ),
 };
 
 export default Ic;

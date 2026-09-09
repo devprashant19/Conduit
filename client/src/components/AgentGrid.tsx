@@ -25,10 +25,10 @@ export type GridLayout = 'single' | '2up' | '3up' | 'grid' | 'canvas';
 /** Human-friendly label for an agent status. */
 function statusLabel(status: string): string {
   switch (status) {
-    case 'awaiting_input': return 'awaiting you';
-    case 'running': return 'running';
-    case 'idle': return 'idle';
-    case 'stopped': return 'stopped';
+    case 'awaiting_input': return 'Awaiting';
+    case 'running': return 'Running';
+    case 'idle': return 'Idle';
+    case 'stopped': return 'Stopped';
     default: return status;
   }
 }
@@ -177,10 +177,13 @@ function AgentPane({
             <div className="pane-agent-info">
               <div className="pane-agent-row">
                 <span className="pane-agent-name">{agent.name}</span>
-                {agent.role && <span className="pane-agent-role">{agent.role}</span>}
+                <span className="cli-tag" style={{ color: hue, background: `color-mix(in oklab, ${hue} 14%, transparent)` }}>
+                  {agent.cli}
+                </span>
+                {agent.role && <span className="pane-agent-role" title={agent.role}>{agent.role}</span>}
               </div>
-              <div className="pane-agent-cwd">
-                {agent.cli} · {agent.cwd}
+              <div className="pane-agent-cwd" title={agent.cwd}>
+                {agent.cwd}
               </div>
             </div>
           </div>

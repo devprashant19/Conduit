@@ -97,6 +97,24 @@ export default function App() {
     if (saved === 'focus' as GridLayout) return 'canvas' as GridLayout;
     return saved || '3up';
   });
+  const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
+  const [helpMenuOpen, setHelpMenuOpen] = useState(false);
+  const layoutMenuRef = useRef<HTMLDivElement>(null);
+  const helpMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (layoutMenuRef.current && !layoutMenuRef.current.contains(e.target as Node)) {
+        setLayoutMenuOpen(false);
+      }
+      if (helpMenuRef.current && !helpMenuRef.current.contains(e.target as Node)) {
+        setHelpMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
   const [showNewProject, setShowNewProject] = useState(false);
   // Directory chosen through the desktop app's native File → Open Local Project
   // picker; prefills the New Project form. Always null in a browser.
@@ -848,6 +866,7 @@ export default function App() {
             className="hbtn mobile-only"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             style={{ padding: '0 6px' }}
+            aria-label="Toggle Navigation"
           >
             <Ic.menu size={16} />
           </button>
@@ -865,19 +884,26 @@ export default function App() {
             <span>Conduit</span>
           </div>
           {selectedProject && (
-            <div className="breadcrumb" data-tour="workspace">
+            <div className="breadcrumb" data-tour="workspace" title={selectedProject.cwd}>
               <span className="sep">/</span>
               <span className="proj">{selectedProject.name}</span>
-              <span className="proj-meta">{selectedProject.cwd}</span>
             </div>
           )}
         </div>
-        <div className="header-r">
-          <button className="hbtn kbd" onClick={() => setPaletteOpen(true)}>
-            <Ic.search size={12} />
-            <span>Search</span>
-            <kbd>{MOD}K</kbd>
+
+        <div className="header-c desktop-only">
+          <button className="header-search-btn" onClick={() => setPaletteOpen(true)} title="Command Search (⌘K)">
+            <Ic.search size={13} />
+            <span className="search-placeholder">Search commands, agents…</span>
+            <kbd className="cmd-kbd">{MOD}K</kbd>
           </button>
+        </div>
+
+        <div className="header-r">
+          <button className="hbtn mobile-only" onClick={() => setPaletteOpen(true)} title="Search">
+            <Ic.search size={14} />
+          </button>
+
           <div className={'cmd-quick' + (brainWorking ? ' working' : '')} data-tour="keeper">
             <button
               className="cmd-quick-mark"
@@ -906,57 +932,105 @@ export default function App() {
                 <Ic.mic size={13} />
               </button>
             )}
-            <kbd>{MOD}J</kbd>
+            <kbd className="cmd-kbd">{MOD}J</kbd>
           </div>
+
           <NotificationCenter
             notifs={awaitingNotifs}
             unread={notifUnread}
             onOpen={() => setNotifSeen(new Set(awaitingNotifs.map((n) => n.agentId)))}
             onSelect={handleSelectAgent}
           />
-          <div className="layout-seg" role="tablist" aria-label="Layout">
-            {LAYOUT_ICONS.map(({ v, Icon, title }) => (
-              <button
-                key={v}
-                className={layout === v ? 'active' : ''}
-                title={title}
-                onClick={() => setLayout(v)}
-              >
-                <Icon size={13} />
-              </button>
-            ))}
+
+          {/* Compact Layout Picker Dropdown */}
+          <div className="header-dropdown-wrap" ref={layoutMenuRef}>
+            <button
+              className="hbtn layout-dropdown-btn"
+              title="Switch Layout"
+              onClick={() => setLayoutMenuOpen(!layoutMenuOpen)}
+            >
+              {(() => {
+                const currentItem = LAYOUT_ICONS.find((item) => item.v === layout) || LAYOUT_ICONS[0];
+                const IconComponent = currentItem.Icon;
+                return <IconComponent size={13} />;
+              })()}
+              <span className="desktop-only layout-label">{LAYOUT_ICONS.find((item) => item.v === layout)?.title}</span>
+              <Ic.chevDown size={10} />
+            </button>
+            {layoutMenuOpen && (
+              <div className="header-dropdown-menu">
+                <div className="dropdown-header">Workspace Layout</div>
+                {LAYOUT_ICONS.map(({ v, Icon, title }) => (
+                  <button
+                    key={v}
+                    className={'dropdown-item' + (layout === v ? ' active' : '')}
+                    onClick={() => {
+                      setLayout(v);
+                      setLayoutMenuOpen(false);
+                    }}
+                  >
+                    <Icon size={13} />
+                    <span>{title}</span>
+                    {layout === v && <span className="item-check">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Help & Utility Menu */}
+          <div className="header-dropdown-wrap" ref={helpMenuRef}>
+            <button
+              className="hbtn icon-only"
+              title="Help & Resources"
+              onClick={() => setHelpMenuOpen(!helpMenuOpen)}
+            >
+              <Ic.help size={14} />
+            </button>
+            {helpMenuOpen && (
+              <div className="header-dropdown-menu right">
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    handleStartTour();
+                    setHelpMenuOpen(false);
+                  }}
+                >
+                  <Ic.sparkles size={13} />
+                  <span>Product Tour</span>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    window.location.hash = '';
+                    setInConsole(false);
+                    setHelpMenuOpen(false);
+                  }}
+                >
+                  <Ic.folder size={13} />
+                  <span>Website & Overview</span>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setPaletteOpen(true);
+                    setHelpMenuOpen(false);
+                  }}
+                >
+                  <Ic.search size={13} />
+                  <span>Keyboard Shortcuts ({MOD}K)</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
-            className="hbtn"
-            title="Website & Overview"
-            onClick={() => {
-              window.location.hash = '';
-              setInConsole(false);
-            }}
-            style={{ fontWeight: 600, color: 'var(--text-0)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            Website
-          </button>
-          <button
-            className="hbtn"
-            title="Product Tour (2-Phase Onboarding)"
-            onClick={handleStartTour}
-            style={{ fontWeight: 600, color: 'var(--text-1)' }}
-          >
-            Tour
-          </button>
-          <button
-            className="hbtn"
-            title="Voice settings"
+            className="hbtn icon-only"
+            title="Settings"
             onClick={() => setSettingsOpen(true)}
           >
-            <Ic.settings size={13} />
+            <Ic.settings size={14} />
           </button>
-          {selectedProject && (
-            <button className="hbtn danger" title="Delete project" onClick={handleDeleteProject}>
-              <Ic.x size={12} />
-            </button>
-          )}
         </div>
       </header>
 
