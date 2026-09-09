@@ -3587,29 +3587,38 @@ body.is-resizing .pane-resizer {
 
 @media (max-width: 860px) {
   .app {
-    grid-template-columns: 0 1fr;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow: hidden !important;
+  }
+
+  .app .sb-resizer {
+    display: none !important;
   }
 
   .sb {
-    display: none;
-    position: fixed;
-    left: 0;
-    top: 44px;
-    bottom: 26px;
-    width: 260px;
-    z-index: 120;
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+    display: none !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: min(300px, 85vw) !important;
+    z-index: 200 !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4) !important;
   }
 
   .sb.mobile-open {
-    display: flex;
+    display: flex !important;
   }
 
   .sb-scrim {
-    position: fixed;
-    inset: 44px 0 26px 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 119;
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    z-index: 199 !important;
   }
 
   .mobile-only {
@@ -3670,35 +3679,94 @@ body.is-resizing .pane-resizer {
 }
 
 @media (max-width: 640px) {
+  .desktop-only,
+  .sb-toggle,
+  .header .desktop-only,
+  .header .sb-toggle {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: inline-flex !important;
+  }
+
   .header {
-    padding: 0 10px;
-    height: 42px;
+    padding: 0 12px !important;
+    height: 46px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: var(--bg-1) !important;
+    border-bottom: 1px solid var(--border) !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
   }
 
   .header-l {
-    gap: 6px;
-    min-width: 0;
-    flex: 1;
+    gap: 10px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
   }
 
   .header-r {
-    gap: 4px;
-    flex-shrink: 0;
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
   }
 
-  .breadcrumb .proj {
-    max-width: 90px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 11.5px;
+  .header .hbtn:not(.desktop-only) {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    display: grid !important;
+    place-items: center !important;
+    padding: 0 !important;
+    border-radius: var(--radius-xs) !important;
+  }
+
+  .brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    color: var(--text-0) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .brand-mark {
+    width: 22px !important;
+    height: 22px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .brand span {
+    display: inline-block !important;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  .breadcrumb {
+    display: none !important;
   }
 
   .header-dropdown-menu.mobile-actions-menu {
-    right: 0;
-    min-width: 190px;
-    max-height: 75vh;
-    overflow-y: auto;
+    right: 8px !important;
+    top: 48px !important;
+    min-width: 190px !important;
+    max-height: 75vh !important;
+    overflow-y: auto !important;
   }
 
   .mobile-bottom-nav {
@@ -3714,9 +3782,23 @@ body.is-resizing .pane-resizer {
   }
 
   .gr-subbar {
-    height: 38px;
-    padding: 0 10px;
-    justify-content: flex-end;
+    height: auto !important;
+    min-height: 40px !important;
+    padding: 6px 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    background: var(--bg-1) !important;
+    border-bottom: 1px solid var(--border) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .gr-subbar-r {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    justify-content: flex-end !important;
   }
 
   /* Zero body horizontal scroll guardrails */
@@ -3726,34 +3808,79 @@ body.is-resizing .pane-resizer {
   }
 
   .gr {
+    flex: 1 !important;
+    min-height: 0 !important;
     padding: 0 !important;
-    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
     overflow-x: hidden !important;
+    overflow-y: auto !important;
     max-width: 100vw !important;
     width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   .gr-body {
+    flex: 1 !important;
+    min-height: 0 !important;
     overflow-x: hidden !important;
+    overflow-y: auto !important;
     max-width: 100% !important;
     width: 100% !important;
+    padding: 8px 10px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
   }
 
-  .gr-body.layout-row {
+  /* Force ALL layouts to stack cleanly on mobile */
+  .gr-body.layout-row,
+  .gr-body.layout-grid,
+  .gr-body.layout-single,
+  .gr-body.layout-canvas {
+    display: flex !important;
     flex-direction: column !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    padding: 8px !important;
-    gap: 8px !important;
-    height: 100% !important;
+    padding: 8px 10px !important;
+    gap: 10px !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
   }
 
   .gr-body.layout-row > .pane-wrap,
-  .gr-body.layout-grid > .pane-wrap {
+  .gr-body.layout-grid > .pane-wrap,
+  .gr-body > .pane-wrap,
+  .tmux-side,
+  .canvas-card {
     width: 100% !important;
     min-height: 320px !important;
     flex: 0 0 auto !important;
     max-width: 100% !important;
+    position: static !important;
+  }
+
+  .canvas-toolbar {
+    display: none !important;
+  }
+
+  .canvas-scroll {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+  }
+
+  .tmux-split {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .tmux-divider {
+    display: none !important;
   }
 
   .tmux-leaf, .pane {
@@ -3899,15 +4026,24 @@ body.is-resizing .pane-resizer {
   }
 
   .sb {
+    display: none !important;
+    position: fixed !important;
+    left: 0 !important;
     top: 0 !important;
     bottom: 0 !important;
     width: min(300px, 85vw) !important;
     border-right: 1px solid var(--border-strong) !important;
+    z-index: 200 !important;
+  }
+
+  .sb.mobile-open {
+    display: flex !important;
   }
 
   .sb-scrim {
-    top: 0 !important;
-    bottom: 0 !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 199 !important;
   }
 }
 
@@ -8497,183 +8633,6 @@ body.is-resizing .pane-resizer {
 
   .mascot-parade-row {
     font-size: 24px;
-  }
-
-  /* Control Center / Workspace Mobile Responsiveness */
-  .app {
-    grid-template-rows: auto 1fr auto;
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "hd"
-      "gr"
-      "st";
-    height: 100vh;
-  }
-
-  .app .sb-resizer {
-    display: none;
-  }
-
-  .header {
-    padding: 8px 12px;
-    height: 44px;
-    gap: 8px;
-  }
-
-  .header-l {
-    gap: 8px;
-  }
-
-  .breadcrumb {
-    display: none;
-  }
-
-  .header-r {
-    gap: 4px;
-    margin-left: auto;
-  }
-
-  .header-r .cmd-quick {
-    display: none;
-  }
-
-  .header-r .layout-seg {
-    display: none;
-  }
-
-  .header-r .hbtn.kbd {
-    padding: 0 6px;
-  }
-
-  .header-r .hbtn.kbd span,
-  .header-r .hbtn.kbd kbd {
-    display: none;
-  }
-
-  .gr {
-    padding: 6px 8px;
-  }
-
-  .canvas-frame {
-    inset: 6px;
-  }
-
-  .gr-subbar {
-    padding: 4px 6px;
-    height: auto;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-
-  .gr-tabs {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 2px;
-  }
-
-  .gr-tab {
-    padding: 0 10px;
-    font-size: 11px;
-    height: 26px;
-  }
-
-  .gr-subbar-r {
-    display: flex;
-    justify-content: flex-end;
-    gap: 6px;
-  }
-
-  .batch-btn {
-    padding: 0 8px;
-    font-size: 11px;
-    height: 26px;
-  }
-
-  .gr-body.layout-row {
-    flex-direction: column !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    gap: 12px !important;
-  }
-
-  .gr-body.layout-row > .pane-wrap {
-    width: 100% !important;
-    min-height: 280px !important;
-    flex: 0 0 auto !important;
-  }
-
-  .pane-resizer {
-    display: none !important;
-  }
-
-  .tmux-split {
-    flex-direction: column !important;
-  }
-
-  .tmux-side {
-    width: 100% !important;
-    min-height: 260px !important;
-    flex: 0 0 auto !important;
-  }
-
-  .tmux-divider {
-    display: none !important;
-  }
-
-  .pane-head {
-    padding: 6px 10px;
-    gap: 8px;
-    flex-wrap: nowrap;
-  }
-
-  .pane-drag {
-    display: none;
-  }
-
-  .pane-head-l {
-    gap: 8px;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .pane-agent-row {
-    align-items: center;
-    gap: 6px;
-  }
-
-  .pane-agent-name {
-    max-width: 130px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .pane-agent-role {
-    display: none;
-  }
-
-  .pane-agent-cwd {
-    font-size: 10px;
-    max-width: 140px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .pane-status-chip {
-    padding: 2px 6px;
-    font-size: 10px;
-  }
-
-  .st {
-    padding: 0 10px;
-    font-size: 10px;
-  }
-
-  .st-kbd {
-    display: none;
   }
 }
 
