@@ -188,6 +188,8 @@ Project names are used as folder names under `shared_content/` and `wiki/`; rena
 | Codex CLI | `codex app-server` thread | writable roots | app-server events | ❌ (use Group Chat / The Keeper) |
 | Gemini CLI | PTY | `--include-directories` | process only | ❌ |
 | OpenCode | PTY | `AGENTS.md` | process only | ❌ |
+| GPT-OSS (Groq) | PTY via `aider` | `--read AGENTS.md` | process only | ❌ |
+| Nemotron (OpenRouter) | PTY via `aider` | `--read AGENTS.md` | process only | ❌ |
 
 When an agent starts, Conduit writes a `CLAUDE.md` / `AGENTS.md` section in its working directory describing the shared folder, the wiki, and (for Claude) its teammates.
 

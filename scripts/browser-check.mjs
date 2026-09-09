@@ -11,7 +11,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
 
-const URL_ = process.argv[2] || process.env.CONDUIT_URL || 'http://localhost:3200/';
+// Only a bare argument is the URL — `--deep` and friends are flags, and
+// treating one as the base made every request go to `--deep/api/...`.
+const URL_ = process.argv.slice(2).find((a) => !a.startsWith('-'))
+  || process.env.CONDUIT_URL
+  || 'http://localhost:3200/';
 const PORT = 9333 + Math.floor(Math.random() * 500);
 const candidates = [
   process.env.BROWSER,

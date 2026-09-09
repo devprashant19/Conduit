@@ -26,20 +26,18 @@ function cliMissing(cmd) {
 }
 
 /**
- * The gate test needs a PTY that lands in a plain shell, so `echo` actually
- * echoes and the watcher sees a literal y/N prompt. Pick an agent type whose
- * CLI is NOT installed — an installed CLI opens an interactive TUI that
- * swallows the keystrokes instead. (`codex` is excluded: it runs on
- * app-server, not a PTY.) Returns null when every candidate is installed.
+ * Pick a PTY agent type whose CLI is NOT installed, to exercise the startup
+ * preflight. Returns null when every candidate is installed. (`codex` is
+ * excluded: it runs on app-server, not a PTY.)
  */
-function pickShellCli() {
+function pickMissingCli() {
   const candidates = [
     { cli: 'opencode', bin: 'opencode' },
     { cli: 'gemini', bin: 'gemini' },
     { cli: 'gpt', bin: 'aider' },
     { cli: 'nemotron', bin: 'aider' },
   ];
-  return candidates.find((c) => cliMissing(c.bin))?.cli ?? null;
+  return candidates.find((c) => cliMissing(c.bin)) ?? null;
 }
 
 const BASE = process.env.CONDUIT_URL || 'http://localhost:3200';
@@ -273,44 +271,28 @@ try {
     console.log('  (live agent test skipped)');
   }
 
-  // ── approval gate, end to end ───────────────────────────────────────
-  // Start an agent whose CLI is (almost certainly) not installed, so the
-  // PTY drops to a plain shell. Echo a y/N prompt through it: the watcher's
-  // fast path must raise a gate, and approving must answer it.
-  const shellCli = pickShellCli();
-  if (!SKIP_AGENT && !shellCli) {
-    console.log('\n  gate flow: skipped — every candidate CLI is installed, so no agent');
-    console.log('  lands in a plain shell. `npm test` covers the gate patterns directly.');
+  // ── startup preflight ─────────────────────────────────────
+  // Starting an agent whose CLI is absent must fail loudly with an install
+  // hint, not open a live-looking terminal that printed "not recognized".
+  //
+  // There is no end-to-end approval-gate case here any more: raising one used
+  // to depend on a missing CLI dropping the PTY into a plain shell, which the
+  // preflight now (deliberately) prevents. `npm test` covers the gate patterns
+  // directly and `npm run test:supervisor` covers the classifier live.
+  const missing = pickMissingCli();
+  if (!SKIP_AGENT && !missing) {
+    console.log('\n  preflight: skipped — every agent CLI is installed on this machine.');
   }
-  if (!SKIP_AGENT && shellCli) {
-    console.log(`\n  gate flow via a shell echo (cli=${shellCli}, binary not installed)…`);
-    const g = await api('POST', `/projects/${projectId}/agents`, { name: 'Gatekeeper', cli: shellCli });
-    ok(g.status === 201, 'POST agent Gatekeeper');
-    const gate = g.json;
-    ws.send(JSON.stringify({ type: 'terminal:attach', agentId: gate.id }));
-    const st = await api('POST', `/projects/${projectId}/agents/${gate.id}/start`);
-    ok(st.status === 200, 'start Gatekeeper (shell)');
-    if (st.status === 200) {
-      await waitFor(frames, (f) => f.type === 'terminal:output' && f.agentId === gate.id, 15000, 'shell output');
-      await sleep(1500);
-      const before = frames.length;
-      ws.send(JSON.stringify({ type: 'terminal:input', agentId: gate.id, data: 'echo Continue with deploy? [y/N]\r' }));
-      const trig = await waitFor(frames, (f) => f.type === 'gate:triggered' && f.agentId === gate.id, 10000, 'gate:triggered', before);
-      ok(trig.source === 'regex' && /\[y\/N\]/.test(trig.prompt), 'gate:triggered broadcast with prompt text');
-      const agentsNow = await api('GET', `/projects/${projectId}/agents`);
-      ok(!!agentsNow.json.find((x) => x.id === gate.id)?.pendingGate, 'GET agents carries pendingGate');
-      const gc = await api('GET', `/projects/${projectId}/groupchat`);
-      ok(gc.json.messages.some((m) => m.classification === 'risky_action'), 'gate posted to group chat');
-      const res = await api('POST', `/projects/${projectId}/agents/${gate.id}/gate/resolve`, { decision: 'approve' });
-      ok(res.status === 200 && res.json.action === 'sent y', 'approve answers the y/N prompt');
-      await waitFor(frames, (f) => f.type === 'gate:resolved' && f.agentId === gate.id, 5000, 'gate:resolved', before);
-      ok(true, 'gate:resolved broadcast');
-      const again = await api('GET', `/projects/${projectId}/agents`);
-      ok(!again.json.find((x) => x.id === gate.id)?.pendingGate, 'pendingGate cleared');
-      const stop = await api('POST', `/projects/${projectId}/agents/${gate.id}/stop`);
-      ok(stop.status === 200, 'stop Gatekeeper');
-    }
-    ws.send(JSON.stringify({ type: 'terminal:detach', agentId: gate.id }));
+  if (!SKIP_AGENT && missing) {
+    console.log(`\n  preflight (cli=${missing.cli}, ${missing.bin} not installed)…`);
+    const g = await api('POST', `/projects/${projectId}/agents`, { name: 'Preflight', cli: missing.cli });
+    ok(g.status === 201, 'POST agent Preflight');
+    const st = await api('POST', `/projects/${projectId}/agents/${g.json.id}/start`);
+    ok(st.status >= 400, 'start is refused when the CLI is missing', `got ${st.status}`);
+    const msg = String(st.json?.error || '');
+    ok(msg.includes(missing.bin), 'error names the missing binary', msg);
+    const after = await api('GET', `/projects/${projectId}/agents`);
+    ok(after.json.find((x) => x.id === g.json.id)?.status === 'stopped', 'agent stays stopped');
   }
 
   ws.close();
