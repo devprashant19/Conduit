@@ -20,7 +20,8 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
-import type { BrainEvent, BrainMessage, BrainState, BrainStatus } from './protocol.js';
+import type { BrainEngine, BrainEvent, BrainMessage, BrainState, BrainStatus } from './protocol.js';
+import { findOnPath } from '../cli-registry.js';
 import { DAEMON_HTTP_URL } from './protocol.js';
 
 const __dirname_ = path.dirname(fileURLToPath(import.meta.url));
@@ -108,8 +109,11 @@ accurate, and proactive about what needs the user's attention.
    full sentences that convey the substance: what was done, the current
    state, and what is needed next. Brief a colleague — informative and
    specific, not a one-line platitude. Plain spoken language, all on a single
-   line, no markdown, no file paths. This line is read aloud. Example:
-   \`🔊 兩個 agent 都寫好了協作測試計畫:Claude 偏流程,涵蓋訊息傳遞、shared content 與 wiki 測試;Codex 偏執行面,用 progress.md 追蹤 Done/Blocked。目前兩邊都沒有 blocker,等你指定下一步。\`
+   line, no markdown, no file paths. This line is read aloud, so write it in
+   the same language the user speaks to you in. Example:
+   \`🔊 Both agents have written their test plans. Claude covered the message
+   passing and wiki paths, Codex is tracking progress in progress.md. Neither
+   is blocked, so they are waiting on you for the next step.\`
 
 ## Boundaries (Phase 1)
 
@@ -143,6 +147,32 @@ function tomlStr(s: string): string {
 }
 
 /** cmd.exe-safe quoting — only needed when spawning with `shell: true`. */
+/**
+ * Absolute path to the Keeper's MCP server entry.
+ *
+ * This was hardcoded to `conduit-mcp-server.js`, but tsup emits ESM as
+ * `.mjs` — so the file never existed, the MCP server failed to start, and the
+ * Keeper ran with **no tools at all**. It would then answer questions about
+ * projects and agents from nothing, which reads as the model being unhelpful
+ * rather than as a broken path. Probe instead, and say so if it is missing.
+ */
+function findConduitMcpServer(): string {
+  const candidates = [
+    path.resolve(__dirname_, '..', 'conduit-mcp-server.mjs'),
+    path.resolve(__dirname_, 'conduit-mcp-server.mjs'),
+    path.resolve(__dirname_, '..', 'conduit-mcp-server.js'),
+    path.resolve(__dirname_, 'conduit-mcp-server.js'),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  console.warn(
+    `[orchestrator] Conduit MCP server not found (looked in ${path.dirname(candidates[0])}). `
+    + 'The Keeper will have no tools — run `npm run build`.',
+  );
+  return candidates[0];
+}
+
 function winQuote(arg: string): string {
   if (arg === '') return '""';
   if (!/[ \t"&|<>()^%]/.test(arg)) return arg;
@@ -160,7 +190,7 @@ export class Orchestrator {
    *  Stop presses from spamming "Cancelled by user" messages. */
   private aborting = false;
 
-  private readonly conduitMcpPath = path.resolve(__dirname_, '../conduit-mcp-server.js');
+  private readonly conduitMcpPath = findConduitMcpServer();
 
   constructor(private readonly emit: (ev: BrainEvent) => void) {
     this.load();
@@ -173,7 +203,7 @@ export class Orchestrator {
     return {
       messages: cur.messages,
       status: this.status,
-      engine: 'codex',
+      engine: this.engine(),
       currentId: this.currentId,
       conversations: [...this.conversations]
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -245,7 +275,7 @@ export class Orchestrator {
     this.setStatus('thinking');
 
     try {
-      await this.runCodexTurn(conv, text);
+      await this.runTurn(conv, text);
     } catch (err) {
       this.append(conv, {
         role: 'error',
@@ -300,6 +330,207 @@ export class Orchestrator {
       });
     }
     return true;
+  }
+
+  // ─────────────────────────── engine choice ───────────────────────────
+
+  /**
+   * Which CLI backs the Keeper.
+   *
+   * Codex remains the default. Claude Code is a first-class alternative
+   * because it needs neither an OpenAI subscription nor API credits when the
+   * user is already signed in to Claude — and `codex` not being installed is
+   * otherwise a hard stop for the whole Command panel.
+   */
+  private engine(): BrainEngine {
+    const v = (process.env.CONDUIT_KEEPER_ENGINE || '').trim().toLowerCase();
+    if (v === 'claude') return 'claude';
+    if (v === 'codex') return 'codex';
+    // Auto: prefer Codex when it is actually usable, else fall back to Claude
+    // rather than failing every turn.
+    if (findOnPath('codex')) return 'codex';
+    if (findOnPath('claude')) return 'claude';
+    return 'codex';
+  }
+
+  private runTurn(conv: Conversation, prompt: string): Promise<void> {
+    return this.engine() === 'claude'
+      ? this.runClaudeTurn(conv, prompt)
+      : this.runCodexTurn(conv, prompt);
+  }
+
+  // ─────────────────────────── Claude turn ───────────────────────────
+
+  /**
+   * One Keeper turn on Claude Code.
+   *
+   * Mirrors the Codex path exactly: a non-interactive run, NDJSON events on
+   * stdout, session continuity across turns, the Conduit MCP toolset, and the
+   * Keeper persona. `bypassPermissions` is the counterpart of Codex's
+   * `--dangerously-bypass-approvals-and-sandbox` and is safe for the same
+   * reason — the Keeper's only capability is the Conduit MCP tools, and real
+   * write actions still go through sandboxed agents behind approval gates.
+   */
+  private runClaudeTurn(conv: Conversation, prompt: string): Promise<void> {
+    this.ensureBrainEnv();
+    const mcpConfig = this.writeClaudeMcpConfig();
+
+    // The prompt goes on stdin and the persona goes in a file. Passing either
+    // as an argument breaks on Windows, where `shell: true` routes the command
+    // through cmd.exe and a newline terminates it — the child then exits 0
+    // having done nothing, which is silent and very hard to spot.
+    const args = [
+      '-p',
+      '--output-format', 'stream-json',
+      '--verbose',
+      '--permission-mode', 'bypassPermissions',
+      '--append-system-prompt-file', AGENTS_MD_PATH,
+      '--mcp-config', mcpConfig,
+    ];
+    // Claude calls it a session; Codex calls it a thread. Same idea, same field.
+    if (conv.threadId) args.push('--resume', conv.threadId);
+
+    const isWin = process.platform === 'win32';
+
+    return new Promise<void>((resolve) => {
+      let child;
+      try {
+        child = spawn('claude', isWin ? args.map(winQuote) : args, {
+          cwd: BRAIN_DIR,
+          env: { ...process.env },
+          shell: isWin,
+          windowsHide: true,
+        });
+      } catch (err) {
+        this.append(conv, {
+          role: 'error',
+          text: 'Could not start Claude Code. Is the `claude` CLI installed and on PATH? '
+            + (err instanceof Error ? err.message : String(err)),
+        });
+        resolve();
+        return;
+      }
+
+      this.currentChild = child;
+      let stdoutBuf = '';
+      let stderrBuf = '';
+      let producedAssistant = false;
+
+      child.stdin?.on('error', () => { /* ignore broken pipe */ });
+      // The spoken-summary rule rides on every turn — `--resume` does not
+      // re-read the persona file for it.
+      child.stdin?.write(prompt + TURN_SUFFIX);
+      child.stdin?.end();
+
+      child.stdout?.on('data', (d: Buffer) => {
+        stdoutBuf += d.toString();
+        let nl: number;
+        while ((nl = stdoutBuf.indexOf('\n')) >= 0) {
+          const line = stdoutBuf.slice(0, nl).trim();
+          stdoutBuf = stdoutBuf.slice(nl + 1);
+          if (line && this.handleClaudeLine(conv, line)) producedAssistant = true;
+        }
+      });
+
+      child.stderr?.on('data', (d: Buffer) => {
+        stderrBuf += d.toString();
+        if (stderrBuf.length > 8000) stderrBuf = stderrBuf.slice(-8000);
+      });
+
+      child.on('error', (err) => {
+        this.append(conv, {
+          role: 'error',
+          text: 'Could not start Claude Code (`claude` CLI not found?): ' + err.message,
+        });
+        resolve();
+      });
+
+      child.on('close', (code) => {
+        if (this.currentChild === child) this.currentChild = null;
+        if (!producedAssistant) {
+          const detail = stderrBuf.trim().split('\n').slice(-4).join('\n');
+          this.append(conv, {
+            role: 'error',
+            text: code === 0
+              ? 'Claude Code finished without answering.' + (detail ? `\n${detail}` : '')
+              : `Claude Code exited with code ${code}.` + (detail ? `\n${detail}` : ''),
+          });
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * The Conduit MCP server, in Claude's config shape. Codex gets the same
+   * server through its own `config.toml`; this is the identical command line
+   * expressed as JSON.
+   */
+  private writeClaudeMcpConfig(): string {
+    const file = path.join(BRAIN_DIR, 'claude-mcp.json');
+    const cfg = {
+      mcpServers: {
+        conduit: {
+          command: process.execPath,
+          args: [this.conduitMcpPath, '--daemon', DAEMON_HTTP_URL],
+          env: { ELECTRON_RUN_AS_NODE: '1' },
+        },
+      },
+    };
+    fs.writeFileSync(file, JSON.stringify(cfg, null, 2), 'utf-8');
+    return file;
+  }
+
+  /** Parse one Claude Code `stream-json` line. Returns true if it was an answer. */
+  private handleClaudeLine(conv: Conversation, line: string): boolean {
+    let obj: Record<string, unknown>;
+    try { obj = JSON.parse(line); } catch { return false; }
+
+    // Every event carries the session id; keep the newest so the next turn
+    // resumes this conversation.
+    const sid = obj.session_id;
+    if (typeof sid === 'string' && sid && conv.threadId !== sid) {
+      conv.threadId = sid;
+      this.save();
+    }
+
+    const type = String(obj.type || '');
+
+    if (type === 'assistant') {
+      const msg = obj.message as { content?: unknown } | undefined;
+      const content = Array.isArray(msg?.content) ? msg!.content : [];
+      let text = '';
+      for (const block of content as Record<string, unknown>[]) {
+        if (block?.type === 'text' && typeof block.text === 'string') text += block.text;
+        if (block?.type === 'tool_use') {
+          const name = String(block.name || 'tool');
+          const input = JSON.stringify(block.input ?? {}).slice(0, 600);
+          this.append(conv, { role: 'tool', tool: name, text: input });
+        }
+      }
+      if (text.trim()) {
+        this.append(conv, { role: 'assistant', text: text.trim() });
+        return true;
+      }
+      return false;
+    }
+
+    if (type === 'result') {
+      const subtype = String(obj.subtype || '');
+      const result = typeof obj.result === 'string' ? obj.result.trim() : '';
+      if (subtype !== 'success') {
+        this.append(conv, {
+          role: 'error',
+          text: result || `Claude Code turn failed (${subtype || 'unknown'}).`,
+        });
+        return false;
+      }
+      // The streamed assistant message is normally already appended; this is
+      // the safety net for a turn that only produced a final result.
+      return false;
+    }
+
+    return false;
   }
 
   // ─────────────────────────── Codex turn ───────────────────────────

@@ -34,7 +34,8 @@
     "test:supervisor": "node --experimental-strip-types --no-warnings scripts/test-supervisor.mjs",
     "build:icons": "node scripts/make-icons.mjs",
     "check:agents": "node scripts/check-agents.mjs",
-    "check:multi": "node scripts/multi-agent-session.mjs"
+    "check:multi": "node scripts/multi-agent-session.mjs",
+    "check:keeper": "node scripts/test-keeper.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1124.0",

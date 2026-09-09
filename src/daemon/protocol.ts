@@ -25,6 +25,9 @@ export interface BrainMessage {
   tool?: string;
 }
 
+/** Which CLI backs the Keeper. */
+export type BrainEngine = 'codex' | 'claude';
+
 export type BrainStatus = 'idle' | 'thinking';
 
 /** Lightweight conversation entry for the Command panel's switcher. */
@@ -41,7 +44,7 @@ export interface BrainState {
   messages: BrainMessage[];
   status: BrainStatus;
   /** Which CLI powers the brain — Phase 1 is always 'codex'. */
-  engine: 'codex' | 'claude';
+  engine: BrainEngine;
   /** Id of the current conversation. */
   currentId: string;
   /** All conversations, newest first — for the switcher. */

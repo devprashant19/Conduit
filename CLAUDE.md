@@ -13,7 +13,7 @@ Human-driven: the user decides. The Supervisor never sends an instruction to an 
 | Web server | `src/server.ts` | `:3200` (`PORT`, `HOST`) | React UI, REST, browser WebSocket, voice proxy, optional Basic auth (`CONDUIT_AUTH=user:pass`) |
 | Daemon | `src/daemon/daemon.ts` | `:3210` loopback | Every agent process, status engine, Supervisor watcher, The Keeper |
 | Per-agent MCP server | `src/mcp-server.ts` | stdio | `message_agent` / `list_teammates` for Claude agents |
-| Keeper MCP server | `src/conduit-mcp-server.ts` | stdio | Org-level tools for the Codex-based orchestrator |
+| Keeper MCP server | `src/conduit-mcp-server.ts` | stdio | Org-level tools for the orchestrator (Codex or Claude Code) |
 
 The web server never owns processes; it relays to the daemon over a local WebSocket (`src/daemon/protocol.ts`) and auto-reconnects. Restarting the web server does not kill agents.
 
@@ -35,7 +35,7 @@ src/
     runtime.ts         routes ops to PTY vs Codex runtime; subscribeOutput/getReplay
     codex-agents.ts    Codex agents as `codex app-server` threads (structured items)
     codex-server.ts    JSON-RPC client for app-server
-    orchestrator.ts    The Keeper (codex exec loop, conversations)
+    orchestrator.ts    The Keeper (codex exec / claude -p loop, conversations)
     conduit.ts         ask_agent / start_agent / broadcast dispatch
   strands/
     agent.ts           Supervisor agent (BedrockModel + report_update / plan_action tools)

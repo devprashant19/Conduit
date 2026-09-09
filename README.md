@@ -95,7 +95,9 @@ npm run build:desktop
 Optional:
 
 - **AWS credentials with Bedrock access** for the Supervisor. Without them Conduit still works; the Supervisor logs one warning and backs off. Set `CONDUIT_SUPERVISOR=off` to disable it explicitly.
-- `codex` CLI for The Keeper (Command panel).
+- A CLI for The Keeper (Command panel): `codex`, or `claude` — whichever is on PATH.
+  Set `CONDUIT_KEEPER_ENGINE=claude` (or `codex`) to pin one; otherwise Conduit prefers
+  `codex` and falls back to `claude`, so a Claude Code login is enough on its own.
 - `OPENAI_API_KEY` / `GEMINI_API_KEY` for cloud speech; the browser engines need nothing.
 - `ANTHROPIC_API_KEY` — lets the Supervisor fall back to the Anthropic Messages API when
   Bedrock is unavailable. Without it Conduit reuses the Claude Code OAuth token if present.
