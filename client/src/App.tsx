@@ -46,6 +46,9 @@ export default function App() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState<MainTab>('terminals');
   const [inConsole, setInConsole] = useState<boolean>(() => {
+    // The desktop app has no use for the marketing landing page — the visitor
+    // already installed it.
+    if (window.conduitDesktop?.isDesktop) return true;
     return window.location.hash === '#console';
   });
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -87,6 +90,9 @@ export default function App() {
     return saved || '3up';
   });
   const [showNewProject, setShowNewProject] = useState(false);
+  // Directory chosen through the desktop app's native File → Open Local Project
+  // picker; prefills the New Project form. Always null in a browser.
+  const [pickedCwd, setPickedCwd] = useState<string | null>(null);
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [activeGateAgent, setActiveGateAgent] = useState<{ projectId: string; agentId: string } | null>(null);
   // Pending Supervisor plans, oldest first. The modal shows the head of the queue.
@@ -386,6 +392,37 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [projectAgents]);
 
+  // Desktop shell (Electron) integration. `window.conduitDesktop` is injected
+  // by electron/preload.ts and is undefined in a browser, so all of this is a
+  // no-op on the web. The menu accelerators in electron/main.ts arrive here.
+  useEffect(() => {
+    const desktop = window.conduitDesktop;
+    if (!desktop) return;
+
+    const unsubs = [
+      desktop.onToggleKeeper(() => setCommandOpen((o) => !o)),
+      desktop.onToggleVoice(() => quickSpeechRef.current?.toggle()),
+      desktop.onFocusTerminal(() => {
+        setInConsole(true);
+        setMainTab('terminals');
+        // Focusing the pane is a DOM concern — the Terminal component only
+        // re-focuses when its `focused` prop flips, which it may not here.
+        setTimeout(() => {
+          const el = document.querySelector<HTMLTextAreaElement>('.pane.focused .xterm-helper-textarea');
+          el?.focus();
+        }, 0);
+      }),
+      desktop.onProjectOpened((dir) => {
+        setPickedCwd(dir);
+        setShowNewProject(true);
+      }),
+      desktop.onDaemonStatus((status) => {
+        if (!status.ready) setToast(status.error || 'The Conduit backend is not running.');
+      }),
+    ];
+    return () => { for (const off of unsubs) off(); };
+  }, []);
+
   // Handlers
   const handleSelectProject = (id: string) => {
     setSelectedProjectId(id);
@@ -402,6 +439,7 @@ export default function App() {
     try {
       const project = await api.createProject(data);
       setShowNewProject(false);
+      setPickedCwd(null);
       await loadProjects();
       setSelectedProjectId(project.id);
     } catch (err) {
@@ -958,7 +996,8 @@ export default function App() {
 
       {showNewProject && (
         <CreateProjectModal
-          onClose={() => setShowNewProject(false)}
+          initialCwd={pickedCwd || undefined}
+          onClose={() => { setShowNewProject(false); setPickedCwd(null); }}
           onCreate={handleCreateProject}
         />
       )}

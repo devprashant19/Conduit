@@ -239,13 +239,20 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
           </h1>
 
           <p className="hero-subtitle">
-            Run Claude Code, Codex, Gemini, OpenCode, Llama, and Nemotron side by side. Supervised by Amazon Bedrock with human-in-the-loop approval gates.
+            Run Claude Code, Codex, Gemini, OpenCode, GPT-OSS, and Nemotron side by side. Supervised by Amazon Bedrock with human-in-the-loop approval gates.
           </p>
 
           <div className="hero-actions">
-            <button className="hero-cta-button" onClick={() => setIsDownloadOpen(true)}>
-              Download ↓
-            </button>
+            {/* Inside the desktop app there is nothing left to download. */}
+            {window.conduitDesktop?.isDesktop ? (
+              <button className="hero-cta-button" onClick={onOpenConsole}>
+                Open Control Center →
+              </button>
+            ) : (
+              <button className="hero-cta-button" onClick={() => setIsDownloadOpen(true)}>
+                Download ↓
+              </button>
+            )}
             <span className="hero-cta-subtext">Real terminals · Full human supervision · MIT License</span>
           </div>
         </div>
