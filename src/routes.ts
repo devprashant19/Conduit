@@ -248,15 +248,26 @@ export function createRouter(
   });
 
   // --- Layout Routes ---
+  // The pane layout is per project and shared across browsers. It is written
+  // into project.json, which is re-serialised on every agent status change —
+  // so the body is validated and bounded rather than stored verbatim.
   router.get('/projects/:id/layout', (req: Request, res: Response) => {
-    const layout = storage.getProjectLayout(req.params.id);
-    res.json({ layout });
+    if (!storage.getProjectData(req.params.id)) { res.status(404).json({ error: 'Project not found' }); return; }
+    res.json({ layout: storage.getProjectLayout(req.params.id) });
   });
 
   router.put('/projects/:id/layout', (req: Request, res: Response) => {
-    const ok = storage.saveProjectLayout(req.params.id, req.body.layout);
-    if (!ok) return res.status(404).json({ error: 'Project not found' });
-    res.json({ success: true });
+    const layout = parseLayout(req.body?.layout);
+    if (!layout) {
+      res.status(400).json({ error: `layout must be { mode: one of ${LAYOUT_MODES.join('|')}, splitRatios: number[], activeAgentIds: string[], focusedAgentId?: string }` });
+      return;
+    }
+    if (!storage.saveProjectLayout(req.params.id, layout)) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+    broadcast({ type: 'layout:changed', projectId: req.params.id, layout });
+    res.json({ success: true, layout });
   });
 
   // --- Agent Routes ---
