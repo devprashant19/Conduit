@@ -69,6 +69,10 @@ export function writeClaudeMcpConfig(ctx: McpWriteContext): string {
   const auth = getAuthConfig();
   const env: Record<string, string> = {};
   if (auth) env.CONDUIT_AUTH = `${auth.user}:${auth.pass}`;
+  // In the packaged desktop app `process.execPath` is Conduit.exe, not node.
+  // Say so explicitly rather than relying on the variable happening to survive
+  // daemon → shell → agent CLI → MCP child inheritance.
+  if (process.versions.electron) env.ELECTRON_RUN_AS_NODE = '1';
   const config = {
     mcpServers: {
       conduit: {

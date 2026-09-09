@@ -18,11 +18,29 @@ function getHookBaseUrl(): string {
 }
 
 /**
- * Absolute path to the compiled MCP server entry (dist/mcp-server.js).
- * tsup builds mcp-server.ts alongside server.ts in the same dist folder.
+ * Absolute path to the compiled MCP server entry.
+ *
+ * This module is bundled *into* dist/src/daemon/daemon.mjs, so `__dirname_` is
+ * `dist/src/daemon` while the MCP entry is emitted at `dist/src/mcp-server.mjs`.
+ * Getting this wrong silently disables agent-to-agent messaging (the config is
+ * written, Claude starts, and the MCP server just never loads), so probe the
+ * candidates and warn loudly when none exists.
  */
-function getMcpServerPath(): string {
-  return path.resolve(__dirname_, 'mcp-server.js');
+function getMcpServerPath(): string | null {
+  const candidates = [
+    path.resolve(__dirname_, '..', 'mcp-server.mjs'), // bundled into daemon/
+    path.resolve(__dirname_, 'mcp-server.mjs'),       // same-dir builds
+    path.resolve(__dirname_, '..', 'mcp-server.js'),
+    path.resolve(__dirname_, 'mcp-server.js'),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  console.warn(
+    `[pty-manager] MCP server entry not found (looked in ${path.dirname(candidates[0])}). `
+    + 'Agent-to-agent messaging will be unavailable — run `npm run build`.',
+  );
+  return null;
 }
 
 /**
@@ -320,14 +338,14 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
   // Register MCP server for agent-to-agent messaging (Claude only for now)
   let claudeMcpConfigPath: string | null = null;
   try {
-    const mcpCtx = {
-      agent,
-      agentCwd: cwd,
-      hubUrl: getHubUrl(),
-      mcpServerPath: getMcpServerPath(),
-    };
-    if (agent.cli === 'claude') {
-      claudeMcpConfigPath = writeClaudeMcpConfig(mcpCtx);
+    const mcpServerPath = getMcpServerPath();
+    if (agent.cli === 'claude' && mcpServerPath) {
+      claudeMcpConfigPath = writeClaudeMcpConfig({
+        agent,
+        agentCwd: cwd,
+        hubUrl: getHubUrl(),
+        mcpServerPath,
+      });
     }
   } catch (err) {
     console.warn(`[pty-manager] Failed to write MCP config for ${agent.name}:`, err);
