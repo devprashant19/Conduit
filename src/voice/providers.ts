@@ -63,9 +63,8 @@ export const PROVIDERS: ProviderSpec[] = [
     ],
     ttsModels: [
       { id: 'gemini-3.1-flash-tts-preview', label: 'gemini-3.1-flash-tts-preview (latest, expressive)' },
-      { id: 'gemini-2.5-flash-tts', label: 'gemini-2.5-flash-tts' },
-      { id: 'gemini-2.5-pro-tts', label: 'gemini-2.5-pro-tts' },
-      { id: 'gemini-2.5-flash-lite-preview-tts', label: 'gemini-2.5-flash-lite-preview-tts (cheap)' },
+      { id: 'gemini-2.5-flash-preview-tts', label: 'gemini-2.5-flash-preview-tts (default)' },
+      { id: 'gemini-2.5-pro-preview-tts', label: 'gemini-2.5-pro-preview-tts' },
     ],
     voices: [
       { id: 'Kore', label: 'Kore (firm)' },

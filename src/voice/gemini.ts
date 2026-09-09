@@ -66,7 +66,7 @@ export async function ttsGemini(
     },
   };
   const r = await fetch(
-    `${GEMINI_BASE}/models/${model || 'gemini-2.5-flash-tts'}:generateContent?key=${key()}`,
+    `${GEMINI_BASE}/models/${model || 'gemini-2.5-flash-preview-tts'}:generateContent?key=${key()}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
