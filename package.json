@@ -28,7 +28,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p client/tsconfig.json",
     "dev:daemon": "node --watch dist/src/daemon/daemon.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "test": "node --experimental-strip-types --no-warnings scripts/test-gates.mjs",
+    "test": "node --experimental-strip-types --no-warnings scripts/test-gates.mjs && node --experimental-strip-types --no-warnings scripts/test-voice-routing.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "browser-check": "node scripts/browser-check.mjs --deep",
     "test:supervisor": "node --experimental-strip-types --no-warnings scripts/test-supervisor.mjs",

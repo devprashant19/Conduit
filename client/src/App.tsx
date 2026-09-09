@@ -18,7 +18,8 @@ import UsagePanel from './components/UsagePanel';
 import Ic, { MOD } from './components/Icons';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useSpeechInput } from './hooks/useSpeechInput';
-import { useWakeWord } from './hooks/useWakeWord';
+import { useVoiceSession } from './hooks/useVoiceSession';
+import { useVoiceAnnouncer } from './hooks/useVoiceAnnouncer';
 import { useVoiceConfig } from './hooks/useVoiceConfig';
 import SettingsModal from './components/SettingsModal';
 import LandingPage from './components/LandingPage';
@@ -28,6 +29,7 @@ import logoDark from './assets/logo_dark_sm.jpg';
 import logoLight from './assets/logo_light_sm.jpg';
 import * as api from './api';
 import { speak, stopSpeaking } from './utils/speech';
+import type { Route, RosterAgent } from './utils/voiceRouting';
 import type { Project, Agent, Plan } from './api';
 
 type MainTab = 'terminals' | 'messages' | 'groupchat' | 'shared' | 'wiki' | 'activity' | 'usage';
@@ -383,11 +385,14 @@ export default function App() {
         e.preventDefault(); e.stopPropagation();
         setCommandOpen((o) => !o); return;
       }
-      // ⌘; / Ctrl+; — toggle voice recording to the Keeper (auto-sends on
-      // final result via the header quick-command's speech callback).
+      // ⌘; / Ctrl+; — open a hands-free conversation where the microphone is
+      // not already listening (a paid engine, or the desktop app); otherwise
+      // fall back to push-to-talk.
       if (mod && e.key === ';') {
         e.preventDefault(); e.stopPropagation();
-        quickSpeechRef.current?.toggle();
+        const vs = voiceSessionRef.current;
+        if (vs && !vs.alwaysOn) vs.toggle();
+        else quickSpeechRef.current?.toggle();
         return;
       }
       if (mod && /^[1-9]$/.test(e.key)) {
@@ -412,7 +417,13 @@ export default function App() {
 
     const unsubs = [
       desktop.onToggleKeeper(() => setCommandOpen((o) => !o)),
-      desktop.onToggleVoice(() => quickSpeechRef.current?.toggle()),
+      desktop.onToggleVoice(() => {
+        // In the desktop app the free browser recogniser cannot work, so the
+        // accelerator opens a hands-free session (paid engine) rather than
+        // toggling push-to-talk.
+        if (window.conduitDesktop?.isDesktop) voiceSessionRef.current?.toggle();
+        else quickSpeechRef.current?.toggle();
+      }),
       desktop.onFocusTerminal(() => {
         setInConsole(true);
         setMainTab('terminals');
@@ -596,24 +607,149 @@ export default function App() {
   const quickSpeechRef = useRef(quickSpeech);
   useEffect(() => { quickSpeechRef.current = quickSpeech; });
 
-  // Always-on wake word — "<phrase>, <command>" drives the brain hands-free.
-  // Push-to-talk and the wake word share the browser's single recogniser, so
-  // the wake word pauses while the user is actively recording.
-  const wake = useWakeWord({
+  // --- executing a spoken command ------------------------------------
+  // A voice command must never vanish. fireQuickCmd returns early while the
+  // Keeper is busy, which is invisible when you are not looking at the screen,
+  // so the Keeper path queues instead — newest wins, because a stale spoken
+  // command executing minutes later is worse than dropping it.
+  const pendingKeeperCmd = useRef<string | null>(null);
+  const brainWorkingRef = useRef(brainWorking);
+  useEffect(() => { brainWorkingRef.current = brainWorking; }, [brainWorking]);
+
+  const sendToKeeper = useCallback((text: string): string | void => {
+    if (brainWorkingRef.current) {
+      pendingKeeperCmd.current = text;
+      return "The Keeper is still working — I'll send that when it's free.";
+    }
+    if (!ws.send({ type: 'brain:send', message: text })) {
+      return 'Not connected to Conduit yet.';
+    }
+    brainBusyRef.current = true;
+    setBrainWorking(true);
+  }, [ws]);
+
+  // Flush a queued command once the Keeper frees up.
+  useEffect(() => {
+    if (brainWorking || !pendingKeeperCmd.current) return;
+    const text = pendingKeeperCmd.current;
+    pendingKeeperCmd.current = null;
+    sendToKeeper(text);
+  }, [brainWorking, sendToKeeper]);
+
+  /**
+   * Run one routed voice command and return what should be said back.
+   *
+   * Note there is no 'approve' branch: `Route` cannot express one, so a
+   * misheard word can never authorise a destructive action.
+   */
+  const dispatchVoiceRoute = useCallback(async (route: Route): Promise<string | void> => {
+    if (route.kind === 'keeper') return sendToKeeper(route.text);
+
+    if (route.kind === 'agent') {
+      // Reuse the server's own @mention routing, addressing by id: findAgent
+      // tries an exact id first, and a uuid survives the @-token regex where
+      // a name containing a space would not.
+      try {
+        await api.sendGroupChat(route.projectId, `@${route.agentId} ${route.text}`);
+        return `Sent to ${route.agentName}.`;
+      } catch (err) {
+        return `Could not reach ${route.agentName}: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+
+    if (route.kind === 'control' && route.action === 'reject-gate') {
+      if (!activeGateAgent) return 'Nothing is waiting for a decision.';
+      try {
+        await api.resolveGate(activeGateAgent.projectId, activeGateAgent.agentId, 'reject');
+        return 'Rejected.';
+      } catch (err) {
+        return `Could not reject: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+
+    if (route.kind === 'control' && route.action === 'status') {
+      const waiting = awaitingNotifs.length;
+      const parts = [`${globalCounts.running} running`];
+      if (waiting) parts.push(`${waiting} waiting for you`);
+      if (globalCounts.idle) parts.push(`${globalCounts.idle} idle`);
+      return parts.join(', ') + '.';
+    }
+  }, [sendToKeeper, activeGateAgent, awaitingNotifs, globalCounts]);
+
+  // Hands-free conversation. The wake phrase opens it, a spoken greeting
+  // acknowledges it, and it stays open for follow-ups until you go quiet.
+  // Push-to-talk and the session share one microphone, so the session pauses
+  // while the user is holding the header mic.
+  const isDesktop = !!window.conduitDesktop?.isDesktop;
+  // The free browser recogniser cannot work inside Electron, and a cloud
+  // engine bills per utterance — so only the free-engine web case listens
+  // continuously. Everywhere else a session is opened deliberately.
+  const alwaysOn = voice.cfg.stt.provider === 'browser' && !isDesktop;
+
+  /** Flat roster across every project, for addressing an agent by name. */
+  const voiceRoster: RosterAgent[] = useMemo(() => {
+    const out: RosterAgent[] = [];
+    for (const [pid, list] of agents) {
+      for (const a of list) out.push({ id: a.id, name: a.name, role: a.role, cli: a.cli, projectId: pid });
+    }
+    return out;
+  }, [agents]);
+
+  const voiceSession = useVoiceSession({
     enabled: wakeEnabled && !quickSpeech.listening,
     phrase: wakePhrase,
     language: voice.cfg.stt.language,
-    // Same engine as push-to-talk. 'browser' cannot work inside the desktop
-    // app (no Chromium speech service), so the provider choice matters here.
     provider: voice.cfg.stt.provider,
-    onWake: () => { setToast(`Listening — say your command for The Keeper.`); },
-    onCommand: (text) => fireQuickCmd(text),
-    // Listening is impossible, not merely quiet. Turn the switch off so the
-    // HUD stops claiming to listen, and say why.
+    ttsCfg: { ...voice.cfg.tts, language: voice.cfg.stt.language },
+    agents: voiceRoster,
+    selectedProjectId,
+    gateOpen: !!activeGateAgent,
+    alwaysOn,
+    onRoute: (route) => dispatchVoiceRoute(route),
     onUnavailable: (reason) => {
       setWakeEnabled(false);
-      setToast(`Wake word off — ${reason}`);
+      setToast(`Hands-free off — ${reason}`);
     },
+  });
+  const wake = {
+    supported: voiceSession.supported,
+    armed: voiceSession.armed,
+    listening: voiceSession.listening,
+  };
+  const voiceSessionRef = useRef(voiceSession);
+  useEffect(() => { voiceSessionRef.current = voiceSession; });
+
+  // Speak the things that were previously visual-only: a gate blocking an
+  // agent, an agent that started waiting, and errors.
+  const gatedAgentForVoice = useMemo(() => {
+    if (!activeGateAgent) return null;
+    const list = agents.get(activeGateAgent.projectId) || [];
+    const a = list.find((x) => x.id === activeGateAgent.agentId);
+    if (!a?.pendingGate) return null;
+    return {
+      agentName: a.name,
+      projectName: projects.find((p) => p.id === activeGateAgent.projectId)?.name,
+      prompt: a.pendingGate.prompt,
+      source: a.pendingGate.source,
+    };
+  }, [activeGateAgent, agents, projects]);
+
+  const announcerAgents = useMemo(
+    () => voiceRoster.map((r) => {
+      const list = agents.get(r.projectId) || [];
+      const a = list.find((x) => x.id === r.id);
+      return { id: r.id, name: r.name, status: a?.status || 'stopped', projectId: r.projectId };
+    }),
+    [voiceRoster, agents],
+  );
+
+  useVoiceAnnouncer({
+    enabled: voiceOut && voice.cfg.tts.enabled,
+    ttsCfg: { ...voice.cfg.tts, language: voice.cfg.stt.language },
+    agents: announcerAgents,
+    gate: gatedAgentForVoice,
+    error: toast,
+    userSpeaking: voiceSession.state === 'listening',
   });
   useEffect(() => {
     localStorage.setItem('conduit:wake', wakeEnabled ? '1' : '0');
@@ -636,6 +772,7 @@ export default function App() {
     if (brainReply.ts === lastSpokenTsRef.current) return;
     lastSpokenTsRef.current = brainReply.ts;
     speak(brainReply.text, { ...voice.cfg.tts, language: voice.cfg.stt.language }, { distill: true });
+    voiceSessionRef.current?.reportReply(brainReply.text);
   }, [brainReply, voiceOut, voice.cfg]);
 
   // A new Keeper turn cuts off whatever is still playing.

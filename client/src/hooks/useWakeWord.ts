@@ -18,11 +18,24 @@
  *    `/api/voice/transcribe`. No Chromium speech service involved, so this
  *    works in the desktop app. Only actual speech is uploaded, but it is still
  *    a paid API call per utterance.
+ *
+ * `mode` decides what a recognised utterance means:
+ *  - `'wake'`         — only the wake phrase matters (the always-on default).
+ *  - `'conversation'` — every utterance is a command; the caller is holding a
+ *                       conversation open and does not want to repeat the
+ *                       phrase before each sentence.
+ *
+ * While Conduit is speaking, capture is muted. An open mic with echo
+ * cancellation off hears our own text-to-speech and transcribes it as a
+ * command — which loops, and bills a request per lap.
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { subscribeSpeaking, isSpeaking, isLikelySelfEcho } from '../utils/speech';
 
-const ARM_TIMEOUT = 9000;       // disarm if no command follows the wake phrase
+const ARM_TIMEOUT = 9000;       // 'wake' mode: disarm if no command follows the phrase
+/** Audio keeps playing briefly after onended/onend fire — let the tail pass. */
+const ECHO_GUARD_MS = 400;
 /** Consecutive `network` errors before we stop retrying and say so. */
 const NETWORK_GIVE_UP = 3;
 /** Consecutive transcription failures before we stop — each one is billable. */
@@ -42,6 +55,7 @@ const IDLE_RECYCLE_MS = 10_000;
 const MIN_SPEECH_RMS = 0.02;
 
 export type WakeProvider = 'browser' | 'openai' | 'gemini';
+export type ListenMode = 'wake' | 'conversation';
 
 interface WakeOptions {
   enabled: boolean;
@@ -51,6 +65,13 @@ interface WakeOptions {
   language?: string;
   /** Which engine to listen with. Defaults to the browser's Web Speech API. */
   provider?: WakeProvider;
+  /**
+   * 'wake' waits for the phrase; 'conversation' treats every utterance as a
+   * command. Read through a ref so changing it does not tear down the
+   * microphone — re-acquiring getUserMedia mid-conversation drops audio and
+   * flashes the browser's recording indicator.
+   */
+  mode?: ListenMode;
   onWake: () => void;
   onCommand: (text: string) => void;
   /** Listening cannot work at all — the caller should switch the toggle off. */
@@ -58,7 +79,7 @@ interface WakeOptions {
 }
 
 export function useWakeWord({
-  enabled, phrase, language, provider = 'browser', onWake, onCommand, onUnavailable,
+  enabled, phrase, language, provider = 'browser', mode = 'wake', onWake, onCommand, onUnavailable,
 }: WakeOptions) {
   const [armed, setArmed] = useState(false);
   const [listening, setListening] = useState(false);
@@ -66,7 +87,12 @@ export function useWakeWord({
   const armedRef = useRef(false);
   const phraseRef = useRef(phrase);
   const cbRef = useRef({ onWake, onCommand, onUnavailable });
-  useEffect(() => { phraseRef.current = phrase; cbRef.current = { onWake, onCommand, onUnavailable }; });
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    phraseRef.current = phrase;
+    modeRef.current = mode;
+    cbRef.current = { onWake, onCommand, onUnavailable };
+  });
   const lang = language || (typeof navigator !== 'undefined' ? navigator.language : '') || 'en-US';
 
   const SR =
@@ -92,6 +118,25 @@ export function useWakeWord({
     const handleTranscript = (raw: string) => {
       const text = raw.trim();
       if (!text) return;
+
+      // Backstop for the mute interlock: if this is our own greeting coming
+      // back through the microphone, drop it rather than run it as a command.
+      if (isLikelySelfEcho(text)) return;
+
+      // In a conversation the caller has already established intent — every
+      // utterance is a command, with no phrase to repeat.
+      if (modeRef.current === 'conversation') {
+        clearArmTimer();
+        setArmedState(false);
+        const term = phraseRef.current.trim().toLowerCase();
+        const hit = term ? text.toLowerCase().indexOf(term) : -1;
+        // Saying the phrase again mid-conversation is harmless — strip it.
+        const body = hit >= 0
+          ? text.slice(hit + term.length).replace(/^[\s.,;:!?，。、：！？]+/, '').trim()
+          : text;
+        if (body) cbRef.current.onCommand(body);
+        return;
+      }
 
       if (armedRef.current) {
         clearArmTimer();
@@ -133,6 +178,7 @@ export function useWakeWord({
       let restartTimer: ReturnType<typeof setTimeout> | null = null;
       let restarts = 0;
       let networkErrors = 0;
+      let muted = false;
 
       const scheduleRestart = () => {
         if (stopped || restartTimer) return;
@@ -142,7 +188,7 @@ export function useWakeWord({
       };
 
       const start = () => {
-        if (stopped) return;
+        if (stopped || muted) return;
         let r: SpeechRecognitionLike;
         try { r = new Rec(); }
         catch (err) { giveUp('could not start speech recognition: ' + String(err)); return; }
@@ -184,8 +230,27 @@ export function useWakeWord({
         catch { rec = null; scheduleRestart(); }
       };
 
-      start();
+      // Stop recognising while Conduit talks, or it transcribes its own voice.
+      const unsub = subscribeSpeaking((speaking) => {
+        if (stopped) return;
+        muted = speaking;
+        if (speaking) {
+          if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
+          try { rec?.abort(); } catch { /* ignore */ }
+          rec = null;
+        } else {
+          // Reset the backoff. Each mute aborts recognition, which counts as
+          // an early end and would otherwise ratchet the retry delay towards
+          // its 15s ceiling — leaving the mic deaf for the rest of the
+          // conversation after only a few exchanges.
+          restarts = 0;
+          setTimeout(() => { if (!stopped && !muted) start(); }, ECHO_GUARD_MS);
+        }
+      });
+
+      if (!isSpeaking()) start(); else muted = true;
       return () => {
+        unsub();
         if (restartTimer) clearTimeout(restartTimer);
         try { rec?.abort(); } catch { /* ignore */ }
         rec = null;
@@ -198,12 +263,15 @@ export function useWakeWord({
       let audioCtx: AudioContext | null = null;
       let mr: MediaRecorder | null = null;
       let vadTimer: ReturnType<typeof setInterval> | null = null;
+      let unsubSpeaking: (() => void) | null = null;
       let chunks: BlobPart[] = [];
       let segmentStart = 0;
       let speechStart = 0;
       let lastVoiceAt = 0;
       let noiseFloor = 0.005;
       let mime = '';
+      let muted = false;
+      let unmuteAt = 0;
 
       /**
        * Send one utterance for transcription. Consecutive failures stop the
@@ -277,7 +345,11 @@ export function useWakeWord({
       (async () => {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+            // Unlike push-to-talk, this microphone is open while our own
+            // speaker is playing, so take the browser's echo cancellation.
+            // It is a second line of defence only — the mute interlock above
+            // is what actually prevents the feedback loop.
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           });
         } catch {
           giveUp('microphone blocked — allow mic access, then switch the wake word back on');
@@ -300,8 +372,27 @@ export function useWakeWord({
         beginSegment();
         setError(null);
 
+        // Muting during playback is the primary defence against the app
+        // hearing itself. Discard whatever is buffered rather than uploading
+        // a clip of our own speech.
+        unsubSpeaking = subscribeSpeaking((speaking) => {
+          if (stopped) return;
+          if (speaking) {
+            muted = true;
+            speechStart = 0;
+            cut(false);
+          } else {
+            unmuteAt = Date.now() + ECHO_GUARD_MS;
+            // The adaptive floor drifts upward on any leakage; re-seed it so
+            // the gate does not go deaf to normal speech.
+            noiseFloor = 0.005;
+            muted = false;
+          }
+        });
+
         vadTimer = setInterval(() => {
           if (stopped || !mr) return;
+          if (muted || Date.now() < unmuteAt) return;
           analyser.getFloatTimeDomainData(buf);
           let sum = 0;
           for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
@@ -324,6 +415,7 @@ export function useWakeWord({
       })();
 
       return () => {
+        unsubSpeaking?.();
         if (vadTimer) clearInterval(vadTimer);
         try { mr?.stop(); } catch { /* ignore */ }
         mr = null;

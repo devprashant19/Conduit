@@ -104,6 +104,15 @@ export function isLikelySelfEcho(text: string): boolean {
   return false;
 }
 
+if (typeof window !== 'undefined') {
+  // Small diagnostic surface — voice failures are otherwise invisible.
+  (window as unknown as { __conduitSpeech?: unknown }).__conduitSpeech = {
+    isSpeaking: () => speaking,
+    queued: () => ttsQueue.length,
+    busy: () => ttsBusy,
+  };
+}
+
 export function stopSpeaking() {
   ttsQueue = [];
   ttsBusy = false;
@@ -218,6 +227,11 @@ export function speak(text: string, cfg: TtsCfg, opts: SpeakOptions = {}): void 
   void processTtsQueue();
 }
 
+/** Generous upper bound on how long one utterance can take to play. */
+function playBudgetMs(text: string): number {
+  return Math.min(60_000, 5_000 + text.length * 120);
+}
+
 async function processTtsQueue(): Promise<void> {
   if (ttsBusy || ttsQueue.length === 0) return;
   ttsBusy = true;
@@ -226,11 +240,19 @@ async function processTtsQueue(): Promise<void> {
   setSpeaking(true);
   rememberSpoken(job.spoken);
   try {
-    if (job.cfg.provider === 'openai' || job.cfg.provider === 'gemini') {
-      await playApi(job.spoken, job.cfg);
-    } else {
-      await playBrowser(job.spoken, job.cfg);
-    }
+    const play = job.cfg.provider === 'openai' || job.cfg.provider === 'gemini'
+      ? playApi(job.spoken, job.cfg)
+      : playBrowser(job.spoken, job.cfg);
+    // Never await playback unconditionally. The microphone is muted while we
+    // believe we are speaking, so an utterance that never reports finishing
+    // would leave the app permanently deaf.
+    await Promise.race([
+      play,
+      new Promise<void>((r) => setTimeout(() => {
+        console.warn('[tts] playback did not finish in time — giving up on it');
+        r();
+      }, playBudgetMs(job.spoken))),
+    ]);
   } catch (err) {
     console.warn('[tts] failed:', err);
   } finally {
