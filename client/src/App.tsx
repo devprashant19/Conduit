@@ -27,6 +27,7 @@ import DownloadModal from './components/DownloadModal';
 import logoDark from './assets/logo_dark_sm.jpg';
 import logoLight from './assets/logo_light_sm.jpg';
 import * as api from './api';
+import { speak, stopSpeaking } from './utils/speech';
 import type { Project, Agent, Plan } from './api';
 
 type MainTab = 'terminals' | 'messages' | 'groupchat' | 'shared' | 'wiki' | 'activity' | 'usage';
@@ -66,6 +67,11 @@ export default function App() {
     () => localStorage.getItem('conduit:wake-phrase') || 'jarvis',
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Spoken output. Lived in JarvisHud, which unmounts whenever the Command
+  // panel opens — so a reply could be cut off mid-sentence and never resume.
+  const [voiceOut, setVoiceOut] = useState(
+    () => localStorage.getItem('conduit:voice-out') === '1',
+  );
   const voice = useVoiceConfig();
   const [notifSeen, setNotifSeen] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
@@ -177,6 +183,11 @@ export default function App() {
         }
       } else if (p?.kind === 'append' && p.message?.role === 'assistant') {
         setBrainReply({ text: String(p.message.text || ''), ts: Date.now() });
+      } else if (p?.kind === 'append' && p.message?.role === 'error') {
+        // Only 'assistant' was handled, so a Keeper failure — a missing `codex`
+        // binary above all — was neither spoken nor shown outside the Command
+        // panel. The user just saw nothing happen.
+        setToast(String(p.message.text || 'The Keeper failed.').slice(0, 300));
       } else if (p?.kind === 'state') {
         // Conversation switch (new / picked from history) — drop the stale
         // reply so the HUD doesn't show or re-speak a message that belongs
@@ -611,6 +622,27 @@ export default function App() {
     localStorage.setItem('conduit:wake-phrase', wakePhrase);
   }, [wakePhrase]);
 
+  // --- spoken output -------------------------------------------------
+  useEffect(() => {
+    localStorage.setItem('conduit:voice-out', voiceOut ? '1' : '0');
+    if (!voiceOut) stopSpeaking();
+  }, [voiceOut]);
+
+  // Speak each new Keeper reply. `distill` runs the 🔊/two-sentence
+  // extraction that only makes sense for a model reply.
+  const lastSpokenTsRef = useRef(0);
+  useEffect(() => {
+    if (!brainReply || !voiceOut) return;
+    if (brainReply.ts === lastSpokenTsRef.current) return;
+    lastSpokenTsRef.current = brainReply.ts;
+    speak(brainReply.text, { ...voice.cfg.tts, language: voice.cfg.stt.language }, { distill: true });
+  }, [brainReply, voiceOut, voice.cfg]);
+
+  // A new Keeper turn cuts off whatever is still playing.
+  useEffect(() => {
+    if (brainWorking) stopSpeaking();
+  }, [brainWorking]);
+
   const logoImg = logoDark;
 
   const [tourForceStart, setTourForceStart] = useState(false);
@@ -978,7 +1010,8 @@ export default function App() {
           lastReply={brainReply}
           onClearReply={() => setBrainReply(null)}
           sttCfg={{ provider: voice.cfg.stt.provider, language: voice.cfg.stt.language }}
-          ttsCfg={{ ...voice.cfg.tts, language: voice.cfg.stt.language }}
+          voiceOut={voiceOut}
+          onToggleVoiceOut={() => setVoiceOut((v) => !v)}
           headerListening={quickSpeech.listening}
           wake={{
             enabled: wakeEnabled,

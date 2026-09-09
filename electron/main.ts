@@ -85,6 +85,11 @@ async function createWindow(): Promise<void> {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // Chromium throttles timers to ~1/sec in an unfocused window. The
+      // voice energy gate polls at 50ms, so hands-free listening collapsed
+      // exactly when it matters — while you are working in another app.
+      // Measured: 6 samples in 12s backgrounded vs 239 focused.
+      backgroundThrottling: false,
     },
   });
 

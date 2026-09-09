@@ -13,174 +13,13 @@ import Ic from './Icons';
 import { useSpeechInput } from '../hooks/useSpeechInput';
 import type { AgentNotif } from './NotificationCenter';
 import { renderMarkdown } from '../utils/md';
+import { stopSpeaking, type TtsCfg } from '../utils/speech';
 
-interface TtsCfg {
-  enabled: boolean;
-  provider: 'browser' | 'openai' | 'gemini';
-  model: string;
-  voice: string;
-  speed: number;
-  /** BCP-47 tag used for browser speech synthesis (falls back to the page language). */
-  language?: string;
-}
-
-/**
- * Single global TTS queue — the Keeper's step narration and its closing 🔊
- * summary play back in order, and `stopSpeaking()` is the only thing that
- * clears them. Each job carries the per-call TTS config so we can switch
- * provider on the fly without dropping in-flight audio.
- */
-let ttsQueue: Array<{ spoken: string; cfg: TtsCfg }> = [];
-let ttsBusy = false;
-let ttsCurrent: HTMLAudioElement | null = null;
-/** Survive HUD remount: don't re-speak a reply we already spoke. The HUD
- *  un/remounts every time the Command panel toggles, which would otherwise
- *  re-fire the lastReply useEffect and re-speak the stale message. */
-let lastSpokenTs = 0;
-/** Bumped by stopSpeaking — lets an in-flight play detect it was cancelled
- *  and prevents its `finally` from clobbering the busy flag of the next
- *  play that may already have started after the stop. */
-let speakGen = 0;
-/** Dedupe key against React StrictMode's effect-double-invocation in dev,
- *  which would otherwise queue every spoken line twice. */
-let lastSpokenKey = '';
-let lastSpokenAt = 0;
-
-export function stopSpeaking() {
-  ttsQueue = [];
-  ttsBusy = false;
-  speakGen++;
-  if (ttsCurrent) {
-    const a = ttsCurrent;
-    ttsCurrent = null;
-    try { a.pause(); } catch { /* ignore */ }
-  }
-  try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
-}
-
-/** Pull the Keeper's explicit spoken-summary line (`🔊 …`) out of a reply. */
-const SPOKEN_RE = /🔊[ \t]*([^\n]+)/;
-
-/** Distill the speakable line out of a Keeper reply. */
-function extractSpoken(text: string): string {
-  let spoken = '';
-  const marked = text.match(SPOKEN_RE);
-  if (marked) {
-    spoken = marked[1].replace(/[*_`#>]/g, '').trim();
-  } else {
-    const clean = text
-      .replace(/```[\s\S]*?```/g, ' ')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/[*_#>]/g, '')
-      .replace(/^\s*[-•]\s*/gm, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    const sentences = clean.split(/(?<=[。.!?！?])\s*/).filter((s) => s.trim());
-    spoken = sentences.slice(0, 2).join('') || clean;
-  }
-  return spoken.slice(0, 500).trim();
-}
-
-function speakReply(text: string, cfg: TtsCfg) {
-  if (!cfg.enabled) return;   // master TTS off
-  const spoken = extractSpoken(text);
-  if (!spoken) return;
-  // React StrictMode double-invokes effects in dev; a brain-event reflow can
-  // also drop the same lastReply object through twice. Skip if we already
-  // queued this exact line in the last second.
-  const now = Date.now();
-  if (spoken === lastSpokenKey && now - lastSpokenAt < 1000) return;
-  lastSpokenKey = spoken;
-  lastSpokenAt = now;
-  ttsQueue.push({ spoken, cfg });
-  void processTtsQueue();
-}
-
-async function processTtsQueue(): Promise<void> {
-  if (ttsBusy || ttsQueue.length === 0) return;
-  ttsBusy = true;
-  const myGen = speakGen;
-  const job = ttsQueue.shift()!;
-  try {
-    if (job.cfg.provider === 'openai' || job.cfg.provider === 'gemini') {
-      await playApi(job.spoken, job.cfg);
-    } else {
-      await playBrowser(job.spoken, job.cfg);
-    }
-  } catch (err) {
-    console.warn('[tts] failed:', err);
-  } finally {
-    // If stopSpeaking ran during this play, a fresh processTtsQueue may
-    // already own ttsBusy — don't touch it (would let another play start
-    // concurrent with the new one and overlap audio).
-    if (myGen === speakGen) {
-      ttsBusy = false;
-      if (ttsQueue.length > 0) void processTtsQueue();
-    }
-  }
-}
-
-async function playApi(text: string, cfg: TtsCfg): Promise<void> {
-  // Snapshot the generation at start of this play. If stopSpeaking bumps the
-  // counter while we're in an await (fetch / blob), abandon the play before
-  // creating an Audio element — otherwise the OLD playApi would still build
-  // and play its audio concurrent with whatever started after the stop.
-  const myGen = speakGen;
-  const r = await fetch('/api/voice/tts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, provider: cfg.provider, model: cfg.model, voice: cfg.voice, speed: cfg.speed }),
-  });
-  if (myGen !== speakGen) return; // cancelled during fetch
-  if (!r.ok) throw new Error(`tts ${r.status}: ${await r.text().catch(() => '')}`);
-  const blob = await r.blob();
-  if (myGen !== speakGen) return; // cancelled during blob assembly
-  const url = URL.createObjectURL(blob);
-  const a = new Audio(url);
-  if (myGen !== speakGen) { URL.revokeObjectURL(url); return; }
-  ttsCurrent = a;
-  await new Promise<void>((resolve) => {
-    let settled = false;
-    const done = () => {
-      if (settled) return;
-      settled = true;
-      URL.revokeObjectURL(url);
-      if (ttsCurrent === a) ttsCurrent = null;
-      resolve();
-    };
-    a.onended = done;
-    a.onerror = done;
-    // External pause (stopSpeaking) needs to release the promise too; without
-    // this the await hangs forever and the queue stalls.
-    a.onpause = () => { if (!a.ended) done(); };
-    a.play().catch(done);
-  });
-}
-
-async function playBrowser(text: string, cfg: TtsCfg): Promise<void> {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return;
-  const myGen = speakGen;
-  const synth = window.speechSynthesis;
-  return new Promise((resolve) => {
-    // If we were cancelled while waiting for the queue, don't queue more.
-    if (myGen !== speakGen) { resolve(); return; }
-    const lang = cfg.language || navigator.language || 'en-US';
-    const base = lang.split('-')[0].toLowerCase();
-    const voices = synth.getVoices();
-    const voice =
-      (cfg.voice && voices.find((v) => v.name === cfg.voice)) ||
-      voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase()) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith(base));
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang;
-    u.rate = Math.max(0.5, Math.min(2, cfg.speed || 1));
-    if (voice) u.voice = voice;
-    u.onend = () => resolve();
-    u.onerror = () => resolve();
-    synth.speak(u);
-  });
-}
+// The TTS queue used to live here, but App unmounts this component whenever
+// the Command panel opens — which killed speech mid-sentence. It now lives in
+// utils/speech.ts so the voice session and announcer can speak too.
+export { stopSpeaking } from '../utils/speech';
+export type { TtsCfg } from '../utils/speech';
 
 interface Props {
   send: (msg: object) => void;
@@ -189,7 +28,9 @@ interface Props {
   lastReply: { text: string; ts: number } | null;
   onClearReply: () => void;
   sttCfg: { provider: 'browser' | 'openai' | 'gemini'; language: string };
-  ttsCfg: TtsCfg;
+  /** Spoken output on/off. Owned by App — this component only toggles it. */
+  voiceOut: boolean;
+  onToggleVoiceOut: () => void;
   /** True when the App-level header voice (⌘; hotkey / header mic button)
    *  is recording — lets the orb pulse "listening" so the user sees the
    *  hotkey took effect even when their eyes are on the HUD, not the header. */
@@ -206,13 +47,10 @@ interface Props {
 }
 
 export default function JarvisHud({
-  send, working, lastReply, onClearReply, sttCfg, ttsCfg, headerListening, wake, awaiting, running, idle, onSelectAgent, onOpenFull,
+  send, working, lastReply, onClearReply, sttCfg, voiceOut, onToggleVoiceOut, headerListening, wake, awaiting, running, idle, onSelectAgent, onOpenFull,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
-  const [voiceOut, setVoiceOut] = useState(
-    () => localStorage.getItem('conduit:voice-out') === '1',
-  );
   const reply = (lastReply?.text || '').trim();
 
   const submit = (textArg?: string) => {
@@ -228,30 +66,7 @@ export default function JarvisHud({
     (t, final) => { setInput(t); if (final && t.trim()) submit(t); },
     { provider: sttCfg.provider, language: sttCfg.language },
   );
-  const ttsCfgRef = useRef(ttsCfg);
   const inputRef = useRef<HTMLInputElement>(null);
-  const voiceOutRef = useRef(voiceOut);
-  useEffect(() => { ttsCfgRef.current = ttsCfg; voiceOutRef.current = voiceOut; });
-
-  useEffect(() => {
-    localStorage.setItem('conduit:voice-out', voiceOut ? '1' : '0');
-    if (!voiceOut) stopSpeaking();
-  }, [voiceOut]);
-
-  // Speak each new Keeper reply when voice replies are on. The lastSpokenTs
-  // guard means a HUD remount (Command panel toggle) doesn't re-speak the
-  // same reply.
-  useEffect(() => {
-    if (!lastReply) return;
-    if (lastReply.ts === lastSpokenTs) return;
-    lastSpokenTs = lastReply.ts;
-    if (voiceOutRef.current) speakReply(lastReply.text, ttsCfgRef.current);
-  }, [lastReply]);
-
-  // A new turn starting cuts off any in-progress speech.
-  useEffect(() => {
-    if (working) stopSpeaking();
-  }, [working]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -272,7 +87,7 @@ export default function JarvisHud({
             <span className="jv-panel-t">The Keeper</span>
             <button
               className={'jv-x' + (voiceOut ? ' on' : '')}
-              onClick={() => setVoiceOut((v) => !v)}
+              onClick={onToggleVoiceOut}
               title={voiceOut ? 'Voice replies: on' : 'Voice replies: off'}
             >
               <Ic.volume size={13} />
