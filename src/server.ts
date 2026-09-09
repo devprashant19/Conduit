@@ -353,14 +353,6 @@ app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// JSON parse errors and anything thrown in a route → JSON, not an HTML page.
-app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  const status = (err as { status?: number })?.status || 500;
-  const message = err instanceof Error ? err.message : String(err);
-  if (status >= 500) console.error('[server] route error:', err);
-  res.status(status).json({ error: message });
-});
-
 usage.startPolling();
 
 // Serve static frontend in production
@@ -382,6 +374,16 @@ if (clientDist) {
     );
   });
 }
+
+// Error handler last, so failures inside express.static and the SPA catch-all
+// reach it too (Express runs error handlers in registration order).
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const status = (err as { status?: number })?.status || 500;
+  const message = err instanceof Error ? err.message : String(err);
+  if (status >= 500) console.error('[server] route error:', err);
+  if (res.headersSent) return;
+  res.status(status).json({ error: message });
+});
 
 // --- Graceful shutdown ---
 // The web server NO LONGER kills agents — the daemon owns them and outlives us.
