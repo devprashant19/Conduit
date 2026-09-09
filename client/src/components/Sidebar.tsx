@@ -118,6 +118,14 @@ export default function Sidebar({
     <>
       {mobileOpen && <div className="sb-scrim" onClick={onMobileClose} />}
       <aside className={`sb ${mobileOpen ? 'mobile-open' : ''}`}>
+        {mobileOpen && (
+          <div className="sb-mobile-head mobile-only">
+            <span className="sb-mobile-title">Workspace & Agents</span>
+            <button className="sb-mobile-close" onClick={onMobileClose} aria-label="Close sidebar">
+              <Ic.x size={14} />
+            </button>
+          </div>
+        )}
         <div className="sb-section-h">
           <span>Projects</span>
           <button className="add" onClick={onNewProject} title="New project"><Ic.plus size={13} /></button>

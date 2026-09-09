@@ -78,7 +78,8 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
     const apply = () => {
       const t = termRef.current;
       if (!t) return;
-      t.options.theme = LIGHT_THEME;
+      const isLightNow = el.getAttribute('data-theme') === 'light';
+      t.options.theme = isLightNow ? LIGHT_THEME : DARK_THEME;
     };
     const obs = new MutationObserver(apply);
     obs.observe(el, { attributes: true, attributeFilter: ['data-theme'] });
@@ -90,11 +91,13 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
     if (!container) return;
 
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
     const term = new XTerminal({
       cursorBlink: true,
-      fontSize: 12.25,
-      fontFamily: "'Consolas', 'Fira Code', monospace",
-      theme: LIGHT_THEME,
+      fontSize: isMobile ? 12.5 : 12.25,
+      lineHeight: 1.22,
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
+      theme: isLight ? LIGHT_THEME : DARK_THEME,
       scrollback: 5000,
       allowProposedApi: true,
     });
@@ -174,14 +177,19 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
     attach();
 
     // Notify parent when terminal gets focus; also ensure the hidden xterm
-    // textarea gets focus when the user clicks so keyboard + paste routes work.
+    // textarea gets focus when the user clicks or taps so keyboard + paste routes work.
     const handleFocusIn = () => onFocusRef.current?.();
     const handleMouseDown = () => {
       onFocusRef.current?.();
       setTimeout(() => termRef.current?.focus(), 0);
     };
+    const handleTouchStart = () => {
+      onFocusRef.current?.();
+      setTimeout(() => termRef.current?.focus(), 0);
+    };
     container.addEventListener('focusin', handleFocusIn);
     container.addEventListener('mousedown', handleMouseDown);
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
 
     // Explicit paste handler — works for both Ctrl/Cmd+V and right-click →
     // Paste. xterm.paste() routes the text into the terminal input stream as
@@ -204,12 +212,29 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
     });
     resizeObserver.observe(container);
 
+    const handleWindowResize = () => {
+      try {
+        const isMob = window.innerWidth <= 640;
+        if (term.options.fontSize !== (isMob ? 12.5 : 12.25)) {
+          term.options.fontSize = isMob ? 12.5 : 12.25;
+        }
+        fit.fit();
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('resize', handleWindowResize);
+    window.addEventListener('orientationchange', handleWindowResize);
+
     return () => {
       clearTimeout(fitTimeout);
       clearTimeout(scrollTimer);
       container.removeEventListener('focusin', handleFocusIn);
       container.removeEventListener('mousedown', handleMouseDown);
+      container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('paste', handlePaste);
+      window.removeEventListener('resize', handleWindowResize);
+      window.removeEventListener('orientationchange', handleWindowResize);
       if (attached) ws.send({ type: 'terminal:detach', agentId });
       unsubscribe();
       resizeObserver.disconnect();

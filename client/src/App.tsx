@@ -100,9 +100,13 @@ export default function App() {
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
   const [helpMenuOpen, setHelpMenuOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [mobileMoreTabsOpen, setMobileMoreTabsOpen] = useState(false);
   const layoutMenuRef = useRef<HTMLDivElement>(null);
   const helpMenuRef = useRef<HTMLDivElement>(null);
   const shortcutsRef = useRef<HTMLDivElement>(null);
+  const mobileActionsRef = useRef<HTMLDivElement>(null);
+  const mobileMoreTabsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -114,6 +118,12 @@ export default function App() {
       }
       if (shortcutsRef.current && !shortcutsRef.current.contains(e.target as Node)) {
         setShortcutsOpen(false);
+      }
+      if (mobileActionsRef.current && !mobileActionsRef.current.contains(e.target as Node)) {
+        setMobileActionsOpen(false);
+      }
+      if (mobileMoreTabsRef.current && !mobileMoreTabsRef.current.contains(e.target as Node)) {
+        setMobileMoreTabsOpen(false);
       }
     };
     document.addEventListener('mousedown', onDocClick);
@@ -905,11 +915,21 @@ export default function App() {
         </div>
 
         <div className="header-r">
-          <button className="hbtn mobile-only" onClick={() => setPaletteOpen(true)} title="Search">
+          <button className="hbtn icon-only mobile-only" onClick={() => setPaletteOpen(true)} title="Search (⌘K)">
             <Ic.search size={14} />
           </button>
 
-          <div className={'cmd-quick' + (brainWorking ? ' working' : '')} data-tour="keeper">
+          <button
+            className="hbtn icon-only mobile-only"
+            title="The Keeper (⌘J)"
+            data-tour="keeper"
+            onClick={() => setCommandOpen(true)}
+          >
+            <Ic.logo size={14} />
+            {brainDone && <span className="cmd-trigger-dot" />}
+          </button>
+
+          <div className={'cmd-quick desktop-only' + (brainWorking ? ' working' : '')} data-tour="keeper">
             <button
               className="cmd-quick-mark"
               title="Open Command (⌘J)"
@@ -947,8 +967,8 @@ export default function App() {
             onSelect={handleSelectAgent}
           />
 
-          {/* Compact Layout Picker Dropdown */}
-          <div className="header-dropdown-wrap" ref={layoutMenuRef}>
+          {/* Compact Layout Picker Dropdown (Desktop) */}
+          <div className="header-dropdown-wrap desktop-only" ref={layoutMenuRef}>
             <button
               className="hbtn layout-dropdown-btn"
               title="Switch Layout"
@@ -983,8 +1003,8 @@ export default function App() {
             )}
           </div>
 
-          {/* Help & Utility Menu */}
-          <div className="header-dropdown-wrap" ref={helpMenuRef}>
+          {/* Help & Utility Menu (Desktop) */}
+          <div className="header-dropdown-wrap desktop-only" ref={helpMenuRef}>
             <button
               className="hbtn icon-only"
               title="Help & Resources"
@@ -1029,13 +1049,76 @@ export default function App() {
             )}
           </div>
 
+          {/* Settings Button (Desktop) */}
           <button
-            className="hbtn icon-only"
+            className="hbtn icon-only desktop-only"
             title="Settings"
             onClick={() => setSettingsOpen(true)}
           >
             <Ic.settings size={14} />
           </button>
+
+          {/* Mobile Actions Dropdown (Mobile) */}
+          <div className="header-dropdown-wrap mobile-only" ref={mobileActionsRef}>
+            <button
+              className="hbtn icon-only"
+              title="More Actions"
+              onClick={() => setMobileActionsOpen(!mobileActionsOpen)}
+            >
+              <Ic.dots size={14} />
+            </button>
+            {mobileActionsOpen && (
+              <div className="header-dropdown-menu right mobile-actions-menu">
+                <div className="dropdown-header">Workspace Layout</div>
+                {LAYOUT_ICONS.map(({ v, Icon, title }) => (
+                  <button
+                    key={v}
+                    className={'dropdown-item' + (layout === v ? ' active' : '')}
+                    onClick={() => {
+                      setLayout(v);
+                      setMobileActionsOpen(false);
+                    }}
+                  >
+                    <Icon size={13} />
+                    <span>{title}</span>
+                    {layout === v && <span className="item-check">✓</span>}
+                  </button>
+                ))}
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    handleStartTour();
+                    setMobileActionsOpen(false);
+                  }}
+                >
+                  <Ic.sparkles size={13} />
+                  <span>Product Tour</span>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    window.location.hash = '';
+                    setInConsole(false);
+                    setMobileActionsOpen(false);
+                  }}
+                >
+                  <Ic.folder size={13} />
+                  <span>Website & Overview</span>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setSettingsOpen(true);
+                    setMobileActionsOpen(false);
+                  }}
+                >
+                  <Ic.settings size={13} />
+                  <span>Settings</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1131,6 +1214,25 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {mainTab === 'terminals' && projectAgents.length > 1 && (
+              <div className="mobile-agent-strip mobile-only" aria-label="Quick Agent Switcher">
+                {projectAgents.map((a) => {
+                  const isSelected = a.id === selectedAgentId;
+                  return (
+                    <button
+                      key={a.id}
+                      className={'mobile-agent-pill' + (isSelected ? ' active' : '')}
+                      onClick={() => setSelectedAgentId(a.id)}
+                    >
+                      <span className={'sdot ' + a.status} style={{ width: 6, height: 6 }} />
+                      <span className="mobile-agent-pill-name">{a.name}</span>
+                      <span className="mobile-agent-pill-cli">{a.cli}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {mainTab === 'terminals' && (
               <AgentGrid
@@ -1244,6 +1346,73 @@ export default function App() {
           )}
         </div>
       </footer>
+
+      {/* Mobile Bottom Navigation Bar (≤ 640px) */}
+      <nav className="mobile-bottom-nav mobile-only" aria-label="Mobile Navigation">
+        <button
+          className={'mobile-nav-item' + (mainTab === 'terminals' ? ' active' : '')}
+          onClick={() => { setMainTab('terminals'); setMobileMoreTabsOpen(false); }}
+        >
+          <Ic.terminal size={18} />
+          <span>Terminals</span>
+          {projectAgents.length > 0 && <span className="mobile-nav-badge">{projectAgents.length}</span>}
+        </button>
+        <button
+          className={'mobile-nav-item' + (mainTab === 'groupchat' ? ' active' : '')}
+          onClick={() => { setMainTab('groupchat'); setMobileMoreTabsOpen(false); }}
+        >
+          <Ic.message size={18} />
+          <span>Chat</span>
+        </button>
+        <button
+          className={'mobile-nav-item' + (mainTab === 'messages' ? ' active' : '')}
+          onClick={() => { setMainTab('messages'); setMobileMoreTabsOpen(false); }}
+        >
+          <Ic.bolt size={18} />
+          <span>MCP</span>
+        </button>
+        <button
+          className={'mobile-nav-item' + (mainTab === 'activity' ? ' active' : '')}
+          onClick={() => { setMainTab('activity'); setMobileMoreTabsOpen(false); }}
+        >
+          <Ic.activity size={18} />
+          <span>Activity</span>
+        </button>
+        <div className="mobile-nav-more-wrap" ref={mobileMoreTabsRef}>
+          <button
+            className={'mobile-nav-item' + (['shared', 'wiki', 'usage'].includes(mainTab) ? ' active' : '')}
+            onClick={() => setMobileMoreTabsOpen(!mobileMoreTabsOpen)}
+          >
+            <Ic.dots size={18} />
+            <span>More</span>
+          </button>
+          {mobileMoreTabsOpen && (
+            <div className="mobile-nav-more-popover">
+              <button
+                className={'more-pop-item' + (mainTab === 'shared' ? ' active' : '')}
+                onClick={() => { setMainTab('shared'); setMobileMoreTabsOpen(false); }}
+              >
+                <Ic.folder size={15} />
+                <span>Shared Files</span>
+              </button>
+              <button
+                className={'more-pop-item' + (mainTab === 'wiki' ? ' active' : '')}
+                onClick={() => { setMainTab('wiki'); setMobileMoreTabsOpen(false); }}
+              >
+                <Ic.book size={15} />
+                <span>Workspace Wiki</span>
+              </button>
+              <button
+                className={'more-pop-item' + (mainTab === 'usage' ? ' active' : '')}
+                onClick={() => { setMainTab('usage'); setMobileMoreTabsOpen(false); }}
+              >
+                <Ic.activity size={15} />
+                <span>API Usage</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </nav>
 
       {toast && (
         <div className="toast" role="status" onClick={() => setToast(null)}>
