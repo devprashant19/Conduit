@@ -14,7 +14,7 @@
  * that changing it never tears down `getUserMedia` mid-sentence.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWakeWord, type WakeProvider } from './useWakeWord';
 import { speak, stopSpeaking, type TtsCfg } from '../utils/speech';
 import { routeUtterance, type Route, type RosterAgent } from '../utils/voiceRouting';
@@ -177,11 +177,25 @@ export function useVoiceSession(opts: VoiceSessionOptions) {
 
   // The microphone. In 'conversation' mode every utterance is a command; in
   // 'wake' mode only the phrase matters.
+  // Tell the recogniser which words to expect. Whisper decodes conditioned on
+  // this, so naming the wake phrase and the live agents is the difference
+  // between "Jarvis" and "darviz".
+  const vocabulary = useMemo(() => {
+    const names = agents.map((a) => a.name).filter(Boolean).slice(0, 20);
+    return [
+      phrase.split(/[,/|]/).map((p) => p.trim()).filter(Boolean).join('. '),
+      'Conduit. The Keeper.',
+      names.join(', '),
+      'Start the agent, stop the agent, list the agents, approve, reject, status.',
+    ].filter(Boolean).join(' ');
+  }, [phrase, agents]);
+
   const wake = useWakeWord({
     enabled: enabled && (alwaysOn || stateRef.current !== 'asleep'),
     phrase,
     language,
     provider,
+    vocabulary,
     mode: state === 'asleep' ? 'wake' : 'conversation',
     onWake: () => { startSession(true); },
     onCommand: (text) => {

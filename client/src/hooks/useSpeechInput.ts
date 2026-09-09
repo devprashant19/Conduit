@@ -24,10 +24,29 @@ import { UtteranceAssembler } from '../utils/utterance';
  */
 const SETTLE_MS = 1100;
 
+// --- silence detection for the cloud engines --------------------------
+// The browser engine reports when speech ends; MediaRecorder does not, so the
+// recorder path had no way to know the speaker had finished and simply ran
+// until the button was pressed a second time. These drive an energy gate that
+// closes the recording on its own.
+const VAD_POLL_MS = 50;
+/** Silence that ends the recording, once speech has actually been heard. */
+const VAD_SILENCE_MS = 1300;
+/** Nothing said at all — close the mic rather than record an empty room. */
+const VAD_NO_SPEECH_MS = 8000;
+/** Never record longer than this in one press. */
+const VAD_MAX_MS = 60_000;
+const VAD_MIN_RMS = 0.02;
+
 type SpeechResultHandler = (text: string, final: boolean) => void;
 export interface SpeechOptions {
   provider?: 'browser' | 'openai' | 'gemini' | 'groq';
   language?: string;
+  /**
+   * Words the recogniser should expect — the wake phrase and agent names.
+   * Cloud engines bias decoding toward them; the browser engine ignores it.
+   */
+  vocabulary?: string;
 }
 
 function explainError(code: string, secure: boolean): string {
@@ -205,6 +224,16 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
       return;
     }
 
+    // Close the recording when the speaker stops, so a cloud provider behaves
+    // like the browser engine: press once, talk, and it sends itself.
+    let vadTimer: ReturnType<typeof setInterval> | null = null;
+    let audioCtx: AudioContext | null = null;
+    const stopVad = () => {
+      if (vadTimer) { clearInterval(vadTimer); vadTimer = null; }
+      try { void audioCtx?.close(); } catch { /* ignore */ }
+      audioCtx = null;
+    };
+
     const pick = (mimes: string[]) => mimes.find((m) => MediaRecorder.isTypeSupported(m));
     const mime = pick(['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']);
     let mr: MediaRecorder;
@@ -226,6 +255,7 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
 
     mr.onstop = async () => {
       const elapsedMs = Math.round(performance.now() - tStart);
+      stopVad();
       stream.getTracks().forEach((t) => t.stop());
       activeRef.current = null;
       setListening(false);
@@ -234,8 +264,11 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
       console.log(`[speech] stop — ${chunks.length} chunk(s), ${blob.size} bytes, ${elapsedMs}ms elapsed`);
       if (blob.size === 0) { console.warn('[speech] empty blob'); return; }
       try {
-        const lang = optRef.current.language ? `?language=${encodeURIComponent(optRef.current.language)}` : '';
-        const r = await fetch('/api/voice/transcribe' + lang, {
+        const params = new URLSearchParams();
+        if (optRef.current.language) params.set('language', optRef.current.language);
+        if (optRef.current.vocabulary) params.set('vocab', optRef.current.vocabulary);
+        const q = params.toString() ? `?${params}` : '';
+        const r = await fetch('/api/voice/transcribe' + q, {
           method: 'POST',
           headers: { 'Content-Type': blobMime },
           body: blob,
@@ -260,6 +293,46 @@ export function useSpeechInput(onText: SpeechResultHandler, options: SpeechOptio
     // No timeslice — one ondataavailable on stop() with the complete blob.
     mr.start();
     console.log('[speech] ▶ mr.start() — mime:', mime);
+
+    try {
+      const Ctx = window.AudioContext
+        || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      audioCtx = new Ctx();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+      const buf = new Float32Array(analyser.fftSize);
+
+      const startedAt = Date.now();
+      let heardSpeech = false;
+      let lastVoiceAt = 0;
+      let noiseFloor = 0.005;
+
+      vadTimer = setInterval(() => {
+        if (!activeRef.current || activeRef.current.obj !== mr) { stopVad(); return; }
+        analyser.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        const rms = Math.sqrt(sum / buf.length);
+        const now = Date.now();
+
+        if (rms > Math.max(VAD_MIN_RMS, noiseFloor * 2.5)) {
+          heardSpeech = true;
+          lastVoiceAt = now;
+        } else {
+          noiseFloor = noiseFloor * 0.95 + rms * 0.05;
+        }
+
+        const done =
+          (heardSpeech && now - lastVoiceAt > VAD_SILENCE_MS) ||
+          (!heardSpeech && now - startedAt > VAD_NO_SPEECH_MS) ||
+          (now - startedAt > VAD_MAX_MS);
+        if (done) { stopVad(); stop(); }
+      }, VAD_POLL_MS);
+    } catch (err) {
+      // No analyser — fall back to the old behaviour: the button stops it.
+      console.warn('[speech] silence detection unavailable:', err);
+    }
   }, [mediaSupported]);
 
   const toggle = useCallback(() => {

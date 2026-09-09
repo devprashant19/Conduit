@@ -284,9 +284,12 @@ app.post(
       }
       // The browser may pass the language it wants; otherwise use the saved one.
       const language = (typeof req.query.language === 'string' && req.query.language) || cfg.stt.language || undefined;
+      // The browser knows the wake phrase and the current agent names; passing
+      // them through biases the decoder toward the words that matter here.
+      const vocab = typeof req.query.vocab === 'string' ? req.query.vocab.slice(0, 800) : undefined;
       let text = '';
       if (cfg.stt.provider === 'groq') {
-        text = await transcribeGroq(audio, mime, cfg.stt.model, language);
+        text = await transcribeGroq(audio, mime, cfg.stt.model, language, vocab);
       } else if (cfg.stt.provider === 'openai') {
         text = await transcribeOpenAI(audio, mime, cfg.stt.model, language);
       } else if (cfg.stt.provider === 'gemini') {

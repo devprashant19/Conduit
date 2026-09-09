@@ -22,6 +22,12 @@ export async function transcribeGroq(
   mime: string,
   model: string,
   language?: string,
+  /**
+   * Vocabulary hint. Whisper decodes conditioned on this, so naming the wake
+   * phrase and the live agent names makes it far likelier to return them
+   * rather than a common word that sounds similar.
+   */
+  prompt?: string,
 ): Promise<string> {
   const apiKey = getApiKey('groq');
   if (!apiKey) throw new Error('Groq API key not set — add GROQ_API_KEY to .env or Voice Settings');
@@ -36,6 +42,9 @@ export async function transcribeGroq(
   // Whisper detects the language on its own, but naming it is faster and stops
   // a short English clip being read as another language.
   if (language) form.append('language', language.split('-')[0]);
+  if (prompt) form.append('prompt', prompt.slice(0, 800));
+  // Deterministic: a wake word should not decode differently run to run.
+  form.append('temperature', '0');
   form.append('response_format', 'json');
 
   const r = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {

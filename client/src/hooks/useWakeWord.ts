@@ -90,10 +90,17 @@ interface WakeOptions {
   onCommand: (text: string) => void;
   /** Listening cannot work at all — the caller should switch the toggle off. */
   onUnavailable?: (reason: string) => void;
+  /**
+   * Words this recogniser should expect — the wake phrase and the live agent
+   * names. Cloud engines use it to bias decoding; the browser engine ignores
+   * it, having no equivalent.
+   */
+  vocabulary?: string;
 }
 
 export function useWakeWord({
-  enabled, phrase, language, provider = 'browser', mode = 'wake', onWake, onCommand, onUnavailable,
+  enabled, phrase, language, provider = 'browser', mode = 'wake', vocabulary,
+  onWake, onCommand, onUnavailable,
 }: WakeOptions) {
   const [armed, setArmed] = useState(false);
   const [listening, setListening] = useState(false);
@@ -102,9 +109,11 @@ export function useWakeWord({
   const phraseRef = useRef(phrase);
   const cbRef = useRef({ onWake, onCommand, onUnavailable });
   const modeRef = useRef(mode);
+  const vocabRef = useRef(vocabulary);
   useEffect(() => {
     phraseRef.current = phrase;
     modeRef.current = mode;
+    vocabRef.current = vocabulary;
     cbRef.current = { onWake, onCommand, onUnavailable };
   });
   const lang = language || (typeof navigator !== 'undefined' ? navigator.language : '') || 'en-US';
@@ -322,7 +331,11 @@ export function useWakeWord({
           }
         };
         try {
-          const q = lang ? `?language=${encodeURIComponent(lang)}` : '';
+          const params = new URLSearchParams();
+          if (lang) params.set('language', lang);
+          const vocab = vocabRef.current;
+          if (vocab) params.set('vocab', vocab);
+          const q = params.toString() ? `?${params}` : '';
           const res = await fetch('/api/voice/transcribe' + q, {
             method: 'POST',
             headers: { 'Content-Type': blob.type || 'audio/webm' },
@@ -378,11 +391,17 @@ export function useWakeWord({
       (async () => {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            // Unlike push-to-talk, this microphone is open while our own
-            // speaker is playing, so take the browser's echo cancellation.
-            // It is a second line of defence only — the mute interlock above
-            // is what actually prevents the feedback loop.
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            // Echo cancellation stays on: this microphone is open while our
+            // own speaker plays. Noise suppression and AGC do NOT — they are
+            // tuned for phone calls, and they strip exactly what a recogniser
+            // needs, swallowing the low-energy consonant a wake word starts
+            // with ("Jarvis" heard as "darviz", "Pookie" as "okay"). The
+            // push-to-talk path has always disabled all three for this reason.
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
           });
         } catch {
           giveUp('microphone blocked — allow mic access, then switch the wake word back on');
