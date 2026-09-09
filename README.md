@@ -88,8 +88,22 @@ Optional:
 - **AWS credentials with Bedrock access** for the Supervisor. Without them Conduit still works; the Supervisor logs one warning and backs off. Set `CONDUIT_SUPERVISOR=off` to disable it explicitly.
 - `codex` CLI for The Keeper (Command panel).
 - `OPENAI_API_KEY` / `GEMINI_API_KEY` for cloud speech; the browser engines need nothing.
+- `ANTHROPIC_API_KEY` — lets the Supervisor fall back to the Anthropic Messages API when
+  Bedrock is unavailable. Without it Conduit reuses the Claude Code OAuth token if present.
 
 Copy `.env.example` to `.env` to configure any of this.
+
+**Where `.env` is read from.** Conduit loads `./.env` (next to the server) *and*
+`~/.conduit/.env`, in that order — the first file to define a key wins, and a real
+environment variable beats both. The desktop app runs from its install directory and
+has no repo, so **`~/.conduit/.env` is where desktop configuration goes**: Bedrock
+settings, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `CONDUIT_AUTH`. `GET /api/health`
+reports which files were actually read (`envFiles`) — check it there if a setting
+doesn't seem to apply.
+
+Credentials that live outside `.env` work in both modes without any of this:
+`~/.aws/credentials` (Bedrock), `~/.claude/.credentials.json` (the Supervisor's
+Anthropic fallback), and each agent CLI's own login.
 
 ### Verify the install
 

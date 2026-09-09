@@ -1,4 +1,5 @@
-import 'dotenv/config'; // load OPENAI_API_KEY / GEMINI_API_KEY / CONDUIT_AUTH from .env
+import './env.js'; // .env from the cwd AND ~/.conduit/.env (the desktop app has no repo)
+import { loadedEnvFiles, userEnvPath } from './env.js';
 import express from 'express';
 import fs from 'fs';
 import os from 'os';
@@ -199,6 +200,11 @@ app.get('/api/health', (_req, res) => {
     anthropicModel: anthropicModel(),
     bedrockModel: BEDROCK_MODEL_ID,
     region: AWS_REGION,
+    // Which .env files were actually read. The packaged desktop app runs from
+    // its install directory, so the repo's .env is not one of them — this is
+    // how you tell whether your Bedrock/Groq settings reached the process.
+    envFiles: loadedEnvFiles(),
+    userEnvPath: userEnvPath(),
   });
 });
 

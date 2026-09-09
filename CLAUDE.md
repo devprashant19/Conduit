@@ -74,7 +74,7 @@ scripts/
 
 ## Environment
 
-See `.env.example`. Nothing is required locally. `CONDUIT_AUTH` is required before exposing the port. `CONDUIT_SUPERVISOR=off` disables Bedrock calls. `BEDROCK_MODEL_ID` must match the IAM policy.
+See `.env.example`. `src/env.ts` loads `./.env` **and** `~/.conduit/.env` (first to define a key wins) — the packaged desktop app runs from its install directory, so the repo `.env` is not visible to it and `~/.conduit/.env` is the only config file it sees. `/api/health` reports `envFiles`. Nothing is required locally. `CONDUIT_AUTH` is required before exposing the port. `CONDUIT_SUPERVISOR=off` disables Bedrock calls. `BEDROCK_MODEL_ID` must match the IAM policy.
 
 ## Development
 

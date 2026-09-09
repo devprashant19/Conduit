@@ -12,6 +12,7 @@
  * Run standalone:  node dist/daemon/daemon.js   (or: npm run daemon)
  */
 
+import '../env.js'; // agent CLIs inherit this process's env (GROQ/OPENROUTER keys, CONDUIT_AUTH)
 import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import * as runtime from './runtime.js';

@@ -1,7 +1,6 @@
-import dotenv from 'dotenv';
-
-// Ensure .env is loaded
-dotenv.config();
+// Ensure .env is loaded — from the cwd and from ~/.conduit/.env, so the
+// packaged desktop app (whose cwd is its install directory) sees it too.
+import '../env.js';
 
 export const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
 
