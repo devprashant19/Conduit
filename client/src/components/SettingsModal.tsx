@@ -1,10 +1,3 @@
-/**
- * Settings modal — pick STT/TTS provider, model, and voice.
- *
- * Fetches `/api/voice/config` for current settings, the provider catalog, and
- * whether each API key is present in .env. PUT-saves on Save.
- */
-
 import { useEffect, useState } from 'react';
 import Ic from './Icons';
 
@@ -50,24 +43,47 @@ interface Props {
  * user's speech recognition to another language the next time they press Save.
  */
 const LANGS: ModelOption[] = [
+  { id: '', label: 'Auto-detect language' },
   { id: 'en-US', label: 'English (US)' },
   { id: 'en-GB', label: 'English (UK)' },
   { id: 'en-IN', label: 'English (India)' },
-  { id: 'hi-IN', label: 'Hindi' },
-  { id: 'zh-CN', label: 'Chinese (Mainland)' },
-  { id: 'zh-TW', label: 'Chinese (Taiwan)' },
-  { id: 'ja-JP', label: 'Japanese' },
-  { id: '', label: 'Auto-detect' },
+  { id: 'es-ES', label: 'Spanish (Español)' },
+  { id: 'fr-FR', label: 'French (Français)' },
+  { id: 'de-DE', label: 'German (Deutsch)' },
+  { id: 'hi-IN', label: 'Hindi (हिन्दी)' },
+  { id: 'ja-JP', label: 'Japanese (日本語)' },
+  { id: 'zh-CN', label: 'Chinese (Mainland / 简体中文)' },
+  { id: 'zh-TW', label: 'Chinese (Taiwan / 繁體中文)' },
 ];
+
+function ToggleSwitch({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (val: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      className={`settings-switch ${checked ? 'on' : ''}`}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="settings-switch-thumb" />
+    </button>
+  );
+}
 
 export default function SettingsModal({ open, onClose, onSaved, onRestartTour }: Props) {
   const [cfg, setCfg] = useState<VoiceConfig | null>(null);
   const [providers, setProviders] = useState<ProviderSpec[]>([]);
-  /**
-   * Voices installed in this browser. The list arrives asynchronously — it is
-   * empty on first call — so wait for `voiceschanged` before rendering it.
-   */
   const [browserVoices, setBrowserVoices] = useState<{ name: string; lifelike: boolean }[]>([]);
+
   useEffect(() => {
     const synth = window.speechSynthesis;
     if (!synth) return;
@@ -80,7 +96,6 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
             name: v.name,
             lifelike: /natural|neural|online|premium|enhanced|wavenet|studio/i.test(v.name),
           }))
-          // Show the good ones first — they are the reason this list exists.
           .sort((a, b) => Number(b.lifelike) - Number(a.lifelike) || a.name.localeCompare(b.name)),
       );
     };
@@ -88,9 +103,12 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
     synth.addEventListener?.('voiceschanged', read);
     return () => synth.removeEventListener?.('voiceschanged', read);
   }, []);
+
   const [keys, setKeys] = useState<{ openai: boolean; gemini: boolean }>({ openai: false, gemini: false });
   const [openaiInput, setOpenaiInput] = useState('');
   const [geminiInput, setGeminiInput] = useState('');
+  const [showOpenai, setShowOpenai] = useState(false);
+  const [showGemini, setShowGemini] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -137,7 +155,9 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
     return (
       <div className="settings-scrim" onClick={onClose}>
         <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-          <div style={{ padding: 40, color: 'var(--text-3)' }}>{err || 'Loading…'}</div>
+          <div style={{ padding: 40, color: 'var(--text-3)', textAlign: 'center' }}>
+            {err || 'Loading settings…'}
+          </div>
         </div>
       </div>
     );
@@ -162,6 +182,7 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
       stt: { ...cfg.stt, provider: id, model: p?.sttModels?.[0]?.id || '' },
     });
   };
+
   const setTtsProvider = (id: VoiceConfig['tts']['provider']) => {
     const p = providers.find((x) => x.id === id);
     setCfg({
@@ -182,8 +203,6 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
       const body: { stt: VoiceConfig['stt']; tts: VoiceConfig['tts']; apiKeys?: { openai?: string; gemini?: string } } = {
         stt: cfg.stt, tts: cfg.tts,
       };
-      // Only include keys the user actually typed — empty inputs leave the
-      // saved keys alone. Clearing goes through the explicit "Clear" button.
       const apiKeys: { openai?: string; gemini?: string } = {};
       if (openaiInput.trim()) apiKeys.openai = openaiInput.trim();
       if (geminiInput.trim()) apiKeys.gemini = geminiInput.trim();
@@ -213,200 +232,333 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
     <div className="settings-scrim" onClick={onClose}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
         <header className="settings-h">
-          <div className="settings-title"><Ic.settings size={15} /> Voice settings</div>
-          <button className="hbtn" onClick={onClose} title="Close"><Ic.x size={13} /></button>
+          <div className="settings-title-wrap">
+            <div className="settings-icon-badge">
+              <Ic.settings size={16} />
+            </div>
+            <div>
+              <h3 className="settings-title">Voice & Assistant Settings</h3>
+              <p className="settings-subtitle">Configure speech recognition, synthesis voices, and provider credentials</p>
+            </div>
+          </div>
+          <button className="settings-close-btn" onClick={onClose} title="Close">
+            <Ic.x size={14} />
+          </button>
         </header>
 
         <div className="settings-body">
-          <section className="settings-sec">
-            <h4>Speech-to-text</h4>
-            <Row label="Provider">
-              <select
-                value={cfg.stt.provider}
-                onChange={(e) => setSttProvider(e.target.value as VoiceConfig['stt']['provider'])}
-              >
-                {sttProviders.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}{p.needsKey && !keyOK(p.id) ? ' (key missing)' : ''}
-                  </option>
-                ))}
-              </select>
-            </Row>
-            {sttProv?.sttModels && sttProv.sttModels.length > 0 && (
-              <Row label="Model">
-                <select
-                  value={cfg.stt.model}
-                  onChange={(e) => setCfg({ ...cfg, stt: { ...cfg.stt, model: e.target.value } })}
-                >
-                  {sttProv.sttModels.map((m) => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
-                  ))}
-                </select>
-              </Row>
-            )}
-            <Row label="Language">
-              <select
-                value={cfg.stt.language}
-                onChange={(e) => setCfg({ ...cfg, stt: { ...cfg.stt, language: e.target.value } })}
-              >
-                {/* Never misrepresent what is saved: an unknown tag gets its
-                    own entry rather than being shown as whatever is first. */}
-                {(LANGS.some((l) => l.id === cfg.stt.language)
-                  ? LANGS
-                  : [{ id: cfg.stt.language, label: cfg.stt.language }, ...LANGS]
-                ).map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
-              </select>
-            </Row>
-            <Row label="Debug">
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!cfg.stt.saveRecordings}
-                  onChange={(e) => setCfg({ ...cfg, stt: { ...cfg.stt, saveRecordings: e.target.checked } })}
-                />
-                <span>
-                  Save each clip to <code>~/.conduit/voice-debug/latest.webm</code> (to check mic quality)
-                </span>
-              </label>
-            </Row>
-          </section>
-
-          <section className="settings-sec">
-            <h4>Text-to-speech</h4>
-            <Row label="Speak replies">
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={cfg.tts.enabled}
-                  onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, enabled: e.target.checked } })}
-                />
-                <span>{cfg.tts.enabled ? 'On — the Keeper reads its replies aloud' : 'Off — silent'}</span>
-              </label>
-            </Row>
-            <Row label="Provider">
-              <select
-                value={cfg.tts.provider}
-                disabled={!cfg.tts.enabled}
-                onChange={(e) => setTtsProvider(e.target.value as VoiceConfig['tts']['provider'])}
-              >
-                {ttsProviders.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}{p.needsKey && !keyOK(p.id) ? ' (key missing)' : ''}
-                  </option>
-                ))}
-              </select>
-            </Row>
-            {ttsProv?.ttsModels && ttsProv.ttsModels.length > 0 && (
-              <Row label="Model">
-                <select
-                  value={cfg.tts.model}
-                  onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, model: e.target.value } })}
-                >
-                  {ttsProv.ttsModels.map((m) => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
-                  ))}
-                </select>
-              </Row>
-            )}
-            {/* The browser's own voices were never listed, so a machine with
-                good neural voices installed could not be pointed at one. */}
-            {cfg.tts.provider === 'browser' && (
-              <Row label="Voice">
-                <select
-                  value={cfg.tts.voice}
-                  onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, voice: e.target.value } })}
-                >
-                  <option value="">Best available (recommended)</option>
-                  {browserVoices.map((v) => (
-                    <option key={v.name} value={v.name}>
-                      {v.name}{v.lifelike ? ' — natural' : ''}
-                    </option>
-                  ))}
-                </select>
-              </Row>
-            )}
-            {ttsProv?.voices && ttsProv.voices.length > 0 && (
-              <Row label="Voice">
-                <select
-                  value={cfg.tts.voice}
-                  onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, voice: e.target.value } })}
-                >
-                  {ttsProv.voices.map((v) => (
-                    <option key={v.id} value={v.id}>{v.label}</option>
-                  ))}
-                </select>
-              </Row>
-            )}
-            <Row label="Speed">
-              <select
-                value={String(cfg.tts.speed ?? 1.0)}
-                onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, speed: parseFloat(e.target.value) } })}
-              >
-                <option value="0.75">0.75× (slower)</option>
-                <option value="1">1× (normal)</option>
-                <option value="1.15">1.15×</option>
-                <option value="1.25">1.25×</option>
-                <option value="1.5">1.5× (faster)</option>
-                <option value="1.75">1.75×</option>
-                <option value="2">2× (fast)</option>
-              </select>
-            </Row>
-            {cfg.tts.provider === 'gemini' && (
-              <div className="settings-keys-note" style={{ marginTop: 4 }}>
-                Speed only applies to OpenAI — Gemini TTS ignores it.
+          {/* Speech-to-text Card */}
+          <section className="settings-card">
+            <div className="settings-card-header">
+              <div className="settings-card-icon"><Ic.mic size={15} /></div>
+              <div className="settings-card-title-wrap">
+                <h4 className="settings-card-title">Speech-to-Text</h4>
+                <span className="settings-card-desc">Voice input and recognition engine</span>
               </div>
-            )}
-          </section>
-
-          <section className="settings-sec">
-            <h4>API keys</h4>
-            <div className="settings-keys-note">
-              Stored locally in <code>~/.conduit/api-keys.json</code> — never
-              committed, never sent anywhere except the provider you call.
-              Setting one in <code>.env</code> overrides this.
             </div>
-            <Row label="OpenAI">
-              <div className="settings-key-row">
-                <input
-                  type="password"
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder={keys.openai ? '••• key saved (paste a new one to replace)' : 'sk-…'}
-                  value={openaiInput}
-                  onChange={(e) => setOpenaiInput(e.target.value)}
-                />
-                {keys.openai && (
-                  <button className="hbtn" onClick={() => clearKey('openai')} title="Clear saved key">
-                    Clear
-                  </button>
-                )}
+            <div className="settings-card-body">
+              <div className="settings-field">
+                <label className="settings-field-label">Provider</label>
+                <div className="settings-field-ctrl">
+                  <select
+                    value={cfg.stt.provider}
+                    onChange={(e) => setSttProvider(e.target.value as VoiceConfig['stt']['provider'])}
+                    className="settings-select"
+                  >
+                    {sttProviders.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}{p.needsKey && !keyOK(p.id) ? ' (API key missing)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </Row>
-            <Row label="Gemini">
-              <div className="settings-key-row">
-                <input
-                  type="password"
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder={keys.gemini ? '••• key saved (paste a new one to replace)' : 'AIza…'}
-                  value={geminiInput}
-                  onChange={(e) => setGeminiInput(e.target.value)}
-                />
-                {keys.gemini && (
-                  <button className="hbtn" onClick={() => clearKey('gemini')} title="Clear saved key">
-                    Clear
-                  </button>
-                )}
+
+              {sttProv?.sttModels && sttProv.sttModels.length > 0 && (
+                <div className="settings-field">
+                  <label className="settings-field-label">Model</label>
+                  <div className="settings-field-ctrl">
+                    <select
+                      value={cfg.stt.model}
+                      onChange={(e) => setCfg({ ...cfg, stt: { ...cfg.stt, model: e.target.value } })}
+                      className="settings-select"
+                    >
+                      {sttProv.sttModels.map((m) => (
+                        <option key={m.id} value={m.id}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="settings-field">
+                <label className="settings-field-label">Language</label>
+                <div className="settings-field-ctrl">
+                  <select
+                    value={cfg.stt.language}
+                    onChange={(e) => setCfg({ ...cfg, stt: { ...cfg.stt, language: e.target.value } })}
+                    className="settings-select"
+                  >
+                    {(LANGS.some((l) => l.id === cfg.stt.language)
+                      ? LANGS
+                      : [{ id: cfg.stt.language, label: cfg.stt.language }, ...LANGS]
+                    ).map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                  </select>
+                </div>
               </div>
-            </Row>
+
+              <div className="settings-toggle-row">
+                <div className="settings-toggle-info">
+                  <span className="settings-toggle-label">Save Audio Debug Clips</span>
+                  <span className="settings-toggle-desc">Saves temporary audio captures locally for microphone diagnostics</span>
+                </div>
+                <ToggleSwitch
+                  checked={!!cfg.stt.saveRecordings}
+                  onChange={(checked) => setCfg({ ...cfg, stt: { ...cfg.stt, saveRecordings: checked } })}
+                />
+              </div>
+            </div>
           </section>
 
+          {/* Text-to-speech Card */}
+          <section className="settings-card">
+            <div className="settings-card-header">
+              <div className="settings-card-icon"><Ic.volume size={15} /></div>
+              <div className="settings-card-title-wrap">
+                <h4 className="settings-card-title">Text-to-Speech</h4>
+                <span className="settings-card-desc">Speech synthesis and Keeper voice output</span>
+              </div>
+            </div>
+            <div className="settings-card-body">
+              <div className="settings-toggle-row">
+                <div className="settings-toggle-info">
+                  <span className="settings-toggle-label">Spoken Assistant Replies</span>
+                  <span className="settings-toggle-desc">
+                    {cfg.tts.enabled
+                      ? 'Active — the Keeper reads its replies aloud'
+                      : 'Muted — responses are displayed as text only'}
+                  </span>
+                </div>
+                <ToggleSwitch
+                  checked={cfg.tts.enabled}
+                  onChange={(checked) => setCfg({ ...cfg, tts: { ...cfg.tts, enabled: checked } })}
+                />
+              </div>
+
+              {cfg.tts.enabled && (
+                <div className="settings-subfields">
+                  <div className="settings-field">
+                    <label className="settings-field-label">Provider</label>
+                    <div className="settings-field-ctrl">
+                      <select
+                        value={cfg.tts.provider}
+                        onChange={(e) => setTtsProvider(e.target.value as VoiceConfig['tts']['provider'])}
+                        className="settings-select"
+                      >
+                        {ttsProviders.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.label}{p.needsKey && !keyOK(p.id) ? ' (API key missing)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {ttsProv?.ttsModels && ttsProv.ttsModels.length > 0 && (
+                    <div className="settings-field">
+                      <label className="settings-field-label">Model</label>
+                      <div className="settings-field-ctrl">
+                        <select
+                          value={cfg.tts.model}
+                          onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, model: e.target.value } })}
+                          className="settings-select"
+                        >
+                          {ttsProv.ttsModels.map((m) => (
+                            <option key={m.id} value={m.id}>{m.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {cfg.tts.provider === 'browser' && (
+                    <div className="settings-field">
+                      <label className="settings-field-label">Voice</label>
+                      <div className="settings-field-ctrl">
+                        <select
+                          value={cfg.tts.voice}
+                          onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, voice: e.target.value } })}
+                          className="settings-select"
+                        >
+                          <option value="">Best available (recommended)</option>
+                          {browserVoices.map((v) => (
+                            <option key={v.name} value={v.name}>
+                              {v.name}{v.lifelike ? ' — Natural' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {ttsProv?.voices && ttsProv.voices.length > 0 && (
+                    <div className="settings-field">
+                      <label className="settings-field-label">Voice</label>
+                      <div className="settings-field-ctrl">
+                        <select
+                          value={cfg.tts.voice}
+                          onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, voice: e.target.value } })}
+                          className="settings-select"
+                        >
+                          {ttsProv.voices.map((v) => (
+                            <option key={v.id} value={v.id}>{v.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="settings-field">
+                    <label className="settings-field-label">Playback Speed</label>
+                    <div className="settings-field-ctrl">
+                      <select
+                        value={String(cfg.tts.speed ?? 1.0)}
+                        onChange={(e) => setCfg({ ...cfg, tts: { ...cfg.tts, speed: parseFloat(e.target.value) } })}
+                        className="settings-select"
+                      >
+                        <option value="0.75">0.75× (Slower)</option>
+                        <option value="1">1.0× (Normal)</option>
+                        <option value="1.15">1.15×</option>
+                        <option value="1.25">1.25×</option>
+                        <option value="1.5">1.5× (Faster)</option>
+                        <option value="1.75">1.75×</option>
+                        <option value="2">2.0× (Fast)</option>
+                      </select>
+                      {cfg.tts.provider === 'gemini' && (
+                        <span className="settings-inline-hint">
+                          Speed adjustment is supported on OpenAI TTS.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* API Keys Card */}
+          <section className="settings-card">
+            <div className="settings-card-header">
+              <div className="settings-card-icon"><Ic.key size={15} /></div>
+              <div className="settings-card-title-wrap">
+                <h4 className="settings-card-title">API Credentials</h4>
+                <span className="settings-card-desc">Bring your own keys for cloud AI speech models</span>
+              </div>
+            </div>
+            <div className="settings-card-body">
+              <div className="settings-security-banner">
+                <Ic.shield size={14} />
+                <span>Keys are stored locally in your environment configuration and never shared.</span>
+              </div>
+
+              <div className="settings-key-row">
+                <div className="settings-key-meta">
+                  <span className="settings-key-name">OpenAI</span>
+                  {keys.openai ? (
+                    <span className="settings-key-status ok"><Ic.check size={10} /> Saved</span>
+                  ) : (
+                    <span className="settings-key-status missing">Missing</span>
+                  )}
+                </div>
+                <div className="settings-key-input-wrap">
+                  <input
+                    type={showOpenai ? 'text' : 'password'}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder={keys.openai ? '••••••••••••••••••••' : 'sk-proj-...'}
+                    value={openaiInput}
+                    onChange={(e) => setOpenaiInput(e.target.value)}
+                    className="settings-input"
+                  />
+                  <button
+                    type="button"
+                    className="settings-input-icon-btn"
+                    onClick={() => setShowOpenai(!showOpenai)}
+                    title={showOpenai ? 'Hide key' : 'Show key'}
+                  >
+                    {showOpenai ? <Ic.eyeOff size={13} /> : <Ic.eye size={13} />}
+                  </button>
+                </div>
+                {keys.openai && (
+                  <button
+                    type="button"
+                    className="settings-key-clear-btn"
+                    onClick={() => clearKey('openai')}
+                    title="Remove saved key"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              <div className="settings-key-row">
+                <div className="settings-key-meta">
+                  <span className="settings-key-name">Google Gemini</span>
+                  {keys.gemini ? (
+                    <span className="settings-key-status ok"><Ic.check size={10} /> Saved</span>
+                  ) : (
+                    <span className="settings-key-status missing">Missing</span>
+                  )}
+                </div>
+                <div className="settings-key-input-wrap">
+                  <input
+                    type={showGemini ? 'text' : 'password'}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder={keys.gemini ? '••••••••••••••••••••' : 'AIzaSy...'}
+                    value={geminiInput}
+                    onChange={(e) => setGeminiInput(e.target.value)}
+                    className="settings-input"
+                  />
+                  <button
+                    type="button"
+                    className="settings-input-icon-btn"
+                    onClick={() => setShowGemini(!showGemini)}
+                    title={showGemini ? 'Hide key' : 'Show key'}
+                  >
+                    {showGemini ? <Ic.eyeOff size={13} /> : <Ic.eye size={13} />}
+                  </button>
+                </div>
+                {keys.gemini && (
+                  <button
+                    type="button"
+                    className="settings-key-clear-btn"
+                    onClick={() => clearKey('gemini')}
+                    title="Remove saved key"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Onboarding Tour Card */}
           {onRestartTour && (
-            <section className="settings-sec">
-              <h3>Product Tour</h3>
-              <div className="settings-row" style={{ alignItems: 'center' }}>
-                <label>Interactive Walkthrough</label>
-                <div className="settings-row-ctrl">
+            <section className="settings-card">
+              <div className="settings-card-header">
+                <div className="settings-card-icon"><Ic.sparkles size={15} /></div>
+                <div className="settings-card-title-wrap">
+                  <h4 className="settings-card-title">Interactive Tour</h4>
+                  <span className="settings-card-desc">Product walkthrough and onboarding experience</span>
+                </div>
+              </div>
+              <div className="settings-card-body">
+                <div className="settings-action-row">
+                  <div className="settings-action-info">
+                    <span className="settings-action-label">Workspace Guided Walkthrough</span>
+                    <span className="settings-action-desc">Replay the interactive tour of agents, terminals, and navigation</span>
+                  </div>
                   <button
                     type="button"
                     className="hbtn"
@@ -414,9 +566,8 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
                       onClose();
                       onRestartTour();
                     }}
-                    style={{ fontWeight: 600 }}
                   >
-                    Restart 2-Phase Tour
+                    Restart Tour
                   </button>
                 </div>
               </div>
@@ -429,7 +580,7 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
         <footer className="settings-f">
           <button className="hbtn" onClick={onClose}>Cancel</button>
           <button className="hbtn primary" disabled={saving} onClick={save}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? 'Saving…' : 'Save Settings'}
           </button>
         </footer>
       </div>
@@ -437,11 +588,3 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="settings-row">
-      <label>{label}</label>
-      <div className="settings-row-ctrl">{children}</div>
-    </div>
-  );
-}

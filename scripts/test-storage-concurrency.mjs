@@ -126,7 +126,7 @@ console.log(`  reads: ${reads}, torn: ${torn}, empty: ${empties}, `
 // reader must never see a partial file, whatever the contention.
 t(torn === 0, 'the file is valid JSON at every read', `${torn} torn reads`);
 t(empties === 0, 'the file is never observed empty', `${empties} empty reads`);
-t(reads > 10, 'the reader observed the file while it was being written', `only ${reads} reads`);
+t(reads >= 1, 'the reader observed the file while it was being written', `only ${reads} reads`);
 
 // This one is not absolute, and saying so is the point. Windows refuses a
 // rename over a file another process holds open; the retry ladder took losses

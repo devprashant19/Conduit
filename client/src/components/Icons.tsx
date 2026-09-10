@@ -240,6 +240,33 @@ const Ic = {
       <path d="M6.5 6.2a1.8 1.8 0 013.2.9c0 1.1-1.7 1.4-1.7 2.4M8 12.2h.01" />
     </svg>
   ),
+  shield: (p: IconProps = {}) => (
+    <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.5} strokeLinecap="round" strokeLinejoin="round" style={p.style} className={p.className}>
+      <path d="M8 1.5l6 2.5v4c0 4-3 6.5-6 7.5-3-1-6-3.5-6-7.5v-4z" />
+    </svg>
+  ),
+  key: (p: IconProps = {}) => (
+    <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.5} strokeLinecap="round" strokeLinejoin="round" style={p.style} className={p.className}>
+      <circle cx="5" cy="8" r="3" />
+      <path d="M8 8h6M11.5 8v2M14 8v1.5" />
+    </svg>
+  ),
+  check: (p: IconProps = {}) => (
+    <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.8} strokeLinecap="round" strokeLinejoin="round" style={p.style} className={p.className}>
+      <path d="M3.5 8.5l3 3 6-6" />
+    </svg>
+  ),
+  eye: (p: IconProps = {}) => (
+    <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.5} strokeLinecap="round" strokeLinejoin="round" style={p.style} className={p.className}>
+      <path d="M1.5 8s2.5-4.5 6.5-4.5 6.5 4.5 6.5 4.5-2.5 4.5-6.5 4.5-6.5-4.5-6.5-4.5z" />
+      <circle cx="8" cy="8" r="2" />
+    </svg>
+  ),
+  eyeOff: (p: IconProps = {}) => (
+    <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.5} strokeLinecap="round" strokeLinejoin="round" style={p.style} className={p.className}>
+      <path d="M2 2l12 12M6.7 6.7A2 2 0 009.3 9.3M4.2 4.3C2.8 5.4 1.5 8 1.5 8s2.5 4.5 6.5 4.5c1.4 0 2.6-.4 3.7-1.1M9.9 5.3A6.4 6.4 0 0114.5 8s-2.5 4.5-6.5 4.5" />
+    </svg>
+  ),
 };
 
 export default Ic;
