@@ -38,7 +38,8 @@
     "check:keeper": "node scripts/test-keeper.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "check:abuse": "node scripts/check-abuse.mjs",
-    "check:desktop": "node scripts/check-desktop.mjs"
+    "check:desktop": "node scripts/check-desktop.mjs",
+    "check:lifecycle": "node scripts/check-lifecycle.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1124.0",

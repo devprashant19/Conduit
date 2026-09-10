@@ -90,6 +90,7 @@ npm run test:supervisor   # five live classifications against the real model
 npm run check:multi       # four agents working one project concurrently
 npm run check:abuse       # malformed input at every route; a 5xx fails the run
 npm run check:desktop     # launches the packaged Electron app and drives it
+npm run check:lifecycle   # rename, delete-while-running, restart, two viewers
 ```
 
 `npm run check:agents` is the one worth running first. It answers the only question that
@@ -300,6 +301,7 @@ otherwise "start the agent… called gere" executes as "start the agent".
 | Supervisor classification against the real model | **5 checks** (`npm run test:supervisor`) |
 | The Keeper reading and acting | listed projects, started an agent, verified it, stopped it |
 | Concurrent agents | four agent types in one project, supervised, gated and resolved |
+| The awkward moments | **19 checks** (`npm run check:lifecycle`): rename a project with an agent running, delete a running agent, three restarts in a row, two browsers on one terminal, and operations on things that no longer exist |
 | Desktop app | **26 checks** (`npm run check:desktop`): starts its own daemon, loads `~/.conduit/.env`, runs all six agent types, answers a Keeper turn with working tools, and leaves no orphaned process behind |
 | Concurrent writes to one JSON file | two real processes × 150 writes: zero torn reads, zero empty reads, zero lost writes |
 | Malformed input at every REST route | **29 cases**: no 5xx, no dropped connections, every path-traversal attempt refused, and deleting a project takes Conduit's section back out of the user's `CLAUDE.md` (`npm run check:abuse`) |
