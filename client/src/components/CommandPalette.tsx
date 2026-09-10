@@ -40,6 +40,7 @@ export default function CommandPalette({
   const [q, setQ] = useState('');
   const [focus, setFocus] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -47,6 +48,12 @@ export default function CommandPalette({
       setTimeout(() => inputRef.current?.focus(), 20);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      itemRefs.current[focus]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [focus, open]);
 
   if (!open) return null;
 
@@ -84,12 +91,6 @@ export default function CommandPalette({
     else if (e.key === 'ArrowUp') { e.preventDefault(); setFocus(f => Math.max(f - 1, 0)); }
     else if (e.key === 'Enter') { e.preventDefault(); filtered[focus]?.run(); }
   };
-
-  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  useEffect(() => {
-    itemRefs.current[focus]?.scrollIntoView({ block: 'nearest' });
-  }, [focus]);
 
   let currentGroup: string | null = null;
   return (
