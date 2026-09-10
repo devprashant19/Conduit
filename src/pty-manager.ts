@@ -418,7 +418,14 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
     onStatus(agent.id, 'stopped');
   });
 
-  updateAgent(agent.projectId, agent.id, { status: 'running', pid: proc.pid });
+  // node-pty reports 0 on Windows, where the process behind a ConPTY is not
+  // the one it hands back. Recording that as a pid is worse than recording
+  // nothing: `pid: 0` reads as a real process id and is not one. Store it only
+  // where it is true, which is every platform that gives us a real number.
+  updateAgent(agent.projectId, agent.id, {
+    status: 'running',
+    pid: proc.pid > 0 ? proc.pid : undefined,
+  });
   onStatus(agent.id, 'running');
   return true;
 }
