@@ -105,7 +105,30 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(container);
-    try { fit.fit(); } catch { /* container not laid out yet */ }
+
+    /**
+     * Every fit goes through here so the font-ready refit below and the
+     * resize observer stay in step.
+     */
+    const fitSafely = () => {
+      try { fit.fit(); } catch { /* container not laid out yet */ }
+    };
+
+    fitSafely();
+
+    // JetBrains Mono comes from the network, and xterm measures a character to
+    // choose its column count the moment `open()` is called. Before the font
+    // arrives it measures the fallback, which is narrower — so it picks more
+    // columns than will actually fit, and the last one or two characters of
+    // every line get clipped off the right edge. Output read as though words
+    // were losing letters: "reply in plain text" rendered as "reply i / text."
+    //
+    // Nothing re-fits on its own, because the container never changes size.
+    let disposed = false;
+    document.fonts?.ready?.then(() => {
+      if (disposed) return;
+      fitSafely();
+    }).catch(() => { /* no font loading API — the fallback metrics stand */ });
 
     termRef.current = term;
     fitRef.current = fit;
@@ -208,7 +231,7 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
     let fitTimeout: ReturnType<typeof setTimeout> | undefined;
     const resizeObserver = new ResizeObserver(() => {
       clearTimeout(fitTimeout);
-      fitTimeout = setTimeout(() => { try { fit.fit(); } catch { /* ignore */ } }, 50);
+      fitTimeout = setTimeout(fitSafely, 50);
     });
     resizeObserver.observe(container);
 
@@ -218,7 +241,7 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
         if (term.options.fontSize !== (isMob ? 12.5 : 12.25)) {
           term.options.fontSize = isMob ? 12.5 : 12.25;
         }
-        fit.fit();
+        fitSafely();
       } catch {
         /* ignore */
       }
@@ -238,6 +261,7 @@ export default function Terminal({ agentId, ws, onFocus, focused }: Props) {
       if (attached) ws.send({ type: 'terminal:detach', agentId });
       unsubscribe();
       resizeObserver.disconnect();
+      disposed = true;
       term.dispose();
       if (termRef.current === term) termRef.current = null;
     };

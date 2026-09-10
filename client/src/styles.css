@@ -2146,14 +2146,37 @@ body.is-resizing .pane-resizer {
   min-height: 0;
   overflow: hidden;
   background: transparent;
-  padding: 8px 6px 6px 12px;
+  /* Right padding covers the 8px scrollbar.
+
+     It has to live here rather than as a width override on .xterm-screen,
+     because FitAddon measures *this* box to choose a column count — anything
+     narrower than what it measured gets clipped, and since the screen has
+     `overflow: hidden` nothing ever appears to overflow. The symptom was words
+     quietly losing their last letter: "file edits, or" rendering as "file
+     edits, o". The extra cell covers FitAddon's own off-by-one, which is not
+     reachable from outside the addon. */
+  padding: 8px 14px 6px 12px;
   position: relative;
   max-width: 100%;
 }
 
 .terminal-container .xterm {
   height: 100% !important;
-  padding: 0 !important;
+  /* FitAddon reads *this* element's padding when choosing a column count —
+     `parentWidth - xtermPadding - scrollbarWidth`. Forcing it to 0 meant the
+     addon believed it had the full width, picked one column too many, and the
+     `overflow: hidden` below silently clipped the last character off every
+     line: "file edits, or" rendered as "file edits, o". Padding on
+     .terminal-container cannot fix it, because the addon never looks there.
+
+     PARTIAL. This plus the font-ready refit in Terminal.tsx took the loss from
+     about two characters to one; a single column is still being clipped at
+     some widths. Raising this further does not close it, which means the
+     remaining column comes from somewhere other than padding — most likely
+     FitAddon's own rounding against a fractional cell width. Worth finishing
+     with a live measurement of `_renderService.dimensions.css.cell.width`
+     against the painted row. */
+  padding: 0 10px 0 0 !important;
   max-width: 100% !important;
   overflow-x: hidden !important;
 }
@@ -2166,7 +2189,6 @@ body.is-resizing .pane-resizer {
 }
 
 .terminal-container .xterm-screen {
-  width: calc(100% - 8px) !important;
   max-width: 100% !important;
   overflow: hidden !important;
 }
@@ -2176,10 +2198,6 @@ body.is-resizing .pane-resizer {
   max-width: 100% !important;
   overflow-x: hidden !important;
   /* overflow-y defaults to scroll from xterm.css so scrollback is reachable */
-}
-
-.terminal-container .xterm .xterm-screen {
-  width: calc(100% - 8px) !important;
 }
 
 .terminal-container .xterm-screen canvas {

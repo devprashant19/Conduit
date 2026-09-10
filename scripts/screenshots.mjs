@@ -116,6 +116,10 @@ await api('POST', `/projects/${projectId}/groupchat`, {
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'conduit-shots-'));
 const child = spawn(bin, [
   '--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=2',
+  // A system-installed extension (Malwarebytes Browser Guard) put its own
+  // panel over the corner of a shot and swallowed the click underneath it.
+  '--disable-extensions', '--disable-component-extensions-with-background-pages',
+  '--disable-features=Translate,MediaRouter',
   '--no-first-run', '--no-default-browser-check',
   `--window-size=${WIDTH},${HEIGHT}`,
   `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
@@ -307,7 +311,12 @@ try {
   await clickText('.gr-tab', 'terminals');
   await sleep(600);
   await evalJs(`
-    const btn = [...document.querySelectorAll('button')].find(b => (b.title||'').toLowerCase().includes('voice settings'));
+    // The header was restyled and the button's title went from "Voice settings"
+    // to "Settings"; matching the old string silently photographed the console
+    // instead, which looks like a working shot until you read it.
+    const btn = [...document.querySelectorAll('button')]
+      .find(b => /^settings$/i.test((b.title || '').trim())
+              || (b.title || '').toLowerCase().includes('settings'));
     if (btn) { btn.click(); return true; } return false;
   `);
   await sleep(1200);
