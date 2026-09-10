@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Notification, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Notification, Menu, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DaemonManager, ServiceStatus } from './daemon-manager.js';
@@ -16,6 +16,49 @@ const distRoot = path.resolve(__dirname, '..');
 let mainWindow: BrowserWindow | null = null;
 let lastStatus: ServiceStatus | null = null;
 const daemonManager = new DaemonManager();
+
+/** The only origin the app window is ever allowed to be showing. */
+function isOwnPage(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol === 'file:' || u.protocol === 'data:') return true;   // the loading page
+    return (u.hostname === '127.0.0.1' || u.hostname === 'localhost')
+      && u.port === String(lastStatus?.port ?? 3200);
+  } catch { return false; }
+}
+
+/**
+ * Keep the outside world out of the application window.
+ *
+ * Agent and model output is rendered as markdown, and `renderMarkdown` turns a
+ * link into a real `<a target="_blank">`. In a browser that is a new tab. In
+ * Electron, with no handler installed, it opened a *new application window* on
+ * the remote page — carrying the preload bridge, with no address bar to say
+ * where the user had ended up. `location.href` was worse: it navigated the
+ * control centre itself away, and there is no back button to return.
+ *
+ * Measured before this existed: an anchor click, `window.open` and a top-level
+ * navigation all loaded example.com inside the packaged app.
+ *
+ * Links still work — they open in the browser the user actually chose, which is
+ * where an external link belongs.
+ */
+function guardNavigation(contents: Electron.WebContents): void {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url) && !isOwnPage(url)) {
+      shell.openExternal(url).catch(() => { /* no browser, nothing to do */ });
+    }
+    return { action: 'deny' };
+  });
+
+  contents.on('will-navigate', (event, url) => {
+    if (isOwnPage(url)) return;
+    event.preventDefault();
+    if (/^https?:\/\//i.test(url)) {
+      shell.openExternal(url).catch(() => { /* no browser, nothing to do */ });
+    }
+  });
+}
 
 const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
 
@@ -96,6 +139,7 @@ async function createWindow(): Promise<void> {
   const win = mainWindow;
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => { mainWindow = null; });
+  guardNavigation(win.webContents);
 
   // The renderer subscribes in its own script, so a status sent before the
   // document exists is dropped. Re-send on every load instead.
@@ -275,6 +319,11 @@ if (!app.requestSingleInstanceLock()) {
       mainWindow.focus();
     }
   });
+
+  // Belt and braces: anything that manages to create a webContents — a
+  // devtools window, a future second window — is guarded too, not just the one
+  // window `createWindow` knows about.
+  app.on('web-contents-created', (_e, contents) => guardNavigation(contents));
 
   app.whenReady().then(async () => {
     setupNativeMenu();

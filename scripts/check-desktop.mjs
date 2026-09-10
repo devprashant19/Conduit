@@ -143,11 +143,13 @@ try {
   try {
     const { WebSocket } = await import('ws');
     let wsUrl = null;
+    let pageId = null;
     for (let i = 0; i < 20 && !wsUrl; i++) {
       try {
         const targets = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json();
         const page = targets.find((x) => x.type === 'page' && /:3200\//.test(x.url || ''));
         wsUrl = page?.webSocketDebuggerUrl || null;
+        pageId = page?.id || null;
       } catch { /* not up yet */ }
       if (!wsUrl) await sleep(1000);
     }
@@ -179,6 +181,37 @@ try {
       t(info.mounted === true, 'the React app mounted inside the Electron window',
         JSON.stringify(info));
       t(info.title === 'Conduit', 'the window is showing Conduit', info.title);
+
+      // Agent output is rendered as markdown, and a markdown link becomes a
+      // real <a target="_blank">. With no window-open handler Electron loaded
+      // the remote page *inside the application*, preload and all, with no
+      // address bar to say where the user had ended up — and `location.href`
+      // navigated the control centre itself away, with no way back.
+      const listTargets = async () =>
+        await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json().catch(() => []);
+      const probe = 'https://example.com/conduit-external-link-probe';
+      await send('Runtime.evaluate', {
+        expression: `(() => {
+          const a = document.createElement('a');
+          a.href = ${JSON.stringify(probe)}; a.target = '_blank'; a.rel = 'noopener noreferrer';
+          document.body.appendChild(a); a.click(); a.remove();
+          window.open(${JSON.stringify(probe)});
+          return true;
+        })()`,
+        returnByValue: true,
+      });
+      await sleep(3000);
+      const leaked = (await listTargets()).filter((x) => String(x.url || '').includes('example.com'));
+      t(leaked.length === 0, 'an external link does not open inside the app',
+        leaked.map((x) => `${x.type} ${x.url}`).join(', '));
+
+      await send('Runtime.evaluate', {
+        expression: `location.href = ${JSON.stringify(probe)}; true`,
+        returnByValue: true,
+      });
+      await sleep(3000);
+      const here = (await listTargets()).find((x) => x.id === pageId)?.url || '';
+      t(/:3200\//.test(here), 'and cannot navigate the app window away from Conduit', here);
     } else {
       t(false, 'the renderer was reachable over CDP', `nothing on :${CDP_PORT}`);
     }
