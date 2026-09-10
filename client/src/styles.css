@@ -9418,3 +9418,27 @@ textarea {
     transform: translateY(0) scale(1);
   }
 }
+/* --- Render-error fallback ------------------------------------------- */
+/* Shown instead of a blank page when a component throws. Deliberately plain:
+   it must not depend on anything that might itself be broken. */
+.crash {
+  max-width: 620px;
+  margin: 12vh auto;
+  padding: 0 24px;
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--text-1, #3a3532);
+}
+.crash-title { font-size: 19px; margin: 0 0 10px; }
+.crash-lead { margin: 0 0 16px; opacity: 0.85; }
+.crash-detail {
+  background: var(--bg-2, #f0ece6);
+  border: 1px solid var(--border, #e0d9d0);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow: auto;
+  max-height: 30vh;
+}
+.crash-actions { display: flex; gap: 8px; margin: 16px 0 12px; }
+.crash-note { font-size: 12px; opacity: 0.6; margin: 0; }
