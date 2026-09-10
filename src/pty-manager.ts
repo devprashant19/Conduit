@@ -122,10 +122,22 @@ interface PtySession {
   agent: Agent;
   listeners: Set<(data: string) => void>;
   buffer: string[];
+  /** Characters currently held in `buffer` — kept alongside so the trim is O(1). */
+  bufferChars: number;
 }
 
 const sessions = new Map<string, PtySession>();
+/** Scroll-back chunks kept per agent. */
 const MAX_BUFFER = 5000;
+/**
+ * And a ceiling on their total size, which is the one that actually protects
+ * the daemon. Chunks are not a unit of memory: an agent printing a large diff
+ * or a base64 blob arrives as a handful of multi-megabyte chunks, so a
+ * count-only cap left hundreds of megabytes per agent resident in a process
+ * that is meant to run for days. Roughly matches what `getBufferText` will
+ * hand back anyway.
+ */
+const MAX_BUFFER_CHARS = 512_000;
 
 /**
  * Ensure the shared content directory exists with a README.
@@ -394,6 +406,7 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
     agent,
     listeners: new Set(),
     buffer: [],
+    bufferChars: 0,
   };
   sessions.set(agent.id, session);
 
@@ -401,9 +414,19 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
   proc.write(`${cmd} ${args.map(shellQuote).join(' ')}\r`);
 
   proc.onData((data: string) => {
-    session.buffer.push(data);
+    // Live listeners always get the whole chunk; only the replay copy is
+    // trimmed, and a single chunk larger than the whole budget is kept by its
+    // tail — the end of a dump is the part a late viewer needs.
+    const kept = data.length > MAX_BUFFER_CHARS ? data.slice(-MAX_BUFFER_CHARS) : data;
+    session.buffer.push(kept);
+    session.bufferChars += kept.length;
     if (session.buffer.length > MAX_BUFFER) {
-      session.buffer.splice(0, session.buffer.length - MAX_BUFFER);
+      for (const dropped of session.buffer.splice(0, session.buffer.length - MAX_BUFFER)) {
+        session.bufferChars -= dropped.length;
+      }
+    }
+    while (session.bufferChars > MAX_BUFFER_CHARS && session.buffer.length > 1) {
+      session.bufferChars -= (session.buffer.shift() as string).length;
     }
     for (const listener of session.listeners) {
       listener(data);
