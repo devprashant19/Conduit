@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Ic from './Icons';
 import ConduitAgentDemo from './ConduitAgentDemo';
 import ToolEcosystemSection from './ecosystem/ToolEcosystemSection';
@@ -11,13 +11,39 @@ interface LandingPageProps {
   onStartTour?: () => void;
 }
 
+const navItems = [
+  { name: 'How it works', id: 'how-it-works', icon: Ic.shield },
+  { name: 'Ecosystem', id: 'ecosystem', icon: Ic.grid },
+  { name: 'Features', id: 'features', icon: Ic.sparkles },
+  { name: 'FAQ', id: 'faq', icon: Ic.help },
+];
+
 export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('how-it-works');
+
+  useEffect(() => {
+    const sectionIds = ['how-it-works', 'ecosystem', 'features', 'faq'];
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY + 240;
+      for (let i = sectionIds.length - 1; i >= 0; i--) {
+        const el = document.getElementById(sectionIds[i]);
+        if (el && el.offsetTop <= scrollPosition) {
+          setActiveTab(sectionIds[i]);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const scrollToSection = (e: React.MouseEvent, sectionId: string) => {
     e.preventDefault();
+    setActiveTab(sectionId);
     const el = document.getElementById(sectionId);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
@@ -29,125 +55,150 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
       {/* Purple Gradient Grid Right Background */}
       <div className="landing-bg-gradient-grid" aria-hidden="true" />
 
-      {/* Top Floating Navigation */}
-      <header className="landing-nav">
-        <div className="landing-nav-brand">
-          <span className="brand-title">CONDUIT</span>
-        </div>
-        <div className="landing-nav-links">
-          <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'how-it-works')}>
-            How it works
-          </button>
-          <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'ecosystem')}>
-            Ecosystem
-          </button>
-          <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'features')}>
-            Features
-          </button>
-          <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'faq')}>
-            FAQ
-          </button>
-        </div>
-        <div className="landing-nav-actions">
-          {onStartTour && (
-            <button
-              type="button"
-              className="landing-nav-tour-btn"
-              onClick={onStartTour}
-              title="Start Interactive Product Tour"
-            >
-              <Ic.sparkles size={13} />
-              <span>Tour</span>
-            </button>
-          )}
-          <button className="landing-btn-black" onClick={onOpenConsole}>
-            <span className="btn-text-full">Open Control Center</span>
-            <span className="btn-text-short">Console</span>
-            <Ic.chevR size={12} />
-          </button>
-          <button
-            type="button"
-            className="landing-nav-mobile-toggle"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            aria-label="Toggle navigation menu"
-            aria-expanded={isMobileMenuOpen}
+      {/* Tubelight Floating Navigation */}
+      <div className="landing-nav-wrapper">
+        <header className="landing-nav">
+          <div
+            className="landing-nav-brand"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            role="button"
+            tabIndex={0}
+            title="Conduit Home"
           >
-            {isMobileMenuOpen ? <Ic.x size={17} /> : <Ic.menu size={17} />}
-          </button>
-        </div>
-      </header>
+            <span className="brand-logo-icon">
+              <Ic.logo size={15} />
+            </span>
+            <span className="brand-title">CONDUIT</span>
+          </div>
 
-      {/* Mobile Navigation Dropdown Drawer */}
-      {isMobileMenuOpen && (
-        <div className="landing-nav-mobile-drawer">
-          <button
-            type="button"
-            className="mobile-drawer-link"
-            onClick={(e) => {
-              scrollToSection(e, 'how-it-works');
-              setIsMobileMenuOpen(false);
-            }}
-          >
-            How it works
-          </button>
-          <button
-            type="button"
-            className="mobile-drawer-link"
-            onClick={(e) => {
-              scrollToSection(e, 'ecosystem');
-              setIsMobileMenuOpen(false);
-            }}
-          >
-            Ecosystem
-          </button>
-          <button
-            type="button"
-            className="mobile-drawer-link"
-            onClick={(e) => {
-              scrollToSection(e, 'features');
-              setIsMobileMenuOpen(false);
-            }}
-          >
-            Features
-          </button>
-          <button
-            type="button"
-            className="mobile-drawer-link"
-            onClick={(e) => {
-              scrollToSection(e, 'faq');
-              setIsMobileMenuOpen(false);
-            }}
-          >
-            FAQ
-          </button>
-          <div className="mobile-drawer-actions">
+          <nav className="landing-tubelight-track" aria-label="Main Navigation">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={(e) => scrollToSection(e, item.id)}
+                  className={`landing-tubelight-item ${isActive ? 'active' : ''}`}
+                >
+                  <span className="tubelight-item-icon">
+                    <Icon size={14} />
+                  </span>
+                  <span className="tubelight-item-label">{item.name}</span>
+                  {isActive && (
+                    <div className="tubelight-lamp" aria-hidden="true">
+                      <div className="tubelight-lamp-emitter">
+                        <div className="tubelight-lamp-glow-wide" />
+                        <div className="tubelight-lamp-glow-mid" />
+                        <div className="tubelight-lamp-glow-core" />
+                      </div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="landing-nav-actions">
             {onStartTour && (
               <button
                 type="button"
-                className="mobile-drawer-tour-btn"
-                onClick={() => {
-                  onStartTour();
-                  setIsMobileMenuOpen(false);
-                }}
+                className="landing-nav-tour-btn"
+                onClick={onStartTour}
+                title="Start Interactive Product Tour"
               >
                 <Ic.sparkles size={13} />
                 <span>Tour</span>
               </button>
             )}
-            <button
-              type="button"
-              className="mobile-drawer-cta-btn"
-              onClick={() => {
-                onOpenConsole();
-                setIsMobileMenuOpen(false);
-              }}
-            >
-              <span>Open Control Center</span>
+            <button className="landing-btn-black" onClick={onOpenConsole}>
+              <span className="btn-text-full">Open Control Center</span>
+              <span className="btn-text-short">Console</span>
               <Ic.chevR size={12} />
             </button>
+            <button
+              type="button"
+              className="landing-nav-mobile-toggle"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle navigation menu"
+              aria-expanded={isMobileMenuOpen}
+            >
+              {isMobileMenuOpen ? <Ic.x size={17} /> : <Ic.menu size={17} />}
+            </button>
           </div>
-        </div>
-      )}
+        </header>
+
+        {/* Mobile Navigation Dropdown Drawer & Dimmed Backdrop */}
+        {isMobileMenuOpen && (
+          <>
+            <div
+              className="landing-nav-backdrop"
+              onClick={() => setIsMobileMenuOpen(false)}
+              aria-hidden="true"
+            />
+            <div className="landing-nav-mobile-drawer">
+              <div className="mobile-drawer-header">
+                <span className="drawer-title">Navigation</span>
+                <button
+                  type="button"
+                  className="drawer-close-btn"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  aria-label="Close menu"
+                >
+                  <Ic.x size={15} />
+                </button>
+              </div>
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`mobile-drawer-link ${isActive ? 'active' : ''}`}
+                    onClick={(e) => {
+                      scrollToSection(e, item.id);
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <span className="drawer-icon-wrap"><Icon size={16} /></span>
+                    <span className="drawer-item-name">{item.name}</span>
+                    {isActive && <span className="drawer-active-dot" />}
+                  </button>
+                );
+              })}
+              <div className="mobile-drawer-actions">
+                {onStartTour && (
+                  <button
+                    type="button"
+                    className="mobile-drawer-tour-btn"
+                    onClick={() => {
+                      onStartTour();
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <Ic.sparkles size={14} />
+                    <span>Take Product Tour</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="mobile-drawer-cta-btn"
+                  onClick={() => {
+                    onOpenConsole();
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  <span>Open Control Center</span>
+                  <Ic.chevR size={13} />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Hero Section */}
       <section className="landing-hero">
