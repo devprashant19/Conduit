@@ -8,7 +8,17 @@ import type { ActivityEvent } from './types.js';
 
 const MAX_EVENTS = 200;
 const events: ActivityEvent[] = [];
-const watchers = new Map<string, FSWatcher>();
+/**
+ * Live watchers, with the directory each one is actually watching.
+ *
+ * A project's name is its folder name, so renaming a project moves the
+ * directory. Keying on id alone meant `watchProject(id, newName)` saw the id
+ * already present and returned — leaving the watcher pointed at a path that no
+ * longer exists, silently, so file changes stopped being reported for that
+ * project. Callers that re-register in bulk (the `org:changed` handler) relied
+ * on this being safe.
+ */
+const watchers = new Map<string, { watcher: FSWatcher; dir: string }>();
 
 let broadcastFn: ((event: ActivityEvent) => void) | null = null;
 
@@ -46,9 +56,16 @@ export function getEvents(projectId?: string): ActivityEvent[] {
  * Start watching a project's shared content directory for file changes.
  */
 export function watchProject(projectId: string, projectName: string) {
-  if (watchers.has(projectId)) return;
-
   const dir = sharedDirFor(projectName);
+  const existing = watchers.get(projectId);
+  if (existing) {
+    // Same directory — nothing to do. A different one means the project was
+    // renamed and the old watcher is now watching nothing.
+    if (existing.dir === dir) return;
+    console.log(`[activity] Project ${projectId} moved: ${existing.dir} → ${dir}`);
+    unwatchProject(projectId);
+  }
+
   fs.mkdirSync(dir, { recursive: true });
 
   console.log(`[activity] Watching shared content: ${dir}`);
@@ -104,13 +121,13 @@ export function watchProject(projectId: string, projectName: string) {
     console.error(`[activity] Watcher error for ${projectName}:`, err);
   });
 
-  watchers.set(projectId, watcher);
+  watchers.set(projectId, { watcher, dir });
 }
 
 export function unwatchProject(projectId: string) {
-  const watcher = watchers.get(projectId);
-  if (watcher) {
-    watcher.close();
+  const entry = watchers.get(projectId);
+  if (entry) {
+    entry.watcher.close();
     watchers.delete(projectId);
   }
 }
