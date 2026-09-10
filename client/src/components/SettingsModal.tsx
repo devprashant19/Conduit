@@ -85,6 +85,8 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
   const [browserVoices, setBrowserVoices] = useState<{ name: string; lifelike: boolean }[]>([]);
   /** Whether Conduit answers ordinary y/n prompts itself. Harmful gates ignore it. */
   const [autoApprove, setAutoApprove] = useState(true);
+  /** 'live' streams to Nova 2 Sonic; 'pipeline' is the original path. */
+  const [engine, setEngine] = useState<'pipeline' | 'live'>('pipeline');
 
   useEffect(() => {
     const synth = window.speechSynthesis;
@@ -148,6 +150,7 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
         setCfg(d.config);
         setProviders(d.providers);
         setKeys(d.keys);
+        if (d.config?.engine === 'live') setEngine('live');
       })
       .catch((e) => setErr(String(e)));
     fetch('/api/gate-settings')
@@ -206,9 +209,11 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
     setSaving(true);
     setErr(null);
     try {
-      const body: { stt: VoiceConfig['stt']; tts: VoiceConfig['tts']; apiKeys?: { openai?: string; gemini?: string } } = {
-        stt: cfg.stt, tts: cfg.tts,
-      };
+      const body: {
+        engine: 'pipeline' | 'live';
+        stt: VoiceConfig['stt']; tts: VoiceConfig['tts'];
+        apiKeys?: { openai?: string; gemini?: string };
+      } = { engine, stt: cfg.stt, tts: cfg.tts };
       const apiKeys: { openai?: string; gemini?: string } = {};
       if (openaiInput.trim()) apiKeys.openai = openaiInput.trim();
       if (geminiInput.trim()) apiKeys.gemini = geminiInput.trim();
@@ -556,6 +561,39 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
                   </button>
                 )}
               </div>
+            </div>
+          </section>
+
+          {/* How you talk to the Keeper */}
+          <section className="settings-card">
+            <div className="settings-card-header">
+              <div className="settings-card-icon"><Ic.mic size={15} /></div>
+              <div className="settings-card-title-wrap">
+                <h4 className="settings-card-title">Conversation</h4>
+                <span className="settings-card-desc">How talking to the Keeper works</span>
+              </div>
+            </div>
+            <div className="settings-card-body">
+              <div className="settings-toggle-row">
+                <div className="settings-toggle-info">
+                  <span className="settings-toggle-label">Live conversation</span>
+                  <span className="settings-toggle-desc">
+                    One open connection to Amazon Nova 2 Sonic. It answers in under a second,
+                    hears you while it is still talking, and stops when you cut in. Needs AWS
+                    credentials with <code>bedrock:InvokeModelWithBidirectionalStream</code>.
+                  </span>
+                </div>
+                <ToggleSwitch
+                  checked={engine === 'live'}
+                  onChange={(on) => setEngine(on ? 'live' : 'pipeline')}
+                />
+              </div>
+              <p className="settings-toggle-desc" style={{ marginTop: 10 }}>
+                Off, the Keeper uses the original path &mdash; record, transcribe, answer, speak
+                &mdash; which works with any provider above and costs nothing when idle, but takes
+                several seconds per exchange and cannot be interrupted. Live streams audio only
+                while you are actually speaking, so an open session costs nothing in silence.
+              </p>
             </div>
           </section>
 

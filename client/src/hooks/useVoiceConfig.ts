@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
 export interface VoiceCfg {
+  /** 'pipeline' is the record-transcribe-answer-speak path; 'live' is Nova. */
+  engine: 'pipeline' | 'live';
   stt: {
     provider: 'browser' | 'openai' | 'gemini' | 'groq';
     model: string;
@@ -25,6 +27,7 @@ export interface VoiceCfg {
 }
 
 const DEFAULT_CFG: VoiceCfg = {
+  engine: 'pipeline',
   stt: { provider: 'browser', model: '', language: 'en-US', saveRecordings: false },
   tts: { enabled: true, provider: 'browser', model: '', voice: '', speed: 1.0 },
 };

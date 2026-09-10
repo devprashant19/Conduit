@@ -21,6 +21,7 @@ import { useSpeechInput } from './hooks/useSpeechInput';
 import { useVoiceSession } from './hooks/useVoiceSession';
 import { useVoiceAnnouncer } from './hooks/useVoiceAnnouncer';
 import { useVoiceConfig } from './hooks/useVoiceConfig';
+import { useRealtimeVoice } from './hooks/useRealtimeVoice';
 import SettingsModal from './components/SettingsModal';
 import LandingPage from './components/LandingPage';
 import ConduitOnboardingTour from './components/onboarding/ConduitOnboardingTour';
@@ -719,7 +720,11 @@ export default function App() {
   // ever agreed to. A cloud engine only uploads actual speech (the energy gate
   // discards silence) and useWakeWord caps the rate, so the cost of leaving it
   // on is bounded.
-  const alwaysOn = wakeEnabled;
+  // Nova is already listening when the live engine is on. Running the wake
+  // word too means two microphones, two VADs, and a per-utterance STT bill for
+  // audio nobody uses.
+  const liveEngine = voice.cfg.engine === 'live';
+  const alwaysOn = wakeEnabled && !liveEngine;
 
   /**
    * How many agents are blocked on an approval right now.
@@ -746,7 +751,7 @@ export default function App() {
   }, [agents]);
 
   const voiceSession = useVoiceSession({
-    enabled: wakeEnabled && !quickSpeech.listening,
+    enabled: wakeEnabled && !liveEngine && !quickSpeech.listening,
     phrase: wakePhrase,
     language: voice.cfg.stt.language,
     provider: voice.cfg.stt.provider,
@@ -793,8 +798,26 @@ export default function App() {
     [voiceRoster, agents],
   );
 
+  /**
+   * The live Keeper.
+   *
+   * Only opens when the setting says so, so an install without AWS access —
+   * or anyone who prefers the old path — sees no change at all. When it is
+   * live, the pipeline's wake word and announcer stand down: Nova is already
+   * listening, and two things speaking at once is worse than either.
+   */
+  const liveVoice = useRealtimeVoice({
+    enabled: voice.cfg.engine === 'live',
+    onDeferred: (text) => {
+      // An agent answering minutes after it was asked. This is the gap the
+      // pipeline never closed — it said "Sent to Claude" and stopped there.
+      setToast(text.slice(0, 300));
+      if (voiceOut) speak(text, { ...voice.cfg.tts, language: voice.cfg.stt.language });
+    },
+  });
+
   useVoiceAnnouncer({
-    enabled: voiceOut && voice.cfg.tts.enabled,
+    enabled: !liveEngine && voiceOut && voice.cfg.tts.enabled,
     ttsCfg: { ...voice.cfg.tts, language: voice.cfg.stt.language },
     agents: announcerAgents,
     gate: gatedAgentForVoice,
@@ -1450,6 +1473,12 @@ export default function App() {
           voiceOut={voiceOut}
           onToggleVoiceOut={() => setVoiceOut((v) => !v)}
           headerListening={quickSpeech.listening}
+          live={{
+            status: liveVoice.status,
+            speaking: liveVoice.speaking,
+            hearing: liveVoice.hearing,
+            error: liveVoice.error,
+          }}
           wake={{
             enabled: wakeEnabled,
             supported: wake.supported,

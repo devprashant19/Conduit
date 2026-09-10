@@ -39,6 +39,17 @@ interface Props {
     enabled: boolean; supported: boolean; armed: boolean; phrase: string;
     onToggle: () => void; onPhraseChange: (v: string) => void;
   };
+  /**
+   * The live Nova session, when that engine is on. The orb is the only place
+   * the user can see whether it is actually listening — without it, "is this
+   * thing on?" has no answer, which was the complaint about the old wake word.
+   */
+  live?: {
+    status: 'off' | 'connecting' | 'live' | 'error';
+    speaking: boolean;
+    hearing: boolean;
+    error: string | null;
+  };
   awaiting: AgentNotif[];
   running: number;
   idle: number;
@@ -47,7 +58,7 @@ interface Props {
 }
 
 export default function JarvisHud({
-  send, working, lastReply, onClearReply, sttCfg, voiceOut, onToggleVoiceOut, headerListening, wake, awaiting, running, idle, onSelectAgent, onOpenFull,
+  send, working, lastReply, onClearReply, sttCfg, voiceOut, onToggleVoiceOut, headerListening, wake, live, awaiting, running, idle, onSelectAgent, onOpenFull,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
@@ -74,9 +85,12 @@ export default function JarvisHud({
     return () => clearTimeout(t);
   }, [expanded]);
 
-  const state = working ? 'thinking'
-    : (speech.listening || wake.armed || headerListening) ? 'listening'
-    : 'idle';
+  // A live session speaks for itself: it is hearing you, talking, or waiting.
+  const state = live && live.status !== 'off'
+    ? (live.speaking ? 'thinking' : live.hearing ? 'listening' : 'idle')
+    : working ? 'thinking'
+      : (speech.listening || wake.armed || headerListening) ? 'listening'
+      : 'idle';
 
   return (
     <div className="jv">

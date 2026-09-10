@@ -18,6 +18,20 @@ const VOICE_PATH = path.join(VOICE_DIR, 'voice.json');
 const KEYS_PATH = path.join(VOICE_DIR, 'api-keys.json');
 
 export interface VoiceConfig {
+  /**
+   * How you talk to the Keeper.
+   *
+   *   'pipeline' — record, transcribe, ask the Keeper, speak the answer. Works
+   *                with any provider, costs nothing when idle, and takes 7-9
+   *                seconds an exchange because each stage waits for the last.
+   *   'live'     — one open connection to Amazon Nova 2 Sonic: it hears you,
+   *                answers in under a second, and stops when you talk over it.
+   *                Needs AWS credentials with bedrock:InvokeModelWithBidirectionalStream.
+   *
+   * Defaults to 'pipeline' so an install with no AWS access behaves exactly as
+   * it did before.
+   */
+  engine: 'pipeline' | 'live';
   stt: {
     provider: 'browser' | 'openai' | 'gemini' | 'groq';
     model: string;
@@ -37,6 +51,7 @@ export interface VoiceConfig {
 }
 
 const DEFAULT: VoiceConfig = {
+  engine: 'pipeline',
   stt: { provider: 'browser', model: '', language: 'en-US', saveRecordings: false },
   tts: { enabled: true, provider: 'browser', model: '', voice: '', speed: 1.0 },
 };
@@ -46,6 +61,7 @@ export function loadConfig(): VoiceConfig {
     if (fs.existsSync(VOICE_PATH)) {
       const raw = JSON.parse(fs.readFileSync(VOICE_PATH, 'utf-8'));
       return {
+        engine: raw.engine === 'live' ? 'live' : DEFAULT.engine,
         stt: { ...DEFAULT.stt, ...(raw.stt || {}) },
         tts: { ...DEFAULT.tts, ...(raw.tts || {}) },
       };

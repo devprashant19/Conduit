@@ -258,13 +258,17 @@ app.get('/api/voice/config', (_req, res) => {
 app.put('/api/voice/config', (req, res) => {
   try {
     const body = (req.body || {}) as {
-      stt?: unknown; tts?: unknown;
+      engine?: unknown; stt?: unknown; tts?: unknown;
       apiKeys?: { openai?: string; gemini?: string; groq?: string };
     };
-    // Settings (stt/tts) live in voice.json.
-    if (body.stt || body.tts) {
+    // Settings (engine/stt/tts) live in voice.json.
+    if (body.engine || body.stt || body.tts) {
       const cur = loadVoiceConfig();
+      const engine = body.engine === 'live' || body.engine === 'pipeline'
+        ? body.engine
+        : cur.engine;
       saveVoiceConfig({
+        engine,
         stt: { ...cur.stt, ...((body.stt as Partial<typeof cur.stt>) || {}) },
         tts: { ...cur.tts, ...((body.tts as Partial<typeof cur.tts>) || {}) },
       });
