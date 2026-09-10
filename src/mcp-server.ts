@@ -48,10 +48,21 @@ function authHeaders(): Record<string, string> {
   return { Authorization: 'Basic ' + Buffer.from(raw).toString('base64') };
 }
 
+/**
+ * Every one of these tools is called from inside an agent's turn, and the
+ * agent waits for the answer. Without a bound, a web server that is restarting
+ * — or gone — leaves the agent blocked on a socket that will never reply, with
+ * nothing on screen to say why. Ten seconds is generous for a local request
+ * that normally takes milliseconds; the Keeper's own MCP server has had this
+ * for the same reason.
+ */
+const HUB_TIMEOUT_MS = 10_000;
+
 async function hubFetch(args: Args, path: string, init?: RequestInit): Promise<Response> {
   const url = `${args.hubUrl}${path}`;
   return fetch(url, {
     ...init,
+    signal: AbortSignal.timeout(HUB_TIMEOUT_MS),
     headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(init?.headers as Record<string, string> | undefined) },
   });
 }
