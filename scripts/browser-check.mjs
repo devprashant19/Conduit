@@ -138,7 +138,14 @@ try {
       await sleep(1200);
       check(await evalText(`!!document.querySelector('.gr-tabs')`), 'project view opens with tabs');
       check(await evalText(`[...document.querySelectorAll('.pane-agent-name')].some(e => e.textContent === 'Alpha')`), 'agent pane renders');
-      check(await evalText(`/agent stopped/i.test(document.body.innerText) && !!document.querySelector('.pane-stopped .batch-btn')`), 'stopped agent shows start prompt');
+      // Match on what the pane *is*, not on how it is currently styled: a
+      // refactor renamed the start button and this went red while the UI was
+      // perfectly fine. A button inside the stopped pane that says "start" is
+      // the actual contract.
+      check(await evalText(`/agent stopped/i.test(document.body.innerText)
+        && [...document.querySelectorAll('.pane-stopped button')]
+             .some(b => /start/i.test(b.textContent || ''))`),
+        'stopped agent shows start prompt');
       await evalText(`[...document.querySelectorAll('.gr-tab')].find(b => b.textContent.includes('Group Chat'))?.click()`);
       await sleep(800);
       check(await evalText(`!!document.querySelector('.gc-compose textarea')`), 'group chat composer renders');
