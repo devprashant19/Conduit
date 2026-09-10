@@ -5226,7 +5226,11 @@ textarea {
   padding: 6px 0;
 }
 
-.settings-row label {
+/* Direct child only. A checkbox row nests its own <label> inside the control,
+   and a descendant selector shrank that to the 90px gutter — which wrapped
+   "Save each clip to ~/.conduit/voice-debug/latest.webm" into a column five
+   words wide. */
+.settings-row > label {
   width: 90px;
   flex-shrink: 0;
   font-size: 12px;

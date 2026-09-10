@@ -42,11 +42,21 @@ interface Props {
   onRestartTour?: () => void;
 }
 
+/**
+ * BCP-47 tags, because that is what is stored and what the browser recogniser
+ * needs; the cloud providers get the leading subtag. These ids must cover the
+ * saved default (`en-US`) — a `<select>` whose value matches no option renders
+ * the *first* option instead, so a mismatch here silently offers to switch the
+ * user's speech recognition to another language the next time they press Save.
+ */
 const LANGS: ModelOption[] = [
+  { id: 'en-US', label: 'English (US)' },
+  { id: 'en-GB', label: 'English (UK)' },
+  { id: 'en-IN', label: 'English (India)' },
+  { id: 'hi-IN', label: 'Hindi' },
+  { id: 'zh-CN', label: 'Chinese (Mainland)' },
   { id: 'zh-TW', label: 'Chinese (Taiwan)' },
-  { id: 'zh', label: 'Chinese (Mainland)' },
-  { id: 'en', label: 'English' },
-  { id: 'ja', label: 'Japanese' },
+  { id: 'ja-JP', label: 'Japanese' },
   { id: '', label: 'Auto-detect' },
 ];
 
@@ -239,7 +249,12 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
                 value={cfg.stt.language}
                 onChange={(e) => setCfg({ ...cfg, stt: { ...cfg.stt, language: e.target.value } })}
               >
-                {LANGS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                {/* Never misrepresent what is saved: an unknown tag gets its
+                    own entry rather than being shown as whatever is first. */}
+                {(LANGS.some((l) => l.id === cfg.stt.language)
+                  ? LANGS
+                  : [{ id: cfg.stt.language, label: cfg.stt.language }, ...LANGS]
+                ).map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
               </select>
             </Row>
             <Row label="Debug">
