@@ -8,6 +8,9 @@ import { writeClaudeMcpConfig, removeClaudeMcpConfig } from './mcp-config.js';
 import { writeClaudeHookConfig, removeClaudeHookConfig } from './hook-config.js';
 import { DAEMON_HOST, DAEMON_PORT } from './daemon/protocol.js';
 import { stripAnsi } from './gatePatterns.js';
+import {
+  CONDUIT_MARKER, CONDUIT_END_MARKER, INSTRUCTION_FILES, stripConduitSection,
+} from './instruction-files.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname_ = path.dirname(__filename);
@@ -157,7 +160,7 @@ function buildConduitSection(
   currentAgent: Agent,
   teammates: Agent[],
 ): { marker: string; section: string } {
-  const marker = '<!-- Conduit -->';
+  const marker = CONDUIT_MARKER;
   const hasWiki = fs.existsSync(path.join(wikiPath, '_schema.md'));
 
   const lines = [
@@ -217,7 +220,7 @@ function buildConduitSection(
     }
   }
 
-  lines.push('', '<!-- End Conduit -->', '');
+  lines.push('', CONDUIT_END_MARKER, '');
   return { marker, section: lines.join('\n') };
 }
 
@@ -235,11 +238,9 @@ function ensureInstructionFile(
   const { section } = buildConduitSection(sharedPath, wikiPath, currentAgent, teammates);
 
   if (fs.existsSync(filePath)) {
-    let existing = fs.readFileSync(filePath, 'utf-8');
-    // Remove all old sections (AgentOrg, Conduit Shared Content, previous Conduit)
-    existing = existing.replace(/\n*<!-- AgentOrg[^>]*-->[\s\S]*?<!-- End AgentOrg -->\n*/g, '\n');
-    existing = existing.replace(/\n*<!-- Conduit[^>]*-->[\s\S]*?<!-- End Conduit -->\n*/g, '\n');
-    // Append fresh section
+    // Replace any previous section (AgentOrg, or an earlier Conduit one) so the
+    // file never accumulates copies of itself.
+    const existing = stripConduitSection(fs.readFileSync(filePath, 'utf-8'));
     fs.writeFileSync(filePath, existing.trimEnd() + '\n' + section, 'utf-8');
   } else {
     fs.writeFileSync(filePath, '# ' + projectName + '\n' + section, 'utf-8');
@@ -364,15 +365,7 @@ export function startAgent(agent: Agent, onStatus: (agentId: string, status: str
   }
 
   // Write instruction file in agent's cwd so the CLI knows about shared content + memory + teammates
-  const instructionFiles: Record<string, string> = {
-    claude: 'CLAUDE.md',
-    codex: 'AGENTS.md',
-    gemini: 'AGENTS.md',
-    opencode: 'AGENTS.md',
-    gpt: 'AGENTS.md',
-    nemotron: 'AGENTS.md',
-  };
-  const instrFile = path.join(cwd, instructionFiles[agent.cli]);
+  const instrFile = path.join(cwd, INSTRUCTION_FILES[agent.cli]);
   try {
     ensureInstructionFile(instrFile, projectName, sharedPath, wikiPath, agent, teammates);
   } catch (err) {

@@ -110,6 +110,18 @@ for (const [method, route, body, ct] of cases) {
 // The point of the whole exercise: none of the above took the server with it.
 const after = await hit('GET', '/api/health');
 console.log(`\nserver alive afterwards: ${after.status === 200}`);
+// The delete above must have taken Conduit's section back out of the fixture's
+// own CLAUDE.md. Starting an agent edits the user's repository; deleting the
+// project has to undo it.
+const leftovers = fs.existsSync(fixtureCwd)
+  ? fs.readdirSync(fixtureCwd).filter((f) => f === 'CLAUDE.md' || f === 'AGENTS.md')
+  : [];
+if (leftovers.length) {
+  bad++;
+  console.log(`✗ deleting the project left ${leftovers.join(', ')} behind in the agent's cwd`);
+} else {
+  console.log('✓ deleting the project removed the instruction files it wrote');
+}
 try { fs.rmSync(fixtureCwd, { recursive: true, force: true }); } catch { /* ignore */ }
 
 console.log(bad === 0 ? '\nno 5xx and no dropped connections' : `\n${bad} problem(s)`);

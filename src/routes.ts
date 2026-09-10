@@ -10,6 +10,7 @@ import type { DaemonClient } from './daemon/client.js';
 import type { Agent, WSServerMessage, ProjectLayout } from './types.js';
 import { isYesNoPrompt } from './gatePatterns.js';
 import { VALID_CLIS } from './cli-registry.js';
+import { removeConduitSections } from './instruction-files.js';
 
 function expandHome(p: string): string {
   if (p === '~') return os.homedir();
@@ -242,6 +243,11 @@ export function createRouter(
       } catch { /* daemon down — nothing running */ }
     }
     activity.unwatchProject(req.params.id);
+    // Take Conduit's block back out of the user's own CLAUDE.md / AGENTS.md.
+    // Starting an agent writes into their repository; deleting the project has
+    // to undo that, or every project Conduit ever ran leaves a section behind.
+    const dirs = new Set([data.project.cwd, ...data.agents.map((a) => a.cwd)].filter(Boolean));
+    for (const cwd of dirs) removeConduitSections(expandHome(cwd), data.project.name);
     storage.deleteProject(req.params.id, removeData);
     broadcast({ type: 'org:changed' });
     res.status(204).end();
