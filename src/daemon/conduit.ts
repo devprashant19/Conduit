@@ -324,6 +324,16 @@ export async function askAgentDispatch(
     return { ok: false, status: 'not-running', ...base, reply: null };
   }
 
+  // Starting an agent returns as soon as the process is up, because that is
+  // when the user can see it. Injecting into a TUI that is still drawing
+  // itself loses the message, so the wait that `start_agent` used to do
+  // happens here instead — where something depends on it, and only if it has
+  // not already completed in the background.
+  if (!readyAgents.has(agent.id)) {
+    await waitForAgentReady(agent.id, agent.cli);
+    readyAgents.add(agent.id);
+  }
+
   const since = Date.now();
 
   if (agent.cli === 'claude') {
@@ -409,6 +419,19 @@ export interface StartAgentResult {
  * TUI and MCP servers need a moment after the session opens). Other CLIs have
  * no hooks, so we fall back to a fixed boot delay.
  */
+/**
+ * Agents whose CLI has finished booting since `start_agent` returned.
+ *
+ * `start_agent` no longer blocks on this, so `ask_agent` has to know whether
+ * the wait already happened. Cleared when an agent stops, so a restart waits
+ * again rather than injecting into a TUI that is still drawing itself.
+ */
+const readyAgents = new Set<string>();
+
+export function forgetAgentReady(agentId: string): void {
+  readyAgents.delete(agentId);
+}
+
 function waitForAgentReady(agentId: string, cli: string): Promise<void> {
   // Codex (app-server): the thread already exists once startAgent resolved.
   if (cli === 'codex') return Promise.resolve();
@@ -467,7 +490,21 @@ export async function startAgentDispatch(
     return { ok: false, status: 'start-failed', ...base, error: 'Failed to spawn the agent process.' };
   }
 
-  await waitForAgentReady(agent.id, agent.cli);
+  // Deliberately not waiting for the CLI to finish booting.
+  //
+  // This used to block for 12s (Claude, after its SessionStart hook), 16s
+  // (everything else) or 45s (the floor), *before returning to the Keeper* —
+  // so "start the agents" spent a minute or more looking like nothing was
+  // happening, and a three-agent project could push the whole turn past its
+  // timeout. Meanwhile the process was up and its terminal was already
+  // streaming to the UI from the moment `doStart` resolved.
+  //
+  // Readiness only matters to whatever sends the agent a message next, and
+  // `askAgentDispatch` already waits for a turn boundary. So the wait moved
+  // there, where something actually depends on it.
+  void waitForAgentReady(agent.id, agent.cli).then(() => {
+    readyAgents.add(agent.id);
+  });
   return { ok: true, status: 'started', ...base };
 }
 
