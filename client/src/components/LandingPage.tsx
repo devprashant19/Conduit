@@ -26,21 +26,15 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
 
   return (
     <div className="landing-page">
+      {/* Purple Gradient Grid Right Background */}
+      <div className="landing-bg-gradient-grid" aria-hidden="true" />
+
       {/* Top Floating Navigation */}
       <header className="landing-nav">
-        <div className="landing-nav-left">
-          <div
-            className="landing-nav-brand"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            role="button"
-            tabIndex={0}
-          >
-            <span className="brand-logo-wrap"><Ic.logo size={15} /></span>
-            <span className="brand-title">CONDUIT</span>
-          </div>
+        <div className="landing-nav-brand">
+          <span className="brand-title">CONDUIT</span>
         </div>
-
-        <nav className="landing-nav-links" aria-label="Main Navigation">
+        <div className="landing-nav-links">
           <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'how-it-works')}>
             How it works
           </button>
@@ -53,8 +47,7 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
           <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'faq')}>
             FAQ
           </button>
-        </nav>
-
+        </div>
         <div className="landing-nav-actions">
           {onStartTour && (
             <button
@@ -84,7 +77,7 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
         </div>
       </header>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Navigation Dropdown Drawer */}
       {isMobileMenuOpen && (
         <div className="landing-nav-mobile-drawer">
           <button
@@ -138,7 +131,7 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
                 }}
               >
                 <Ic.sparkles size={13} />
-                <span>Interactive Tour</span>
+                <span>Tour</span>
               </button>
             )}
             <button
@@ -158,6 +151,7 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
 
       {/* Hero Section */}
       <section className="landing-hero">
+
 
         {/* Center Hero Content */}
         <div className="hero-center-content" data-tour="landing-hero">

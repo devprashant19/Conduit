@@ -206,9 +206,9 @@ export default function ConduitAgentDemo({ onOpenConsole }: ConduitAgentDemoProp
         {/* Window Chrome Header */}
         <div className="window-chrome">
           <div className="window-traffic-lights" aria-hidden="true">
-            <span className="dot" />
-            <span className="dot" />
-            <span className="dot" />
+            <span className="dot red" />
+            <span className="dot yellow" />
+            <span className="dot green" />
           </div>
 
           <div className="window-center-brand">

@@ -7089,36 +7089,48 @@ body.is-resizing .pane-resizer {
 }
 
 /* ==========================================================
-   Scoped Landing Page Design System (Developer Control Center)
+   Scrollable Landing Page & Hero Section (Reference Exact)
    ========================================================== */
 
 .landing-page {
-  --lp-bg: #fafafa;
-  --lp-bg-surface: #ffffff;
-  --lp-bg-subtle: #f6f5f3;
-  --lp-text-0: #0f0f11;
-  --lp-text-1: #292524;
-  --lp-text-2: #57534e;
-  --lp-text-3: #8c877f;
-  --lp-border: #e6e2dc;
-  --lp-border-hover: #d2cdc5;
-  --lp-accent: #0f0f11;
-  --lp-font: var(--ff-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
-  --lp-radius-sm: 6px;
-  --lp-radius-md: 8px;
-  --lp-radius-lg: 12px;
-  --lp-radius-xl: 16px;
-
-  font-family: var(--lp-font);
-  background: var(--lp-bg);
-  color: var(--lp-text-0);
   min-height: 100vh;
   width: 100%;
+  background: #ffffff;
+  color: var(--text-0);
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
+  font-family: var(--ff-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Purple Gradient Grid Background Across All Sections */
+.landing-bg-gradient-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, #f0f0f0 1px, transparent 1px),
+    linear-gradient(to bottom, #f0f0f0 1px, transparent 1px),
+    radial-gradient(circle 800px at 100% 200px, rgba(213, 197, 255, 0.95), transparent 70%),
+    radial-gradient(circle 750px at 0% 1150px, rgba(220, 208, 255, 0.75), transparent 70%),
+    radial-gradient(circle 850px at 100% 2100px, rgba(213, 197, 255, 0.7), transparent 70%),
+    radial-gradient(circle 800px at 0% 3050px, rgba(225, 214, 255, 0.75), transparent 70%),
+    radial-gradient(circle 900px at 100% 4000px, rgba(213, 197, 255, 0.7), transparent 70%),
+    radial-gradient(circle 850px at 10% 4950px, rgba(220, 208, 255, 0.65), transparent 70%);
+  background-size:
+    96px 64px, 96px 64px,
+    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-repeat:
+    repeat, repeat,
+    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+}
+
+.landing-page > *:not(.landing-bg-gradient-grid) {
+  position: relative;
+  z-index: 1;
 }
 
 .landing-page * {
@@ -7130,57 +7142,29 @@ body.is-resizing .pane-resizer {
 .landing-page kbd,
 .landing-page pre,
 .landing-page .terminal-code {
-  font-family: var(--ff-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace) !important;
+  font-family: var(--ff-mono, monospace) !important;
 }
 
-/* ─── Navigation Header ─────────────────────────────────────────────── */
+/* Landing Navigation */
 .landing-nav {
   position: sticky;
   top: 0;
   z-index: 100;
-  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
-  background: rgba(250, 250, 250, 0.88);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--lp-border);
-  transition: all 0.2s ease;
-}
-
-.landing-nav-left {
-  display: flex;
-  align-items: center;
-}
-
-.landing-nav-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-  text-decoration: none;
-}
-
-.brand-logo-wrap {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--lp-radius-sm);
-  background: #0f0f11;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  padding: 16px 40px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(15, 15, 17, 0.06);
 }
 
 .landing-nav-brand .brand-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--lp-text-0);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f0f11;
 }
 
 .landing-nav-links {
@@ -7192,24 +7176,59 @@ body.is-resizing .pane-resizer {
 .landing-nav-link {
   font-size: 13px;
   font-weight: 500;
-  color: var(--lp-text-2);
+  color: var(--text-1);
   text-decoration: none;
   background: none;
   border: none;
-  padding: 6px 2px;
+  padding: 0;
   cursor: pointer;
+  font-family: inherit;
   transition: color 0.15s ease;
-  white-space: nowrap;
 }
 
 .landing-nav-link:hover {
-  color: var(--lp-text-0);
+  color: #0f0f11;
+}
+
+/* Without this the div is a plain block, JSX eats the whitespace between its
+   two children, and the Control Center pill lands flush against "Tour" with
+   its shadow over the text. */
+.landing-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.landing-btn-black {
+  height: 36px;
+  padding: 0 18px;
+  background: #0f0f11;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(15, 15, 17, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.landing-btn-black:hover {
+  background: #27272a;
+  transform: translateY(-1.5px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(15, 15, 17, 0.3);
 }
 
 .landing-nav-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-shrink: 0;
 }
 
@@ -7217,48 +7236,26 @@ body.is-resizing .pane-resizer {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  background: transparent;
-  border: 1px solid var(--lp-border);
-  border-radius: var(--lp-radius-sm);
-  color: var(--lp-text-1);
+  gap: 5px;
+  height: 36px;
+  padding: 0 14px;
+  background: rgba(15, 15, 17, 0.05);
+  border: 1px solid rgba(15, 15, 17, 0.12);
+  border-radius: var(--radius-pill);
+  color: #0f0f11;
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .landing-nav-tour-btn:hover {
-  background: var(--lp-bg-subtle);
-  border-color: var(--lp-border-hover);
-  color: var(--lp-text-0);
-}
-
-.landing-btn-black {
-  height: 32px;
-  padding: 0 14px;
-  background: #0f0f11;
-  color: #ffffff;
-  border: 1px solid #0f0f11;
-  border-radius: var(--lp-radius-sm);
-  font-size: 12.5px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.landing-btn-black:hover {
-  background: #27272a;
-  border-color: #27272a;
+  background: rgba(15, 15, 17, 0.09);
+  border-color: rgba(15, 15, 17, 0.22);
+  transform: translateY(-1px);
 }
 
 .btn-text-short {
@@ -7269,29 +7266,37 @@ body.is-resizing .pane-resizer {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   background: transparent;
-  border: 1px solid var(--lp-border);
-  border-radius: var(--lp-radius-sm);
-  color: var(--lp-text-0);
+  border: 1px solid rgba(15, 15, 17, 0.12);
+  border-radius: var(--radius-pill);
+  color: #0f0f11;
   cursor: pointer;
   padding: 0;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
-/* ─── Mobile Navigation Drawer ───────────────────────────────────────── */
+.landing-nav-mobile-toggle:hover {
+  background: rgba(15, 15, 17, 0.06);
+}
+
+/* ─── Mobile Navigation Dropdown Drawer ─────────────────────────── */
 .landing-nav-mobile-drawer {
   display: flex;
   flex-direction: column;
   gap: 4px;
   padding: 16px 20px 20px;
-  background: #ffffff;
-  border-bottom: 1px solid var(--lp-border);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(15, 15, 17, 0.08);
   position: sticky;
   top: 56px;
   z-index: 99;
+  box-shadow: 0 12px 28px -6px rgba(15, 15, 17, 0.08);
   animation: drawer-fade-down 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 12px 24px -6px rgba(15, 15, 17, 0.08);
 }
 
 @keyframes drawer-fade-down {
@@ -7309,21 +7314,22 @@ body.is-resizing .pane-resizer {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 10px 12px;
+  padding: 10px 14px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--lp-text-1);
+  color: var(--text-1);
   background: none;
   border: none;
-  border-radius: var(--lp-radius-sm);
+  border-radius: 8px;
   text-align: left;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .mobile-drawer-link:hover {
-  background: var(--lp-bg-subtle);
-  color: var(--lp-text-0);
+  background: rgba(15, 15, 17, 0.05);
+  color: #0f0f11;
 }
 
 .mobile-drawer-actions {
@@ -7332,7 +7338,7 @@ body.is-resizing .pane-resizer {
   gap: 8px;
   margin-top: 10px;
   padding-top: 12px;
-  border-top: 1px solid var(--lp-border);
+  border-top: 1px solid rgba(15, 15, 17, 0.08);
 }
 
 .mobile-drawer-tour-btn,
@@ -7344,15 +7350,17 @@ body.is-resizing .pane-resizer {
   width: 100%;
   height: 38px;
   font-size: 13px;
-  font-weight: 500;
-  border-radius: var(--lp-radius-sm);
+  font-weight: 600;
+  border-radius: var(--radius-pill);
   cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
 }
 
 .mobile-drawer-tour-btn {
-  background: transparent;
-  border: 1px solid var(--lp-border);
-  color: var(--lp-text-0);
+  background: rgba(15, 15, 17, 0.04);
+  border: 1px solid rgba(15, 15, 17, 0.12);
+  color: #0f0f11;
 }
 
 .mobile-drawer-cta-btn {
@@ -7361,27 +7369,48 @@ body.is-resizing .pane-resizer {
   border: 1px solid #0f0f11;
 }
 
-/* ─── Hero Section (Clean Developer Control Center) ──────────────────── */
+
+/* Hero Section */
 .landing-hero {
   position: relative;
-  min-height: 64vh;
+  min-height: 55vh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 80px 24px 60px;
-  background: var(--lp-bg);
 }
 
+/* Center Hero Typography */
 .hero-center-content {
   position: relative;
   z-index: 10;
   text-align: center;
-  max-width: 760px;
+  max-width: 680px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: 0 auto;
+}
+
+.hero-pill-badge {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  margin-bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.yc-orange {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  background: #ff6600;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 2px;
 }
 
 .hero-title {
@@ -7389,61 +7418,62 @@ body.is-resizing .pane-resizer {
   line-height: 1.12;
   font-weight: 800;
   letter-spacing: -0.04em;
-  color: var(--lp-text-0);
-  margin: 0 0 20px;
+  color: #0f0f11;
+  margin-bottom: 18px;
 }
 
 .highlight-pill {
   display: inline-block;
-  background: rgba(15, 15, 17, 0.05);
+  background: linear-gradient(135deg, rgba(213, 197, 255, 0.65), rgba(230, 218, 255, 0.5));
+  border: 1px solid rgba(168, 140, 255, 0.4);
   padding: 2px 14px;
-  border-radius: var(--lp-radius-md);
-  border: 1px solid var(--lp-border);
-  color: var(--lp-text-0);
+  border-radius: 12px;
+  color: #0f0f11;
+  box-shadow: 0 2px 10px rgba(168, 140, 255, 0.15);
 }
 
 .hero-subtitle {
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.55;
-  color: var(--lp-text-2);
-  max-width: 580px;
-  margin: 0 0 32px;
-  letter-spacing: -0.01em;
+  color: var(--text-2);
+  max-width: 480px;
+  margin-bottom: 30px;
+  letter-spacing: -0.015em;
 }
 
 .hero-actions {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .hero-cta-button {
-  height: 42px;
+  height: 44px;
   padding: 0 24px;
   background: #0f0f11;
   color: #ffffff;
-  border: 1px solid #0f0f11;
-  border-radius: var(--lp-radius-md);
-  font-size: 13.5px;
-  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(15, 15, 17, 0.1);
-  transition: all 0.15s ease;
+  box-shadow: 0 4px 16px rgba(15, 15, 17, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hero-cta-button:hover {
   background: #27272a;
-  border-color: #27272a;
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(15, 15, 17, 0.35);
 }
 
 .hero-cta-subtext {
-  font-size: 12px;
-  color: var(--lp-text-3);
-  letter-spacing: 0.01em;
-  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-3);
 }
+
+
 
 /* ==========================================================
    Section 2: How It Works (Reference Exact)
@@ -7486,7 +7516,7 @@ body.is-resizing .pane-resizer {
   font-family: var(--ff-mono);
   font-size: 11px;
   font-weight: 700;
-  color: var(--text-3);
+  color: #7c3aed;
   margin-bottom: 12px;
   letter-spacing: 0.04em;
 }
@@ -7506,13 +7536,14 @@ body.is-resizing .pane-resizer {
 }
 
 .preview-container-box {
-  background: #f4eee5;
+  background: linear-gradient(135deg, rgba(246, 241, 255, 0.85) 0%, rgba(238, 229, 255, 0.65) 100%);
   border-radius: 20px;
   padding: 36px 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(15, 15, 17, 0.05);
+  border: 1px solid rgba(186, 159, 255, 0.25);
+  box-shadow: 0 12px 32px -8px rgba(168, 140, 255, 0.1);
 }
 
 .preview-prompt-card {
@@ -7563,14 +7594,15 @@ body.is-resizing .pane-resizer {
 
 .preview-user-query {
   align-self: flex-end;
-  background: #ebe6dc;
-  color: var(--text-1);
+  background: rgba(238, 230, 255, 0.85);
+  color: #3b0764;
   padding: 8px 14px;
   border-radius: 12px;
   border-bottom-right-radius: 3px;
   font-size: 12.5px;
   line-height: 1.4;
   max-width: 82%;
+  border: 1px solid rgba(186, 159, 255, 0.3);
 }
 
 .preview-status-tag {
@@ -7645,8 +7677,8 @@ body.is-resizing .pane-resizer {
 
 .tool-logo-pill:hover {
   transform: translateY(-2px);
-  border-color: rgba(15, 15, 17, 0.16);
-  box-shadow: 0 8px 20px rgba(15, 15, 17, 0.06);
+  border-color: rgba(168, 140, 255, 0.4);
+  box-shadow: 0 8px 20px rgba(168, 140, 255, 0.12);
 }
 
 .logo-emoji {
@@ -7686,8 +7718,8 @@ body.is-resizing .pane-resizer {
   align-items: center;
   justify-content: flex-start;
   gap: 4px;
-  background: #f4eee5;
-  border: 1px solid rgba(15, 15, 17, 0.06);
+  background: rgba(244, 238, 255, 0.75);
+  border: 1px solid rgba(186, 159, 255, 0.25);
   padding: 4px;
   border-radius: var(--radius-pill);
   margin: 0 auto 36px;
@@ -7710,7 +7742,7 @@ body.is-resizing .pane-resizer {
   left: 0;
   background: #ffffff;
   border-radius: var(--radius-pill);
-  box-shadow: 0 2px 10px rgba(15, 15, 17, 0.08), 0 1px 3px rgba(15, 15, 17, 0.04);
+  box-shadow: 0 2px 10px rgba(168, 140, 255, 0.16), 0 1px 3px rgba(15, 15, 17, 0.04);
   pointer-events: none;
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), width 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
   z-index: 1;
@@ -7746,11 +7778,11 @@ body.is-resizing .pane-resizer {
 .workflow-master-card-container {
   width: 100%;
   max-width: 820px;
-  background: #f4eee5;
-  border: 1px solid rgba(15, 15, 17, 0.06);
+  background: linear-gradient(135deg, rgba(247, 243, 255, 0.9) 0%, rgba(239, 232, 255, 0.75) 100%);
+  border: 1px solid rgba(186, 159, 255, 0.25);
   border-radius: 22px;
   padding: 28px;
-  box-shadow: 0 12px 32px -10px rgba(15, 15, 17, 0.04);
+  box-shadow: 0 16px 40px -10px rgba(168, 140, 255, 0.12);
   position: relative;
   overflow: hidden;
 }
@@ -7822,8 +7854,8 @@ body.is-resizing .pane-resizer {
 .workflow-visual-stage {
   flex: 1;
   min-height: 180px;
-  background: #faf8f5;
-  border: 1px solid var(--border);
+  background: #ffffff;
+  border: 1px solid rgba(186, 159, 255, 0.2);
   border-radius: 14px;
   padding: 16px;
   display: flex;
@@ -7831,6 +7863,7 @@ body.is-resizing .pane-resizer {
   justify-content: center;
   position: relative;
   overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(15, 15, 17, 0.02);
 }
 
 /* Visual 1: Terminal */
@@ -7950,8 +7983,8 @@ body.is-resizing .pane-resizer {
   grid-template-rows: 1fr 1fr;
 }
 .layout-cell {
-  background: #faf8f5;
-  border: 1px solid var(--border);
+  background: rgba(247, 243, 255, 0.6);
+  border: 1px solid rgba(186, 159, 255, 0.2);
   border-radius: 6px;
   padding: 6px 8px;
   display: flex;
@@ -8472,7 +8505,13 @@ body.is-resizing .pane-resizer {
 }
 
 .faq-item:hover {
-  border-color: rgba(15, 15, 17, 0.18);
+  border-color: rgba(168, 140, 255, 0.4);
+  box-shadow: 0 6px 20px rgba(168, 140, 255, 0.08);
+}
+
+.faq-item.open {
+  border-color: rgba(168, 140, 255, 0.4);
+  background: linear-gradient(to bottom, #ffffff, rgba(247, 243, 255, 0.5));
 }
 
 .faq-question {
@@ -8553,6 +8592,12 @@ body.is-resizing .pane-resizer {
     gap: 8px;
   }
 
+  /* Hide Tour and Console button from outside navbar on mobile; accessible via hamburger menu */
+  .landing-nav-actions .landing-nav-tour-btn,
+  .landing-nav-actions .landing-btn-black {
+    display: none;
+  }
+
   .landing-nav-mobile-drawer {
     top: 52px;
   }
@@ -8564,6 +8609,11 @@ body.is-resizing .pane-resizer {
     flex-direction: column;
     align-items: center;
     gap: 32px;
+  }
+
+  .hero-bounding-frame {
+    inset: 6px;
+    border-radius: 16px;
   }
 
   .hero-center-content {
@@ -8836,7 +8886,11 @@ body.is-resizing .pane-resizer {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #71717a;
+  color: #6d28d9;
+  background: rgba(213, 197, 255, 0.4);
+  border: 1px solid rgba(168, 140, 255, 0.35);
+  border-radius: var(--radius-pill);
+  padding: 4px 14px;
   display: inline-block;
   margin-bottom: 12px;
 }
@@ -8863,7 +8917,7 @@ body.is-resizing .pane-resizer {
   max-width: 1060px;
   margin: 0 auto;
   border-radius: 20px;
-  box-shadow: 0 24px 64px -12px rgba(15, 15, 17, 0.12), 0 0 0 1px rgba(15, 15, 17, 0.05);
+  box-shadow: 0 24px 64px -12px rgba(168, 140, 255, 0.18), 0 0 0 1px rgba(213, 197, 255, 0.35);
   background: #ffffff;
   overflow: hidden;
   user-select: none;
@@ -8927,15 +8981,35 @@ body.is-resizing .pane-resizer {
 
 .window-traffic-lights {
   display: flex;
+  align-items: center;
   gap: 7px;
 }
 
 .window-traffic-lights .dot {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #d4d4d8;
+  display: inline-block;
+  flex-shrink: 0;
   border: 1px solid rgba(15, 15, 17, 0.08);
+}
+
+.window-traffic-lights .dot.red,
+.window-traffic-lights .dot:nth-child(1) {
+  background: #ff5f56;
+  border-color: #e0443e;
+}
+
+.window-traffic-lights .dot.yellow,
+.window-traffic-lights .dot:nth-child(2) {
+  background: #ffbd2e;
+  border-color: #dea123;
+}
+
+.window-traffic-lights .dot.green,
+.window-traffic-lights .dot:nth-child(3) {
+  background: #27c93f;
+  border-color: #1aab29;
 }
 
 .window-center-brand {
@@ -10046,6 +10120,8 @@ body.is-resizing .pane-resizer {
 .ecosystem-logo-item:focus-visible {
   opacity: 1;
   color: #0f0f11;
+  background: rgba(213, 197, 255, 0.25);
+  box-shadow: 0 2px 10px rgba(168, 140, 255, 0.12);
   transform: translateY(-1.5px) scale(1.03);
 }
 
@@ -10491,6 +10567,11 @@ body.is-resizing .pane-resizer {
 
   .btn-text-short {
     display: inline;
+  }
+
+  .landing-nav-mobile-toggle {
+    width: 30px;
+    height: 30px;
   }
 }
 
