@@ -20,6 +20,34 @@ unexecuted until you approve it. When it is unsure, it asks rather than guesses.
 
 ---
 
+## What it looks like
+
+`scripts/screenshots.mjs` regenerates every image below by driving the real UI in a real
+browser against a running instance. It seeds its own project, starts real agents, shoots
+each surface and then deletes what it made — so none of these can drift from what Conduit
+actually renders, and none of them are mock-ups. The approval gate below was raised by
+`aider`, unprompted, during the run that produced these images.
+
+| | |
+|---|---|
+| ![Console](docs/screenshots/console.png) | ![Approval gate](docs/screenshots/gate.png) |
+| **The console.** Three agents in real terminals you can type into, a status dot per agent derived from its own output, and the Keeper bar across the top. | **An approval gate.** The agent is stopped where it stands until you decide. Reject sends it Escape; a third option lets you answer the prompt in your own words. |
+| ![Group chat](docs/screenshots/groupchat.png) | ![Wiki](docs/screenshots/wiki.png) |
+| **Group chat.** One stream per project. Your messages go to every running agent, `@name` picks one, and the Supervisor's summaries land in the same place, labelled by what kind of thing happened. | **The wiki.** Long-term project memory the agents write to and read back, so a new agent starts knowing what the last one decided. |
+| ![Activity](docs/screenshots/activity.png) | ![Voice settings](docs/screenshots/settings.png) |
+| **Activity.** Every file change and lifecycle event in order, filterable, so "what happened while I was away" is one screen rather than five scrollbacks. | **Voice.** Speech-to-text through the browser, Groq Whisper, OpenAI or Gemini. Keys live in `~/.conduit/api-keys.json` and are never committed. |
+| ![Landing](docs/screenshots/landing.png) | ![Downloads](docs/screenshots/downloads.png) |
+| **The front page**, served from the same origin as the app. | **Downloads.** Only builds that exist on this server, with the sizes they actually are on disk — a platform with no build says so instead of offering a dead link. |
+
+Regenerate them yourself:
+
+```bash
+npm run start:all       # in one shell
+npm run screenshots     # in another
+```
+
+---
+
 ## Run it
 
 Needs **Node 20+** and at least one agent CLI installed and logged in.
@@ -50,8 +78,9 @@ Every claim below is executable. These run against a live instance and exit non-
 failure:
 
 ```bash
-npm test                  # 108 unit checks: gate patterns, voice routing, utterance
-                          # assembly, voice selection, supervisor concurrency
+npm test                  # 114 unit checks: gate patterns, voice routing, utterance
+                          # assembly, voice selection, supervisor concurrency,
+                          # atomic storage writes under real concurrency
 npm run smoke             # 61 checks end to end — starts a real agent, streams its
                           # terminal, exercises every REST route and WebSocket event
 npm run browser-check     # 12 UI interactions driven through headless Edge
@@ -59,6 +88,7 @@ npm run check:agents      # starts one agent of each of the six types
 npm run check:keeper      # asks The Keeper a question and reports what it called
 npm run test:supervisor   # five live classifications against the real model
 npm run check:multi       # four agents working one project concurrently
+npm run check:abuse       # malformed input at every route; a 5xx fails the run
 ```
 
 `npm run check:agents` is the one worth running first. It answers the only question that
@@ -265,11 +295,14 @@ otherwise "start the agent… called gere" executes as "start the agent".
 | Agent types that start or explain themselves | **6 of 6** (`npm run check:agents`) |
 | End-to-end REST + WebSocket + a live agent | **61 checks** (`npm run smoke`) |
 | UI interactions in a real browser | **12 checks** (`npm run browser-check`) |
-| Unit checks | **108** across gate patterns, voice routing, utterance assembly, voice selection, supervisor concurrency |
+| Unit checks | **114** across gate patterns, voice routing, utterance assembly, voice selection, supervisor concurrency, atomic storage writes |
 | Supervisor classification against the real model | **5 checks** (`npm run test:supervisor`) |
 | The Keeper reading and acting | listed projects, started an agent, verified it, stopped it |
 | Concurrent agents | four agent types in one project, supervised, gated and resolved |
 | Desktop app | packaged, launched, drove real terminals, exited without orphaning agents |
+| Concurrent writes to one JSON file | two real processes × 150 writes: zero torn reads, zero empty reads, zero lost writes |
+| Malformed input at every REST route | **29 cases**: no 5xx, no dropped connections, every path-traversal attempt refused, and deleting a project takes Conduit's section back out of the user's `CLAUDE.md` (`npm run check:abuse`) |
+| Screenshots | all eight regenerated by driving the live UI (`npm run screenshots`) |
 
 **Not verified, and it should be.**
 
@@ -289,6 +322,12 @@ otherwise "start the agent… called gere" executes as "start the agent".
    Conduit code involved and cannot be fixed here.
 4. **No load testing.** Four concurrent agents are exercised. Twenty are not, and the
    Supervisor's per-agent call rate is the thing that would break first.
+5. **Write loss under contention is bounded, not eliminated.** Every write to
+   `~/.conduit` goes to a temporary file and is renamed over the target, so a reader can
+   never see a half-written file — that part is absolute, and asserted. Windows refuses a
+   rename over a file another process holds open, so the rename is retried on a patient
+   ladder; at the real writer count that takes losses to zero, but under heavy contention
+   a write can still fail. It throws rather than corrupting, so the failure is visible.
 
 ---
 
