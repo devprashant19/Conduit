@@ -25,13 +25,18 @@
  *                       conversation open and does not want to repeat the
  *                       phrase before each sentence.
  *
- * While Conduit is speaking, capture is muted. An open mic with echo
- * cancellation off hears our own text-to-speech and transcribes it as a
- * command — which loops, and bills a request per lap.
+ * While Conduit is speaking, capture is muted for the purpose of *collecting*
+ * an utterance: an open mic hears our own text-to-speech and transcribes it as
+ * a command, which loops and bills a request per lap.
+ *
+ * It is not deaf, though. The gate keeps sampling for one thing only — you
+ * talking over it, loudly and for long enough that it cannot be our own audio
+ * leaking back in. That cuts the speech off and starts listening, which is what
+ * interrupting is supposed to do.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { subscribeSpeaking, isSpeaking, isLikelySelfEcho } from '../utils/speech';
+import { subscribeSpeaking, isSpeaking, isLikelySelfEcho, stopSpeaking } from '../utils/speech';
 import { UtteranceAssembler } from '../utils/utterance';
 import { matchWakePhrase } from '../utils/voiceRouting';
 
@@ -80,6 +85,18 @@ const IDLE_RECYCLE_MS = 10_000;
  */
 const MIN_SPEECH_RMS = 0.02;
 const HOLD_SPEECH_RMS = 0.008;
+/**
+ * Talking over Conduit while it speaks.
+ *
+ * Deliberately far above the normal speech gate and required to hold for a
+ * moment: the microphone is open while our own audio is playing, and a barge-in
+ * that fires on leakage would have Conduit cutting itself off mid-sentence
+ * forever. Echo cancellation is on, so real leakage sits well under this.
+ */
+const BARGE_IN_RMS = 0.06;
+const BARGE_IN_SUSTAIN_MS = 280;
+/** After we cut our own audio there is nothing left to leak, so barely wait. */
+const BARGE_GUARD_MS = 120;
 
 export type WakeProvider = 'browser' | 'openai' | 'gemini' | 'groq';
 export type ListenMode = 'wake' | 'conversation';
@@ -456,14 +473,22 @@ export function useWakeWord({
         // Muting during playback is the primary defence against the app
         // hearing itself. Discard whatever is buffered rather than uploading
         // a clip of our own speech.
+        let bargeStart = 0;
+        let bargedIn = false;
+
         unsubSpeaking = subscribeSpeaking((speaking) => {
           if (stopped) return;
           if (speaking) {
             muted = true;
+            bargeStart = 0;
             speechStart = 0;
             cut(false);
           } else {
-            unmuteAt = Date.now() + ECHO_GUARD_MS;
+            // A barge-in already silenced the audio, and the user is mid-word.
+            // Waiting the full echo guard would clip the front of what they
+            // said, which is where the wake phrase and the verb live.
+            unmuteAt = Date.now() + (bargedIn ? BARGE_GUARD_MS : ECHO_GUARD_MS);
+            bargedIn = false;
             // The adaptive floor drifts upward on any leakage; re-seed it so
             // the gate does not go deaf to normal speech.
             noiseFloor = 0.005;
@@ -473,13 +498,31 @@ export function useWakeWord({
 
         vadTimer = setInterval(() => {
           if (stopped || !mr) return;
-          if (muted || Date.now() < unmuteAt) return;
           analyser.getFloatTimeDomainData(buf);
           let sum = 0;
           for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
           const rms = Math.sqrt(sum / buf.length);
+          const nowMs = Date.now();
 
-          const now = Date.now();
+          // Speaking: the only thing worth detecting is you interrupting.
+          if (muted) {
+            if (rms > BARGE_IN_RMS) {
+              if (!bargeStart) bargeStart = nowMs;
+              if (nowMs - bargeStart >= BARGE_IN_SUSTAIN_MS) {
+                bargeStart = 0;
+                bargedIn = true;
+                // Flips `speaking` false, which unmutes through the handler
+                // above — so there is one place that decides when we listen.
+                stopSpeaking();
+              }
+            } else {
+              bargeStart = 0;
+            }
+            return;
+          }
+          if (nowMs < unmuteAt) return;
+
+          const now = nowMs;
           const startGate = Math.max(MIN_SPEECH_RMS, noiseFloor * 2.5);
           const holdGate = Math.max(HOLD_SPEECH_RMS, noiseFloor * 1.5);
           const speaking = speechStart ? rms > holdGate : rms > startGate;

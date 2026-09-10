@@ -132,6 +132,76 @@ export function stopSpeaking() {
   setSpeaking(false);
 }
 
+/**
+ * Cut Conduit off when the user talks over it.
+ *
+ * For engines that cannot listen and speak at once — the browser recogniser
+ * aborts while we play audio, or it transcribes our own voice — this opens a
+ * bare microphone meter for the duration of the speech. It never records or
+ * transcribes anything; it watches one number and calls `stopSpeaking()`.
+ *
+ * The thresholds are the same reasoning as the VAD's: far above a normal
+ * speech gate, and required to hold, because the mic is open while our own
+ * audio is playing and a barge-in that fires on leakage would have Conduit
+ * interrupting itself forever.
+ *
+ * Returns an unsubscribe. Safe to call when the page has no microphone — it
+ * simply never fires.
+ */
+export function enableBargeIn(opts: { rms?: number; sustainMs?: number; pollMs?: number } = {}): () => void {
+  const RMS = opts.rms ?? 0.06;
+  const SUSTAIN = opts.sustainMs ?? 280;
+  const POLL = opts.pollMs ?? 60;
+
+  let disposed = false;
+  let stream: MediaStream | null = null;
+  let ctx: AudioContext | null = null;
+  let timer: ReturnType<typeof setInterval> | null = null;
+
+  const teardown = () => {
+    if (timer) { clearInterval(timer); timer = null; }
+    try { stream?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+    stream = null;
+    try { void ctx?.close(); } catch { /* ignore */ }
+    ctx = null;
+  };
+
+  const unsub = subscribeSpeaking(async (speaking) => {
+    if (disposed) return;
+    if (!speaking) { teardown(); return; }
+    if (stream) return;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+      });
+      if (disposed || !isSpeaking()) { teardown(); return; }
+      ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const buf = new Float32Array(analyser.fftSize);
+      let loudSince = 0;
+      timer = setInterval(() => {
+        analyser.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        const rms = Math.sqrt(sum / buf.length);
+        const now = Date.now();
+        if (rms > RMS) {
+          if (!loudSince) loudSince = now;
+          if (now - loudSince >= SUSTAIN) { loudSince = 0; stopSpeaking(); }
+        } else {
+          loudSince = 0;
+        }
+      }, POLL);
+    } catch {
+      teardown();   // no microphone, or permission refused
+    }
+  });
+
+  return () => { disposed = true; unsub(); teardown(); };
+}
+
 /** Pull the Keeper's explicit spoken-summary line (`🔊 …`) out of a reply. */
 const SPOKEN_RE = /🔊[ \t]*([^\n]+)/;
 
