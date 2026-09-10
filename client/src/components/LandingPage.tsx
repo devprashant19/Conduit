@@ -14,6 +14,7 @@ interface LandingPageProps {
 export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const scrollToSection = (e: React.MouseEvent, sectionId: string) => {
     e.preventDefault();
@@ -27,10 +28,19 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
     <div className="landing-page">
       {/* Top Floating Navigation */}
       <header className="landing-nav">
-        <div className="landing-nav-brand">
-          <span className="brand-title">CONDUIT</span>
+        <div className="landing-nav-left">
+          <div
+            className="landing-nav-brand"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            role="button"
+            tabIndex={0}
+          >
+            <span className="brand-logo-wrap"><Ic.logo size={15} /></span>
+            <span className="brand-title">CONDUIT</span>
+          </div>
         </div>
-        <div className="landing-nav-links">
+
+        <nav className="landing-nav-links" aria-label="Main Navigation">
           <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'how-it-works')}>
             How it works
           </button>
@@ -43,7 +53,8 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
           <button type="button" className="landing-nav-link" onClick={(e) => scrollToSection(e, 'faq')}>
             FAQ
           </button>
-        </div>
+        </nav>
+
         <div className="landing-nav-actions">
           {onStartTour && (
             <button
@@ -61,178 +72,92 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
             <span className="btn-text-short">Console</span>
             <Ic.chevR size={12} />
           </button>
+          <button
+            type="button"
+            className="landing-nav-mobile-toggle"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={isMobileMenuOpen}
+          >
+            {isMobileMenuOpen ? <Ic.x size={17} /> : <Ic.menu size={17} />}
+          </button>
         </div>
       </header>
 
+      {/* Mobile Drawer */}
+      {isMobileMenuOpen && (
+        <div className="landing-nav-mobile-drawer">
+          <button
+            type="button"
+            className="mobile-drawer-link"
+            onClick={(e) => {
+              scrollToSection(e, 'how-it-works');
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            How it works
+          </button>
+          <button
+            type="button"
+            className="mobile-drawer-link"
+            onClick={(e) => {
+              scrollToSection(e, 'ecosystem');
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            Ecosystem
+          </button>
+          <button
+            type="button"
+            className="mobile-drawer-link"
+            onClick={(e) => {
+              scrollToSection(e, 'features');
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            Features
+          </button>
+          <button
+            type="button"
+            className="mobile-drawer-link"
+            onClick={(e) => {
+              scrollToSection(e, 'faq');
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            FAQ
+          </button>
+          <div className="mobile-drawer-actions">
+            {onStartTour && (
+              <button
+                type="button"
+                className="mobile-drawer-tour-btn"
+                onClick={() => {
+                  onStartTour();
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                <Ic.sparkles size={13} />
+                <span>Interactive Tour</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="mobile-drawer-cta-btn"
+              onClick={() => {
+                onOpenConsole();
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              <span>Open Control Center</span>
+              <Ic.chevR size={12} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="landing-hero">
-        <div className="hero-bounding-frame" aria-hidden="true">
-          <span className="frame-dot t-l" />
-          <span className="frame-dot t-m" />
-          <span className="frame-dot t-r" />
-          <span className="frame-dot b-l" />
-          <span className="frame-dot b-m" />
-          <span className="frame-dot b-r" />
-          <span className="frame-dot l-m" />
-          <span className="frame-dot r-m" />
-        </div>
-
-        {/* Floating Real Agent Cards (Phase 2: Enlarged, Authentic Icons & Status Chips) */}
-        {/* Top Left: Claude Code */}
-        <div className="hero-floating-badge badge-top-left">
-          <div className="floating-user-bubble">
-            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
-            <span className="user-bubble-text">Fix the race condition in the WebSocket handler</span>
-          </div>
-          <div className="floating-agent-card">
-            <div className="card-top-identity">
-              <div className="agent-brand-avatar claude">
-                <BrandIcons.claude size={15} />
-              </div>
-              <span className="agent-title-text">Claude Code</span>
-              <span className="agent-status-badge running">
-                <span className="badge-dot" /> Running
-              </span>
-            </div>
-            <p className="agent-explanation-text">
-              I'll analyze the WebSocket handler and fix the race condition. Let me check the relevant files and review the implementation.
-            </p>
-            <div className="agent-card-tags">
-              <span className="meta-tag">claude-3-5-sonnet</span>
-              <span className="meta-tag">node-pty</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Right: The Keeper (Codex CLI) */}
-        <div className="hero-floating-badge badge-top-right">
-          <div className="floating-user-bubble">
-            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
-            <span className="user-bubble-text">The Keeper, what are all running agents working on?</span>
-          </div>
-          <div className="floating-agent-card">
-            <div className="card-top-identity">
-              <div className="agent-brand-avatar codex">
-                <BrandIcons.openai size={15} />
-              </div>
-              <span className="agent-title-text">The Keeper</span>
-              <span className="agent-status-badge codex">
-                <span className="badge-dot" /> Orchestrating
-              </span>
-            </div>
-            <p className="agent-explanation-text">
-              Agent 1 is refactoring CSS in client. Agent 2 is executing migration scripts on the staging database.
-            </p>
-            <div className="agent-card-tags">
-              <span className="meta-tag">codex-app-server</span>
-              <span className="meta-tag">⌘J Panel</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Mid Left: Approval Gate (Bedrock Supervisor) */}
-        <div className="hero-floating-badge badge-mid-left">
-          <div className="floating-user-bubble">
-            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
-            <span className="user-bubble-text">Run database migration on staging</span>
-          </div>
-          <div className="floating-agent-card gated">
-            <div className="card-top-identity">
-              <div className="agent-brand-avatar supervisor">
-                <Ic.logo size={14} />
-              </div>
-              <span className="agent-title-text">Approval Gate</span>
-              <span className="agent-status-badge halted">
-                <span className="badge-dot" /> Halted (Risk)
-              </span>
-            </div>
-            <p className="agent-explanation-text">
-              Destructive SQL operation detected: <code>DROP TABLE session_cache;</code> Execution paused until human confirms.
-            </p>
-            <div className="agent-card-tags">
-              <span className="meta-tag">bedrock-supervisor</span>
-              <span className="meta-tag">safety-gate</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Mid Right: Gemini CLI */}
-        <div className="hero-floating-badge badge-mid-right">
-          <div className="floating-user-bubble">
-            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
-            <span className="user-bubble-text">Generate comprehensive test coverage for auth routes</span>
-          </div>
-          <div className="floating-agent-card">
-            <div className="card-top-identity">
-              <div className="agent-brand-avatar gemini">
-                <BrandIcons.gemini size={15} />
-              </div>
-              <span className="agent-title-text">Gemini CLI</span>
-              <span className="agent-status-badge running">
-                <span className="badge-dot" /> Verified
-              </span>
-            </div>
-            <p className="agent-explanation-text">
-              Generated 18 test suites covering cookie validation, expiration edge-cases, and CSRF token verification.
-            </p>
-            <div className="agent-card-tags">
-              <span className="meta-tag">gemini-2.5-flash</span>
-              <span className="meta-tag">pty-shell</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Left: OpenCode Wiki Sync */}
-        <div className="hero-floating-badge badge-bot-left">
-          <div className="floating-user-bubble">
-            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
-            <span className="user-bubble-text">Sync project wiki with new architectural changes</span>
-          </div>
-          <div className="floating-agent-card">
-            <div className="card-top-identity">
-              <div className="agent-brand-avatar opencode">
-                <BrandIcons.opencode size={15} />
-              </div>
-              <span className="agent-title-text">OpenCode</span>
-              <span className="agent-status-badge synced">
-                <span className="badge-dot" /> Synced
-              </span>
-            </div>
-            <p className="agent-explanation-text">
-              Updated <code>wiki/auth-spec.md</code> and synchronized shared context using the LLM wiki pattern.
-            </p>
-            <div className="agent-card-tags">
-              <span className="meta-tag">wiki-engine</span>
-              <span className="meta-tag">shared_content/</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Right: Voice Pipeline */}
-        <div className="hero-floating-badge badge-bot-right">
-          <div className="floating-user-bubble">
-            <span className="user-bubble-avatar"><Ic.user size={12} /></span>
-            <span className="user-bubble-text">"Jarvis, summarize blocker on agent 2"</span>
-          </div>
-          <div className="floating-agent-card">
-            <div className="card-top-identity">
-              <div className="agent-brand-avatar voice">
-                <Ic.mic size={13} />
-              </div>
-              <span className="agent-title-text">Voice Pipeline</span>
-              <span className="agent-status-badge voice">
-                <span className="badge-dot" /> TTS Audio
-              </span>
-            </div>
-            <p className="agent-explanation-text">
-              "Codex is waiting for DB migration approval. Remaining agents are operating normally without blockers."
-            </p>
-            <div className="agent-card-tags">
-              <span className="meta-tag">web-speech-api</span>
-              <span className="meta-tag">hotkey: ⌘;</span>
-            </div>
-          </div>
-        </div>
 
         {/* Center Hero Content */}
         <div className="hero-center-content" data-tour="landing-hero">
