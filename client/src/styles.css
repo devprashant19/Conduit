@@ -5864,6 +5864,16 @@ textarea {
   color: #0f0f11;
 }
 
+/* Without this the div is a plain block, JSX eats the whitespace between its
+   two children, and the Control Center pill lands flush against "Tour" with
+   its shadow over the text. */
+.landing-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
 .landing-btn-black {
   height: 36px;
   padding: 0 18px;
