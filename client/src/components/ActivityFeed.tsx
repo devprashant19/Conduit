@@ -68,6 +68,19 @@ function dayGroup(timestamp: string): string {
   return d.toLocaleDateString();
 }
 
+/**
+ * Keep the newest entries only.
+ *
+ * This is a control centre people leave open for days with several chatty
+ * agents. Appending forever meant the array, the dedupe scan and the render
+ * all grew without limit, so the feed got slower the longer the project had
+ * been useful. Older entries are still on disk.
+ */
+const FEED_LIMIT = 500;
+function capFeed<T>(next: T[]): T[] {
+  return next.length > FEED_LIMIT ? next.slice(-FEED_LIMIT) : next;
+}
+
 export default function ActivityFeed({ projectId, ws }: Props) {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
@@ -87,7 +100,7 @@ export default function ActivityFeed({ projectId, ws }: Props) {
       if (msg.type !== 'activity') return;
       const ev = msg.event as ActivityEvent | undefined;
       if (!ev || ev.projectId !== projectId) return;
-      setEvents((prev) => prev.some((e) => e.id === ev.id) ? prev : [...prev, ev]);
+      setEvents((prev) => (prev.some((e) => e.id === ev.id) ? prev : capFeed([...prev, ev])));
     });
   }, [projectId, ws.subscribe]);
 

@@ -27,6 +27,19 @@ function timeAgo(ts: string): string {
   return new Date(ts).toLocaleDateString();
 }
 
+/**
+ * Keep the newest entries only.
+ *
+ * This is a control centre people leave open for days with several chatty
+ * agents. Appending forever meant the array, the dedupe scan and the render
+ * all grew without limit, so the feed got slower the longer the project had
+ * been useful. Older entries are still on disk.
+ */
+const FEED_LIMIT = 500;
+function capFeed<T>(next: T[]): T[] {
+  return next.length > FEED_LIMIT ? next.slice(-FEED_LIMIT) : next;
+}
+
 export default function MessagesPanel({ projectId, agents, ws }: Props) {
   const [messages, setMessages] = useState<ActivityEvent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -58,7 +71,7 @@ export default function MessagesPanel({ projectId, agents, ws }: Props) {
       if (msg.type !== 'activity') return;
       const ev = msg.event as ActivityEvent | undefined;
       if (!ev || ev.projectId !== projectId || ev.event !== 'agent:message') return;
-      setMessages((prev) => prev.some((m) => m.id === ev.id) ? prev : [...prev, ev]);
+      setMessages((prev) => (prev.some((m) => m.id === ev.id) ? prev : capFeed([...prev, ev])));
       setSelectedId((cur) => cur ?? ev.id);
     });
   }, [projectId, ws.subscribe]);

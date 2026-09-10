@@ -601,20 +601,51 @@ export function deleteContent(projectId: string, filename: string): boolean {
 
 // --- Group Chat ---
 
-export function readGroupChat(projectId: string): GroupChatEntry[] {
+/** Entries returned by default — enough to scroll back through, not a week. */
+export const GROUP_CHAT_PAGE = 500;
+/** Read at most this much of the file; a chat line is a few hundred bytes. */
+const GROUP_CHAT_TAIL_BYTES = 1_000_000;
+
+/**
+ * The most recent `limit` group-chat entries.
+ *
+ * This used to read the whole file and return all of it. A project in use for
+ * weeks accumulates thousands of entries, and every one was parsed, sent to the
+ * browser on each tab open, held in React state and rendered — so the feed got
+ * slower and heavier the longer the project had been useful. Reading the tail
+ * keeps it flat in the size of the history.
+ */
+export function readGroupChat(projectId: string, limit = GROUP_CHAT_PAGE): GroupChatEntry[] {
   const dir = projectDir(projectId);
   const file = path.join(dir, 'groupchat.jsonl');
   if (!fs.existsSync(file)) return [];
-  
+
+  let text: string;
+  const size = fs.statSync(file).size;
+  if (size <= GROUP_CHAT_TAIL_BYTES) {
+    text = fs.readFileSync(file, 'utf-8');
+  } else {
+    const fd = fs.openSync(file, 'r');
+    try {
+      const buf = Buffer.alloc(GROUP_CHAT_TAIL_BYTES);
+      fs.readSync(fd, buf, 0, GROUP_CHAT_TAIL_BYTES, size - GROUP_CHAT_TAIL_BYTES);
+      // The first line is almost certainly cut in half; drop it rather than
+      // let a truncated JSON object reach the parser.
+      const raw = buf.toString('utf-8');
+      text = raw.slice(raw.indexOf('\n') + 1);
+    } finally {
+      fs.closeSync(fd);
+    }
+  }
+
   const entries: GroupChatEntry[] = [];
-  const lines = fs.readFileSync(file, 'utf-8').split('\n');
-  for (const line of lines) {
+  for (const line of text.split('\n')) {
     if (!line.trim()) continue;
     try {
       entries.push(JSON.parse(line));
     } catch { /* ignore bad lines */ }
   }
-  return entries;
+  return entries.length > limit ? entries.slice(-limit) : entries;
 }
 
 /**
