@@ -174,31 +174,22 @@ function AgentPane({
         onDragStart={dragHandlers?.onDragStart}
         onMouseDown={headMouseDown}
       >
-        <div className="mac-traffic-lights" style={{ marginRight: 6 }}>
-          <span className="mac-traffic-dot red" />
-          <span className="mac-traffic-dot yellow" />
-          <span className="mac-traffic-dot green" />
-        </div>
-        <span className="pane-drag" title="Drag"><Ic.dots size={12} /></span>
-        <div className="pane-head-l">
+        <div className="pane-head-l" title={agent.cwd ? `${agent.name} (${agent.cli}) · ${agent.cwd}` : undefined}>
           <div className="pane-agent">
             <div className="pane-agent-avatar" style={{ background: hue }}>{initials}</div>
-            <div className="pane-agent-info">
-              <div className="pane-agent-row">
-                <span className="pane-agent-name">{agent.name}</span>
-                <span className="cli-tag" style={{ color: hue, background: `color-mix(in oklab, ${hue} 14%, transparent)` }}>
-                  {agent.cli}
-                </span>
-                {agent.role && <span className="pane-agent-role" title={agent.role}>{agent.role}</span>}
-              </div>
-              <div className="pane-agent-cwd" title={agent.cwd}>
-                {agent.cwd}
-              </div>
-            </div>
+            <span className="pane-agent-name">{agent.name}</span>
+            <span className="cli-tag" style={{ color: hue, background: `color-mix(in oklab, ${hue} 12%, transparent)` }}>
+              {agent.cli}
+            </span>
+            {agent.role && (
+              <span className="pane-agent-role" title={agent.role}>
+                <span className="role-sep">·</span> {agent.role}
+              </span>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div className="pane-head-status">
             {agent.pendingGate && (
-              <span className="pane-status-chip" style={{ background: 'var(--err-dim)', color: 'var(--err)', borderColor: 'var(--err)' }}>
+              <span className="pane-status-chip gate-pending">
                 <span className="sdot" style={{ width: 6, height: 6, background: 'var(--err)' }} />
                 Gate Pending
               </span>
@@ -210,14 +201,14 @@ function AgentPane({
           </div>
         </div>
         <div className="pane-head-r">
-          <div style={{ display: 'flex', gap: 2 }}>
+          <div style={{ display: 'flex', gap: 3 }}>
             {isAlive ? (
               <button className="pane-btn" title="Stop" onClick={(e) => { e.stopPropagation(); onStop(agent); }}><Ic.stop size={9} /></button>
             ) : (
               <button className="pane-btn" title="Start" onClick={(e) => { e.stopPropagation(); onStart(agent); }}><Ic.play size={10} /></button>
             )}
-            <button className="pane-btn" title="Restart" onClick={(e) => { e.stopPropagation(); onRestart(agent); }}><Ic.restart size={12} /></button>
-            <button className="pane-btn danger" title="Delete" onClick={(e) => { e.stopPropagation(); onDelete(agent); }}><Ic.x size={12} /></button>
+            <button className="pane-btn" title="Restart" onClick={(e) => { e.stopPropagation(); onRestart(agent); }}><Ic.restart size={11} /></button>
+            <button className="pane-btn danger" title="Delete" onClick={(e) => { e.stopPropagation(); onDelete(agent); }}><Ic.x size={11} /></button>
           </div>
         </div>
       </div>
