@@ -293,7 +293,7 @@ textarea {
   position: relative;
   display: grid;
   grid-template-rows: 44px 1fr 26px;
-  grid-template-columns: var(--sidebar-w, 232px) 1fr;
+  grid-template-columns: var(--sidebar-w, 248px) 1fr;
   grid-template-areas:
     "hd hd"
     "sb gr"
@@ -303,7 +303,7 @@ textarea {
 }
 
 .app.density-compact {
-  --sidebar-w: 208px;
+  --sidebar-w: 216px;
   font-size: 12px;
 }
 
@@ -329,7 +329,7 @@ textarea {
   position: absolute;
   top: 44px;
   bottom: 26px;
-  left: var(--sidebar-w, 232px);
+  left: var(--sidebar-w, 248px);
   width: 6px;
   margin-left: -3px;
   cursor: col-resize;
@@ -597,39 +597,43 @@ textarea {
   overflow: hidden;
   box-shadow: none;
   z-index: 5;
+  font-family: var(--ff-sans);
 }
 
 .sb-section-h {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 12px 4px;
-  font-size: 10.5px;
-  font-weight: 700;
+  padding: 14px 10px 6px;
+  font-family: var(--ff-sans);
+  font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: var(--text-3);
+  user-select: none;
 }
 
 .sb-section-h .add {
-  width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-2);
+  border: 1px solid transparent;
+  color: var(--text-3);
   cursor: pointer;
-  border-radius: var(--radius-xs);
-  font-size: 12px;
+  border-radius: var(--radius-xs, 4px);
+  padding: 0;
   line-height: 1;
-  transition: all 0.12s ease;
+  transition: all 0.14s ease;
 }
 
 .sb-section-h .add:hover {
   background: var(--bg-2);
   color: var(--text-0);
-  border-color: var(--border-strong);
+  border-color: var(--border);
 }
 
 .sb-projects {
@@ -643,8 +647,8 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
   color: var(--text-1);
   position: relative;
@@ -652,6 +656,7 @@ textarea {
   background: transparent;
   width: 100%;
   text-align: left;
+  font-family: var(--ff-sans);
   transition: all 0.12s ease;
 }
 
@@ -664,30 +669,45 @@ textarea {
   background: var(--bg-2);
   border-color: var(--border);
   color: var(--text-0);
-  font-weight: 600;
+  font-weight: 550;
 }
 
 .sb-project.active::before {
   content: '';
   position: absolute;
-  left: 2px;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
-  background: #0f0f11;
-  border-radius: 2px;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  background: var(--accent-green, #16a34a);
+  border-radius: 0 3px 3px 0;
+}
+
+.sb-proj-ic {
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: color 0.12s ease;
+}
+
+.sb-project:hover .sb-proj-ic {
+  color: var(--text-1);
+}
+
+.sb-project.active .sb-proj-ic {
+  color: var(--accent-green, #16a34a);
 }
 
 .sb-project .name-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   flex: 1;
 }
 
 .sb-project .n {
-  font-size: 12.5px;
+  font-family: var(--ff-sans);
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -697,17 +717,18 @@ textarea {
 }
 
 .sb-project .running-chip {
-  font-family: var(--ff-mono);
-  font-size: 10px;
+  font-family: var(--ff-sans);
+  font-size: 10.5px;
   color: var(--ok);
   background: var(--ok-soft);
   border: 1px solid var(--ok-border);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
+  padding: 1.5px 6px;
+  border-radius: 4px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  line-height: 1.2;
 }
 
 .sb-project .running-chip::before {
@@ -719,13 +740,15 @@ textarea {
 }
 
 .sb-project .total-chip {
-  font-family: var(--ff-mono);
-  font-size: 10px;
-  color: var(--text-2);
+  font-family: var(--ff-sans);
+  font-size: 10.5px;
+  color: var(--text-3);
   background: var(--bg-2);
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 4px;
   border: 1px solid var(--border);
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 /* agent list */
@@ -741,16 +764,11 @@ textarea {
 }
 
 .sb-agent {
-  display: grid;
-  grid-template-columns: 20px 1fr auto;
-  grid-template-rows: auto auto;
-  grid-template-areas:
-    "st nm meta"
-    "st sub meta";
-  gap: 0 6px;
-  align-items: center;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
   position: relative;
   border: 1px solid transparent;
@@ -758,6 +776,7 @@ textarea {
   width: 100%;
   text-align: left;
   color: var(--text-1);
+  font-family: var(--ff-sans);
   transition: all 0.12s ease;
 }
 
@@ -774,77 +793,105 @@ textarea {
 .sb-agent.active::before {
   content: '';
   position: absolute;
-  left: 2px;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
-  background: #0f0f11;
-  border-radius: 2px;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  background: var(--accent-color, var(--accent-green, #16a34a));
+  border-radius: 0 3px 3px 0;
 }
 
-.sb-agent .st {
-  grid-area: st;
-  display: grid;
-  place-items: center;
+.sb-agent-st {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 18px;
+  flex-shrink: 0;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
 }
 
-.sb-agent .nm {
-  grid-area: nm;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text-0);
+.sb-agent-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sb-agent-title-row {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  height: 18px;
 }
 
-.sb-agent .nm span:first-child {
+.sb-agent .nm {
+  font-family: var(--ff-sans);
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-0);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  line-height: 18px;
 }
 
-.sb-agent .sub {
-  grid-area: sub;
-  font-family: var(--ff-mono);
-  font-size: 10px;
-  color: var(--text-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sb-agent .meta {
-  grid-area: meta;
+.sb-agent-sub-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  min-width: 0;
+  line-height: 1.35;
 }
 
 .sb-agent .cli-tag {
-  font-family: var(--ff-mono);
-  font-size: 9.5px;
-  color: var(--text-2);
-  background: var(--bg-3);
+  font-family: var(--ff-sans);
+  font-size: 9px;
+  font-weight: 600;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.sb-agent .sub {
+  font-family: var(--ff-sans);
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+
+.sb-agent .meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  height: 18px;
+  gap: 4px;
 }
 
 .sb-agent .num {
-  font-family: var(--ff-mono);
-  font-size: 9.5px;
+  font-family: var(--ff-sans);
+  font-size: 10px;
+  font-weight: 500;
   color: var(--text-3);
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
-  padding: 1px 4px;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.2;
 }
 
 .sb-agent-delete {
@@ -856,8 +903,9 @@ textarea {
   border: none;
   color: var(--text-3);
   cursor: pointer;
-  border-radius: var(--radius-xs);
+  border-radius: 4px;
   transition: all 0.12s ease;
+  padding: 0;
 }
 
 .sb-agent-delete:hover {
@@ -873,15 +921,10 @@ textarea {
   display: none;
 }
 
-.sb-agent-delete:hover {
-  color: var(--err);
-  background: var(--err-soft);
-}
-
 /* status dot */
 .sdot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   position: relative;
   background: var(--idle);
@@ -979,8 +1022,10 @@ textarea {
 }
 
 .sb-usage-pct {
-  font-family: var(--ff-mono);
-  font-size: 10.5px;
+  font-family: var(--ff-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-1);
 }
 

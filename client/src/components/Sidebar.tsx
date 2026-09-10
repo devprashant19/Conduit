@@ -143,6 +143,7 @@ export default function Sidebar({
                 onClick={() => handleSelectProject(p.id)}
               >
                 <div className="name-row">
+                  <Ic.folder size={14} className="sb-proj-ic" />
                   <span className="n">{p.name}</span>
                   {aliveCount > 0
                     ? <span className="running-chip">{aliveCount}/{list.length}</span>
@@ -158,8 +159,8 @@ export default function Sidebar({
           )}
         </div>
 
-        <div className="sb-section-h" style={{ marginTop: 4 }}>
-          <span>{selProj ? selProj.name + ' · agents' : 'Agents'}</span>
+        <div className="sb-section-h" style={{ marginTop: 6 }}>
+          <span>Agents</span>
           {selProj && (
             <button className="add" onClick={onNewAgent} title="Add agent"><Ic.plus size={13} /></button>
           )}
@@ -177,21 +178,27 @@ export default function Sidebar({
                 style={{ '--accent-color': hue } as React.CSSProperties}
                 aria-current={isActive ? 'true' : undefined}
               >
-                <span className="st">
+                <span className="sb-agent-st">
                   {a.pendingGate ? (
                     <span className="sdot" style={{ background: 'var(--err)', boxShadow: '0 0 4px var(--err)' }} title="Gate Pending" />
                   ) : (
                     <span className={'sdot ' + a.status} />
                   )}
                 </span>
-                <span className="nm">
-                  <span>{a.name}</span>
-                  <span className="cli-tag" style={{ color: hue, background: `color-mix(in oklab, ${hue} 14%, transparent)` }}>
-                    {a.cli}
-                  </span>
-                </span>
-                <span className="sub">{a.role || a.cwd}</span>
-                <span className="meta">
+                <div className="sb-agent-content">
+                  <div className="sb-agent-title-row">
+                    <span className="nm">{a.name}</span>
+                  </div>
+                  <div className="sb-agent-sub-row">
+                    <span className="cli-tag" style={{ color: hue, background: `color-mix(in oklab, ${hue} 14%, transparent)` }}>
+                      {a.cli}
+                    </span>
+                    {(a.role || a.cwd) && (
+                      <span className="sub">{a.role || a.cwd}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="meta">
                   {i < 9 && <span className="num">{MOD}{i + 1}</span>}
                   <span
                     className="sb-agent-delete"
@@ -204,7 +211,7 @@ export default function Sidebar({
                   >
                     <Ic.x size={11} />
                   </span>
-                </span>
+                </div>
               </button>
             );
           })}

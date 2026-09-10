@@ -148,7 +148,7 @@ export default function App() {
   );
   const [sidebarW, setSidebarW] = useState<number>(() => {
     const n = parseInt(localStorage.getItem('conduit:sidebar-w') || '', 10);
-    return Number.isFinite(n) && n > 0 ? n : 232;
+    return Number.isFinite(n) && n >= 240 ? n : 248;
   });
   useEffect(() => {
     localStorage.setItem('conduit:sidebar-collapsed', sidebarCollapsed ? '1' : '0');
