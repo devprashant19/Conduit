@@ -301,10 +301,29 @@ app.post(
       res.json({ text });
     } catch (err) {
       console.warn('[voice/transcribe]', err);
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(sttErrorStatus(message)).json({ error: message });
     }
   },
 );
+
+/**
+ * Whose fault the transcription failure was.
+ *
+ * The providers throw with the upstream status in the message. A clip the
+ * decoder could not read is the *caller's* problem and must not be reported as
+ * a Conduit fault — a 500 there sends anyone debugging into the server logs
+ * looking for a crash that never happened.
+ */
+function sttErrorStatus(message: string): number {
+  const upstream = Number(/\b(?:STT|TTS)\s+(\d{3})\b/.exec(message)?.[1] || 0);
+  if (upstream === 400 || upstream === 415 || upstream === 422) return 400;
+  if (upstream === 429) return 429;
+  if (upstream) return 502;                       // auth, quota, provider outage
+  if (/API key not set/i.test(message)) return 503;
+  if (/accepts up to \d+MB/i.test(message)) return 413;
+  return 500;
+}
 
 // Text in, audio bytes out. Optional per-request overrides for voice / model /
 // speed (the HUD sends its current config); otherwise the saved settings apply.

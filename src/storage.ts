@@ -59,11 +59,18 @@ export function resolveInside(base: string, rel: string): string | null {
   if (rel.includes('\0')) return null;
   const normalized = rel.replace(/\\/g, '/');
   if (path.isAbsolute(normalized) || /^[A-Za-z]:/.test(normalized)) return null;
+  // No single name may exceed the filesystem's limit, and on Windows the whole
+  // path is limited too unless long paths are enabled. Rejecting here turns
+  // "400 Invalid filename" into the answer, instead of an ENOENT thrown from
+  // deep inside a write and surfaced to the user as a 500.
+  if (normalized.split('/').some((seg) => seg.length > 255)) return null;
+
   const full = path.resolve(base, normalized);
   const root = path.resolve(base);
   if (full === root) return null;
   const relBack = path.relative(root, full);
   if (relBack.startsWith('..') || path.isAbsolute(relBack)) return null;
+  if (process.platform === 'win32' && full.length > 250) return null;
   return full;
 }
 
