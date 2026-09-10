@@ -454,8 +454,32 @@ server.on('upgrade', (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
 });
 
+/**
+ * A browser that vanishes without closing — a slept laptop, a dropped Wi-Fi,
+ * a killed tab — leaves its socket half-open. `close` never fires, so the
+ * viewer stays in `subscribers`, `detachTerminal` is never called, and the
+ * daemon goes on streaming that agent's output to nobody for as long as the
+ * server runs. The client's own `ping` message cannot help: it proves the
+ * client is alive, not that it is gone.
+ *
+ * So the server pings, and drops anything that misses two rounds.
+ */
+const HEARTBEAT_MS = 30_000;
+const alive = new WeakSet<WebSocket>();
+
+const heartbeat = setInterval(() => {
+  for (const ws of clients) {
+    if (!alive.has(ws)) { ws.terminate(); continue; }   // missed the last round
+    alive.delete(ws);
+    try { ws.ping(); } catch { /* terminate follows next round */ }
+  }
+}, HEARTBEAT_MS);
+heartbeat.unref?.();
+
 wss.on('connection', (ws) => {
   clients.add(ws);
+  alive.add(ws);
+  ws.on('pong', () => alive.add(ws));
   sendTo(ws, { type: 'hello', daemon: daemon.isConnected() });
 
   ws.on('message', (raw) => {
