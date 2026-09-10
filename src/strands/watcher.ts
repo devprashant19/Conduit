@@ -101,19 +101,46 @@ export function triggerGate(
   if (!agent) return false;
   if (agent.pendingGate) return false;
 
-  const clean = prompt.trim().slice(-1500);
+  const clean = trimToLineStart(prompt.trim(), 1500);
   updateAgent(projectId, agentId, { pendingGate: { prompt: clean, source } });
 
   const entry = supervisorEntry(
     source === 'regex'
-      ? `[Gate] ${agent.name} needs your decision:\n${clean.slice(-400)}`
-      : `[Gate] ${agent.name} is about to do something risky:\n${clean}`,
+      ? `[Gate] ${agent.name} needs your decision:\n${summariseTail(clean)}`
+      : `[Gate] ${agent.name} is about to do something risky:\n${summariseTail(clean, 10)}`,
     'risky_action',
   );
   try { appendGroupChat(projectId, entry); } catch { /* ignore */ }
   broadcast({ kind: 'event', event: 'groupchat:message', payload: { ...entry, projectId } });
   broadcast({ kind: 'event', event: 'gate:triggered', agentId, projectId, prompt: clean, source });
   return true;
+}
+
+/**
+ * Take the last `max` characters, but start on a line boundary. Slicing a
+ * terminal tail by character count opens the gate modal mid-word, which reads
+ * as corruption at the exact moment the user is being asked to trust it.
+ */
+function trimToLineStart(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const tail = text.slice(-max);
+  const nl = tail.indexOf('\n');
+  // Only drop the partial line if a whole line survives it.
+  return nl >= 0 && nl < tail.length - 1 ? tail.slice(nl + 1) : tail;
+}
+
+/**
+ * A terminal tail is mostly horizontal rules, spinners and blank lines. Pasted
+ * verbatim into the group chat it renders as a tall empty box with one sentence
+ * at the bottom. Keep only the lines that carry words — the untouched tail is
+ * still in the gate modal, where the decision is actually made.
+ */
+function summariseTail(text: string, maxLines = 6): string {
+  const lines = text
+    .split('\n')
+    .map((l) => l.replace(/\s+$/, ''))
+    .filter((l) => /[A-Za-z0-9]/.test(l));
+  return lines.slice(-maxLines).join('\n');
 }
 
 function describeError(err: unknown): string {
