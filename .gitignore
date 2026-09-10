@@ -23,6 +23,7 @@ api-keys.json
 .termhive/
 plan.md
 plan2.md
+plan3.md
 
 # aider writes these into whatever directory it runs in, and agents run here
 .aider*
