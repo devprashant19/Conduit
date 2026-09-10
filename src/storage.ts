@@ -104,6 +104,34 @@ const SEED_MARKER = path.join(BASE_DIR, '.seeded');
  *
  * Returns the created project, or null when seeding was not needed.
  */
+/**
+ * Remove project directories with no `project.json`.
+ *
+ * A project directory without one is unreachable: every read path goes through
+ * `getProjectData`, which returns null, so nothing lists it, opens it or ever
+ * shows its contents. They accumulated because a Supervisor classification
+ * landing after a delete recreated the folder to append one group-chat line —
+ * fixed at the source, but existing installs are carrying the debris, and
+ * nothing else will ever clear it.
+ *
+ * Called once from web-server startup. Returns how many were removed.
+ */
+export function sweepUnreachableProjects(): number {
+  let removed = 0;
+  try {
+    for (const name of fs.readdirSync(PROJECTS_DIR)) {
+      const dir = path.join(PROJECTS_DIR, name);
+      try {
+        if (!fs.statSync(dir).isDirectory()) continue;
+        if (fs.existsSync(path.join(dir, 'project.json'))) continue;
+        fs.rmSync(dir, { recursive: true, force: true });
+        removed++;
+      } catch { /* in use, or vanished under us — leave it */ }
+    }
+  } catch { /* no projects directory yet */ }
+  return removed;
+}
+
 export function seedDefaultDemoProjectOnce(): Project | null {
   try {
     if (fs.existsSync(SEED_MARKER)) return null;
@@ -589,20 +617,39 @@ export function readGroupChat(projectId: string): GroupChatEntry[] {
   return entries;
 }
 
-export function appendGroupChat(projectId: string, entry: GroupChatEntry): void {
+/**
+ * True while this project still exists.
+ *
+ * The append helpers below are called from fire-and-forget paths — a Supervisor
+ * classification that started before the user deleted the project lands after
+ * it — and `ensureDir` would happily recreate the directory for a project that
+ * is gone. That left a resurrected folder holding one stray `groupchat.jsonl`
+ * behind every deleted project, accumulating for the life of the install.
+ * Cheaper than `getProjectData`, which parses the whole file.
+ */
+function projectExists(projectId: string): boolean {
+  try { return fs.existsSync(projectFile(projectId)); } catch { return false; }
+}
+
+/** Returns false when the project has been deleted underneath the caller. */
+export function appendGroupChat(projectId: string, entry: GroupChatEntry): boolean {
+  if (!projectExists(projectId)) return false;
   const dir = projectDir(projectId);
   ensureDir(dir);
   const file = path.join(dir, 'groupchat.jsonl');
   fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf-8');
+  return true;
 }
 
 // --- Audit Log ---
 
-export function appendAuditLog(projectId: string, entry: Record<string, unknown>): void {
+export function appendAuditLog(projectId: string, entry: Record<string, unknown>): boolean {
+  if (!projectExists(projectId)) return false;
   const dir = projectDir(projectId);
   ensureDir(dir);
   const file = path.join(dir, 'audit.jsonl');
   fs.appendFileSync(file, JSON.stringify({ ...entry, timestamp: new Date().toISOString() }) + '\n', 'utf-8');
+  return true;
 }
 
 /** Last `limit` audit entries (newest last) — used to give the Supervisor memory

@@ -79,10 +79,19 @@ function supervisorEntry(text: string, classification: GroupChatEntry['classific
   };
 }
 
-/** Post a supervisor line to the project's group chat and push it live. */
+/**
+ * Post a supervisor line to the project's group chat and push it live.
+ *
+ * A classification takes seconds, and the user can delete the project inside
+ * that window. Storage refuses the write in that case; there is nothing left to
+ * say it about, so the broadcast is dropped too — a summary of an agent in a
+ * project that no longer exists is noise at best.
+ */
 function postToGroupChat(state: WatcherState, entry: GroupChatEntry) {
-  try { appendGroupChat(state.projectId, entry); }
+  let stored = false;
+  try { stored = appendGroupChat(state.projectId, entry); }
   catch (err) { console.error('[watcher] Failed to append to groupchat:', err); }
+  if (!stored) { detachWatcher(state.agentId); return; }
   state.broadcast({ kind: 'event', event: 'groupchat:message', payload: { ...entry, projectId: state.projectId } });
 }
 

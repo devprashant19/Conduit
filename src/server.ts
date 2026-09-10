@@ -154,6 +154,13 @@ activity.setBroadcast((event: ActivityEvent) => {
   if (demo) console.log(`[server] first run — created demo project "${demo.name}"`);
 }
 
+// Project directories with no project.json are unreachable — nothing lists or
+// reads them. They are debris from a Supervisor line landing after a delete.
+{
+  const swept = storage.sweepUnreachableProjects();
+  if (swept) console.log(`[server] removed ${swept} unreachable project director${swept === 1 ? 'y' : 'ies'}`);
+}
+
 // Start file watchers for all existing projects
 for (const project of storage.listProjects()) {
   activity.watchProject(project.id, project.name);
