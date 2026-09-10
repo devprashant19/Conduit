@@ -120,9 +120,13 @@ export const WorkflowShowcaseSection: React.FC<WorkflowShowcaseSectionProps> = (
   };
 
   useEffect(() => {
+    // The handler has to be one value: `removeEventListener` compares by
+    // identity, so passing a fresh arrow function removed nothing and every
+    // tab change left another resize listener attached for the page's life.
+    const onResize = () => updatePillPosition(activeIndex, false);
     updatePillPosition(activeIndex, false);
-    window.addEventListener('resize', () => updatePillPosition(activeIndex, false));
-    return () => window.removeEventListener('resize', () => updatePillPosition(activeIndex, false));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, [activeIndex]);
 
   // Smooth feature state transition coordinator
