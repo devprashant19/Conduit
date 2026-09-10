@@ -71,3 +71,42 @@ export function checkGate(text: string): { matches: boolean; highRisk: boolean; 
 export function isYesNoPrompt(text: string): boolean {
   return /\[y\/N\]|\[Y\/n\]|\(yes\/no\)|\(y\/n\)|\(Y\)es\s*\/\s*\(N\)o/i.test(text);
 }
+
+/**
+ * Which side of the line a gate falls on.
+ *
+ *   harmful — expensive or impossible to undo, or something the Supervisor
+ *             itself flagged. Always the human's call.
+ *   routine — the CLI is waiting on an ordinary y/n prompt and nothing in the
+ *             text looks destructive.
+ *
+ * Conservative in one direction only: a prompt we cannot confidently call
+ * routine is harmful, and goes to the human.
+ */
+export type GateRisk = 'routine' | 'harmful';
+
+export function classifyGate(prompt: string, source: 'regex' | 'supervisor'): GateRisk {
+  // A model already read the context and called this risky. A regex does not
+  // get to overrule that.
+  if (source === 'supervisor') return 'harmful';
+  if (checkGate(prompt).highRisk) return 'harmful';
+  return isYesNoPrompt(prompt) ? 'routine' : 'harmful';
+}
+
+/**
+ * The one line worth telling the user about an auto-approval.
+ *
+ * The gate carries a terminal tail — rules, spinners, blank lines, and the
+ * question somewhere near the end. Nobody wants six lines of that scrolling
+ * past every time an agent asks to write a file; they want to know what was
+ * asked and that it was allowed.
+ */
+export function gateQuestion(prompt: string, max = 120): string {
+  const lines = prompt
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => /[A-Za-z0-9]/.test(l));
+  const asked = [...lines].reverse().find((l) => isYesNoPrompt(l)) || lines[lines.length - 1] || '';
+  const tidy = asked.replace(/\s+/g, ' ').trim();
+  return tidy.length > max ? tidy.slice(0, max - 1).trimEnd() + '…' : tidy;
+}

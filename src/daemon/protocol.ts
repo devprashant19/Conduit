@@ -131,7 +131,10 @@ export type DaemonRequest =
   | { op: 'brain:new' }
   | { op: 'brain:abort' }
   | { op: 'brain:switch'; conversationId: string }
-  | { op: 'brain:delete'; conversationId: string };
+  | { op: 'brain:delete'; conversationId: string }
+  // The web server owns the settings file; the daemon owns the gates. This
+  // tells the daemon its cached copy is stale.
+  | { op: 'gates:reload' };
 
 /** Daemon → Web. */
 export type DaemonMessage =

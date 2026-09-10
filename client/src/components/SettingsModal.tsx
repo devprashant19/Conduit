@@ -83,6 +83,8 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
   const [cfg, setCfg] = useState<VoiceConfig | null>(null);
   const [providers, setProviders] = useState<ProviderSpec[]>([]);
   const [browserVoices, setBrowserVoices] = useState<{ name: string; lifelike: boolean }[]>([]);
+  /** Whether Conduit answers ordinary y/n prompts itself. Harmful gates ignore it. */
+  const [autoApprove, setAutoApprove] = useState(true);
 
   useEffect(() => {
     const synth = window.speechSynthesis;
@@ -148,6 +150,10 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
         setKeys(d.keys);
       })
       .catch((e) => setErr(String(e)));
+    fetch('/api/gate-settings')
+      .then((r) => r.json())
+      .then((d) => setAutoApprove(d.autoApproveRoutine !== false))
+      .catch(() => { /* keep the default — the toggle still saves */ });
   }, [open]);
 
   if (!open) return null;
@@ -216,6 +222,16 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j.error || `save ${r.status}`);
+      }
+
+      const g = await fetch('/api/gate-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoApproveRoutine: autoApprove }),
+      });
+      if (!g.ok) {
+        const j = await g.json().catch(() => ({}));
+        throw new Error(j.error || `approvals ${g.status}`);
       }
       setOpenaiInput('');
       setGeminiInput('');
@@ -540,6 +556,37 @@ export default function SettingsModal({ open, onClose, onSaved, onRestartTour }:
                   </button>
                 )}
               </div>
+            </div>
+          </section>
+
+          {/* Approvals — which decisions actually reach you */}
+          <section className="settings-card">
+            <div className="settings-card-header">
+              <div className="settings-card-icon"><Ic.shield size={15} /></div>
+              <div className="settings-card-title-wrap">
+                <h4 className="settings-card-title">Approvals</h4>
+                <span className="settings-card-desc">Which decisions reach you, and which Conduit handles</span>
+              </div>
+            </div>
+            <div className="settings-card-body">
+              <div className="settings-toggle-row">
+                <div className="settings-toggle-info">
+                  <span className="settings-toggle-label">Handle routine prompts for me</span>
+                  <span className="settings-toggle-desc">
+                    Ordinary y/n questions &mdash; &ldquo;create README.md?&rdquo; and the like &mdash;
+                    are answered without interrupting you. Each one appears in the project&rsquo;s
+                    group chat as one line: what was asked, and that it was allowed.
+                  </span>
+                </div>
+                <ToggleSwitch checked={autoApprove} onChange={setAutoApprove} />
+              </div>
+              <p className="settings-toggle-desc" style={{ marginTop: 10 }}>
+                These always come to you, whatever this is set to: <code>rm -rf</code>,{' '}
+                <code>git push --force</code>, <code>git reset --hard</code>, <code>DROP TABLE</code>,{' '}
+                <code>kubectl delete</code>, <code>terraform destroy</code> and the rest &mdash; plus
+                anything the Supervisor flags as risky, and any prompt Conduit cannot confidently
+                recognise.
+              </p>
             </div>
           </section>
 

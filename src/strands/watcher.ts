@@ -19,10 +19,11 @@ import * as runtime from '../daemon/runtime.js';
 import { createSupervisorAgent, type SupervisorUpdate } from './agent.js';
 import { supervisorDisabled, supervisorProvider } from './config.js';
 import {
-  appendGroupChat, updateAgent, getAgent, getProjectData, readRecentAudit,
+  appendGroupChat, appendAuditLog, updateAgent, getAgent, getProjectData, readRecentAudit,
   type GroupChatEntry,
 } from '../storage.js';
-import { checkGate, stripAnsi } from '../gatePatterns.js';
+import { checkGate, stripAnsi, gateQuestion } from '../gatePatterns.js';
+import { shouldAutoApprove } from '../gate-policy.js';
 import type { DaemonMessage } from '../daemon/protocol.js';
 import { classifyWithAnthropic, hasAnthropicCredential, currentModel } from './anthropic.js';
 
@@ -111,6 +112,30 @@ export function triggerGate(
   if (agent.pendingGate) return false;
 
   const clean = trimToLineStart(prompt.trim(), 1500);
+
+  // Ordinary y/n prompts — "create README.md?" — are answered here rather than
+  // queued for a human. Harmful ones never take this path, whatever the
+  // setting says. See src/gate-policy.ts for where the line is drawn.
+  if (shouldAutoApprove(clean, source)) {
+    runtime.writeToAgent(agentId, 'y\r');
+    // One line: what was asked, and that it was allowed. Six lines of terminal
+    // tail scrolling past on every file write is exactly the noise this feature
+    // exists to remove.
+    const note = supervisorEntry(
+      `${agent.name} asked "${gateQuestion(clean)}" — allowed.`,
+      'progress',
+    );
+    try {
+      appendAuditLog(projectId, {
+        event: 'gate_auto_approve', agentId, agentName: agent.name,
+        gate: { prompt: clean, source }, action: 'sent y',
+      });
+      appendGroupChat(projectId, note);
+    } catch { /* project may be gone */ }
+    broadcast({ kind: 'event', event: 'groupchat:message', payload: { ...note, projectId } });
+    return true;
+  }
+
   updateAgent(projectId, agentId, { pendingGate: { prompt: clean, source } });
 
   const entry = supervisorEntry(

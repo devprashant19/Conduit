@@ -22,6 +22,7 @@ import { cleanStaleCodexMcp } from '../mcp-config.js';
 import { Orchestrator } from './orchestrator.js';
 import { hookEvents } from './hook-events.js';
 import { attachWatcher, detachWatcher } from '../strands/watcher.js';
+import { resetGateSettingsCache } from '../gate-policy.js';
 import {
   orgSnapshot,
   askAgentDispatch,
@@ -33,6 +34,7 @@ import {
   createProjectDispatch,
   createAgentDispatch,
   stopAgentDispatch,
+  forgetAgentReady,
 } from './conduit.js';
 import {
   DAEMON_HOST,
@@ -109,6 +111,9 @@ function onAgentStatus(agentId: string, status: string) {
   setStatus(agentId, status);
   if (status === 'stopped') {
     detachWatcher(agentId);
+    // A restarted agent boots from scratch, so the readiness it earned before
+    // does not carry over.
+    forgetAgentReady(agentId);
     // Drop dead listeners so a later attach binds to the fresh process.
     for (const ws of clients) {
       const teardowns = clientListeners.get(ws);
@@ -226,6 +231,7 @@ async function handleRequest(ws: WebSocket, req: DaemonRequest): Promise<void> {
         return;
       case 'brain:switch': orchestrator.switchConversation(req.conversationId); return;
       case 'brain:delete': orchestrator.deleteConversation(req.conversationId); return;
+      case 'gates:reload': resetGateSettingsCache(); return;
     }
     return;
   }

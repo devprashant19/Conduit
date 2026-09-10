@@ -22,6 +22,7 @@ import { transcribeOpenAI, ttsOpenAI } from './voice/openai.js';
 import { transcribeGemini, ttsGemini } from './voice/gemini.js';
 import { transcribeGroq } from './voice/groq.js';
 import { authMiddleware, isAuthorized, isAuthEnabled } from './auth.js';
+import { loadGateSettings, saveGateSettings } from './gate-policy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || '3200', 10);
@@ -224,6 +225,23 @@ app.post('/api/strands/ping', async (req, res) => {
 });
 
 // ─── Voice (STT / TTS) ─────────────────────────────────────────────────
+
+// Which approvals reach the human. See src/gate-policy.ts for the two tiers.
+app.get('/api/gate-settings', (_req, res) => {
+  res.json(loadGateSettings());
+});
+
+app.put('/api/gate-settings', (req, res) => {
+  const value = req.body?.autoApproveRoutine;
+  if (typeof value !== 'boolean') {
+    res.status(400).json({ error: 'autoApproveRoutine must be a boolean' });
+    return;
+  }
+  // The daemon holds its own copy of this module, so tell it to re-read.
+  const saved = saveGateSettings({ autoApproveRoutine: value });
+  daemon.command({ op: 'gates:reload' });
+  res.json(saved);
+});
 
 app.get('/api/voice/config', (_req, res) => {
   res.json({
