@@ -40,6 +40,7 @@
     "check:abuse": "node scripts/check-abuse.mjs",
     "check:desktop": "node scripts/check-desktop.mjs",
     "check:nova": "node scripts/check-nova.mjs",
+    "check:voice-live": "node scripts/check-voice-live.mjs",
     "check:lifecycle": "node scripts/check-lifecycle.mjs"
   },
   "dependencies": {

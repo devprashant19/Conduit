@@ -23,6 +23,8 @@ import { transcribeGemini, ttsGemini } from './voice/gemini.js';
 import { transcribeGroq } from './voice/groq.js';
 import { authMiddleware, isAuthorized, isAuthEnabled } from './auth.js';
 import { loadGateSettings, saveGateSettings } from './gate-policy.js';
+import { NovaSession } from './voice/nova.js';
+import { VOICE_TOOLS, VOICE_SYSTEM_PROMPT, runVoiceTool } from './voice/nova-tools.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || '3200', 10);
@@ -35,6 +37,8 @@ app.use(express.json({ limit: '5mb' }));
 
 const server = createServer(app);
 const wss = new WebSocketServer({ noServer: true });
+/** Live voice. Separate from `/ws` so audio never goes through JSON. */
+const voiceWss = new WebSocketServer({ noServer: true });
 
 // --- Daemon connection — the daemon owns every agent PTY ---
 const daemon = new DaemonClient();
@@ -476,7 +480,78 @@ server.on('upgrade', (req, socket, head) => {
     socket.destroy();
     return;
   }
+  // Live voice gets its own socket. Not a new message type on `/ws`: that relay
+  // JSON-stringifies every frame and keeps a 500-message outbox that would
+  // replay stale audio after a reconnect — both actively wrong for speech.
+  if (url.startsWith('/ws/voice')) {
+    voiceWss.handleUpgrade(req, socket, head, (ws) => voiceWss.emit('connection', ws, req));
+    return;
+  }
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+});
+
+// ── live voice: browser <-> Nova 2 Sonic ──────────────────────────────
+//
+// Audio is binary in both directions and never touches JSON. Control messages
+// and events are text frames on the same socket. The AWS credential stays in
+// Node — the browser never sees it, which is the invariant `/api/voice/config`
+// already keeps by returning booleans instead of secrets.
+voiceWss.on('connection', (ws) => {
+  let session: NovaSession | null = null;
+  let closed = false;
+
+  const say = (msg: Record<string, unknown>) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  };
+
+  const begin = async () => {
+    if (session || closed) return;
+    session = new NovaSession({
+      systemPrompt: VOICE_SYSTEM_PROMPT,
+      tools: VOICE_TOOLS,
+      voiceId: loadVoiceConfig().tts.voice || undefined,
+      runTool: (name, input) => runVoiceTool(name, input, {
+        // A deferred answer arrives minutes later, long after the tool call
+        // returned. Hand it to the browser to announce rather than dropping it.
+        onDeferredResult: (summary) => say({ type: 'deferred', text: summary }),
+      }),
+      onEvent: (ev) => {
+        if (closed) return;
+        if (ev.kind === 'audio') {
+          if (ws.readyState === WebSocket.OPEN) ws.send(ev.pcm, { binary: true });
+          return;
+        }
+        if (ev.kind === 'error') {
+          console.warn('[voice/nova]', ev.message);
+        }
+        say({ type: ev.kind, ...ev, pcm: undefined });
+      },
+    });
+    try {
+      await session.start();
+    } catch (err) {
+      say({ type: 'error', message: err instanceof Error ? err.message : String(err), fatal: true });
+    }
+  };
+
+  ws.on('message', (data, isBinary) => {
+    if (isBinary) {
+      // Raw PCM16 @16kHz mono, straight from the microphone worklet.
+      session?.sendAudio(Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer));
+      return;
+    }
+    let msg: { type?: string };
+    try { msg = JSON.parse(data.toString()); } catch { return; }
+    if (msg.type === 'start') void begin();
+    else if (msg.type === 'stop') { void session?.stop(); session = null; }
+  });
+
+  ws.on('close', () => {
+    closed = true;
+    void session?.stop();
+    session = null;
+  });
+  ws.on('error', () => { /* close follows */ });
 });
 
 /**
