@@ -50,6 +50,7 @@ const MODEL_ID = process.env.NOVA_MODEL_ID || 'amazon.nova-2-sonic-v1:0';
 const REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1';
 const BASE = process.env.CONDUIT_URL || 'http://localhost:3200';
 const TOOLS_ONLY = process.argv.includes('--tools');
+const DEBUG = process.argv.includes('--debug');
 
 const INPUT_RATE = 16000;   // what Nova wants from us
 const OUTPUT_RATE = 24000;  // what it sends back
@@ -251,7 +252,7 @@ function speakToPcm(text) {
 }
 
 // ── one Nova session ──────────────────────────────────────────────────
-async function runSession({ label, withTools, say, audio }) {
+async function runSession({ label, withTools, say, audio, followUpAudio }) {
   console.log(`\n${label}`);
 
   const client = new BedrockRuntimeClient({
@@ -263,12 +264,29 @@ async function runSession({ label, withTools, say, audio }) {
   });
 
   const promptName = randomUUID();
-  const stream = eventStream();
+  let turnDone = false;
+  const rawStream = eventStream();
+  const stream = {
+    push(event) {
+      if (DEBUG) {
+        const k = Object.keys(event.event)[0];
+        const d = event.event[k] || {};
+        const bits = [];
+        if (d.role) bits.push(`role=${d.role}`);
+        if (d.type) bits.push(`type=${d.type}`);
+        if (d.contentName) bits.push(`content=${String(d.contentName).slice(0, 8)}`);
+        if (k !== 'audioInput') console.log(`    → ${k} ${bits.join(' ')}`);
+      }
+      rawStream.push(event);
+    },
+    close: () => rawStream.close(),
+    [Symbol.asyncIterator]: () => rawStream[Symbol.asyncIterator](),
+  };
 
   const result = {
     accepted: false, toolCalls: [], firstAudioMs: null, firstTextMs: null,
     assistantText: '', userTranscript: '', error: null, audioBytes: 0,
-    events: new Set(), turnComplete: false,
+    events: new Set(), turnComplete: false, followUpText: '', bargeIns: 0,
   };
 
   stream.push({ event: { sessionStart: {
@@ -341,21 +359,44 @@ async function runSession({ label, withTools, say, audio }) {
           channelCount: 1, audioType: 'SPEECH', encoding: 'base64',
         },
       } } });
-      // 1024-sample frames, the cadence a microphone would produce.
+      audioContentName = c;
+      // 1024-sample frames, the cadence a microphone produces.
       const FRAME = 2048;
+      const send = (buf) => stream.push({ event: { audioInput: {
+        promptName, contentName: c, content: buf.toString('base64'),
+      } } });
       for (let i = 0; i < audio.length; i += FRAME) {
-        stream.push({ event: { audioInput: {
-          promptName, contentName: c,
-          content: audio.subarray(i, Math.min(i + FRAME, audio.length)).toString('base64'),
-        } } });
+        send(audio.subarray(i, Math.min(i + FRAME, audio.length)));
         await sleep(10);
+      }
+      // Keep the microphone open and keep it fed. This is not padding for the
+      // test's sake — it is what the browser will do, and Nova stalls without
+      // it once a turn needs more than one tool round.
+      const silence = Buffer.alloc(FRAME);
+      while (!turnDone) {
+        if (pendingSpeech) {
+          const speech = pendingSpeech;
+          pendingSpeech = null;
+          for (let i = 0; i < speech.length; i += FRAME) {
+            send(speech.subarray(i, Math.min(i + FRAME, speech.length)));
+            await sleep(10);
+          }
+          continue;
+        }
+        send(silence);
+        await sleep(60);
       }
       stream.push({ event: { contentEnd: { promptName, contentName: c } } });
     }
   })();
 
   let role = '';
-  const deadline = Date.now() + 60_000;
+  const unanswered = [];
+  let audioContentName = null;
+  let pendingSpeech = null;
+  let sentFollowUp = false;
+  let firstTurnText = '';
+  const deadline = Date.now() + 90_000;
   try {
     for await (const chunk of response.body) {
       if (Date.now() > deadline) break;
@@ -377,6 +418,18 @@ async function runSession({ label, withTools, say, audio }) {
       try { json = JSON.parse(new TextDecoder().decode(chunk.chunk.bytes)); } catch { continue; }
       const ev = json.event;
       if (!ev) continue;
+      if (DEBUG) {
+        const k = Object.keys(ev)[0];
+        const d = ev[k] || {};
+        const bits = [];
+        if (d.role) bits.push(`role=${d.role}`);
+        if (d.type) bits.push(`type=${d.type}`);
+        if (d.toolName) bits.push(`tool=${d.toolName}`);
+        if (d.contentName) bits.push(`content=${String(d.contentName).slice(0, 8)}`);
+        if (k === 'textOutput') bits.push(JSON.stringify(String(d.content || '').slice(0, 70)));
+        if (k === 'audioOutput') bits.push(`${Buffer.from(d.content || '', 'base64').length}B`);
+        console.log(`    [${String(Date.now() - started).padStart(6)}ms] ${k} ${bits.join(' ')}`);
+      }
       result.accepted = true;
       for (const k of Object.keys(ev)) result.events.add(k);
 
@@ -387,13 +440,34 @@ async function runSession({ label, withTools, say, audio }) {
       // the 55s idle timeout would report a failure that did not happen.
       if (ev.contentEnd && role === 'ASSISTANT' && result.audioBytes > 0
           && ev.contentEnd.type !== 'TOOL') {
+        if (followUpAudio && !sentFollowUp) {
+          // Same connection, same prompt: this is what a conversation is.
+          sentFollowUp = true;
+          firstTurnText = result.assistantText;
+          // Speak into the microphone that is already open, exactly as a
+          // person would. The feeder is streaming silence into it right now.
+          pendingSpeech = followUpAudio;
+          continue;
+        }
+        if (sentFollowUp && result.assistantText.length <= firstTurnText.length) {
+          // That contentEnd was the interruption, not an answer. Keep listening.
+          continue;
+        }
         result.turnComplete = true;
+        if (sentFollowUp) result.followUpText = result.assistantText.slice(firstTurnText.length);
+        turnDone = true;
         break;
       }
 
       if (ev.textOutput) {
         if (result.firstTextMs === null) result.firstTextMs = Date.now() - started;
         const text = String(ev.textOutput.content || '');
+        // Nova reports an interruption as a literal JSON marker on the text
+        // channel. It is a control signal, not something anyone said.
+        if (/"interrupted"\s*:\s*true/.test(text)) {
+          result.bargeIns++;
+          continue;
+        }
         if (role === 'ASSISTANT') result.assistantText += text;
         else if (role === 'USER') result.userTranscript += text;
       }
@@ -404,21 +478,27 @@ async function runSession({ label, withTools, say, audio }) {
       }
 
       if (ev.toolUse) {
-        result.toolCalls.push({
+        const call = {
           name: ev.toolUse.toolName,
           input: ev.toolUse.content ?? ev.toolUse.input ?? '',
           id: ev.toolUse.toolUseId,
           at: Date.now() - started,
-        });
+        };
+        result.toolCalls.push(call);
+        unanswered.push(call);
       }
 
       if (ev.contentEnd && ev.contentEnd.type === 'TOOL') {
-        const call = result.toolCalls[result.toolCalls.length - 1];
+        // Oldest first. Nova can emit two toolUse events before either of
+        // their contentEnds, and answering "the most recent one" twice leaves
+        // the first call hanging forever.
+        const call = unanswered.shift();
         if (call) {
           let parsed = {};
           try { parsed = typeof call.input === 'string' ? JSON.parse(call.input) : (call.input || {}); }
           catch { /* the model sent something unparseable — pass an empty object */ }
           const out = await runTool(call.name, parsed);
+          if (DEBUG) console.log(`    · ${call.name}(${JSON.stringify(parsed)}) => ${JSON.stringify(String(out).slice(0, 160))}`);
           const c = randomUUID();
           stream.push({ event: { contentStart: {
             promptName, contentName: c, interactive: false, type: 'TOOL',
@@ -447,6 +527,8 @@ async function runSession({ label, withTools, say, audio }) {
     result.error = result.error || String(err?.message || err);
   }
 
+  turnDone = true;
+  await sleep(120);   // let the feeder notice and close the content
   try {
     stream.push({ event: { promptEnd: { promptName } } });
     stream.push({ event: { sessionEnd: {} } });
@@ -507,7 +589,43 @@ if (a.firstAudioMs !== null) {
   t(afterSpeech < 2000, 'it replies within 2s of the user finishing', `${afterSpeech}ms`);
 }
 
-// B. How fast does it answer out loud?
+// B. Two tools in one turn, then a second turn on the same session.
+// This is the shape the loop bug was reported against, and the shape a real
+// conversation takes. Part A proved neither.
+if (failures === 0) {
+  const two = speakToPcm(
+    'Look at my projects, then tell me the status of the first agent you find. Keep it to one sentence.');
+  const followUp = speakToPcm('And what was the project called again?');
+  if (two && two.length > 8000) {
+    const b = await runSession({
+      label: 'B. several tools in one turn, and a second turn after it',
+      withTools: true,
+      audio: two,
+      followUpAudio: followUp && followUp.length > 8000 ? followUp : null,
+    });
+    const bn = b.toolCalls.map((c) => c.name);
+    t(b.toolCalls.length >= 2, 'it chains more than one tool in a turn',
+      `only called ${bn.join(', ') || 'nothing'}`);
+    t(b.toolCalls.length <= 6, 'and stops when it has what it needs',
+      `${b.toolCalls.length} calls: ${bn.join(' → ')}`);
+    t(!!b.assistantText.trim(), 'it answered', b.error || '(silence)');
+    console.log(`  tools called: ${bn.map((n, i) => `${n}@${b.toolCalls[i].at}ms`).join(' → ') || '(none)'}`);
+    if (b.assistantText.trim()) console.log(`  said: "${b.assistantText.trim().slice(0, 220)}"`);
+    t(b.bargeIns > 0, 'talking over it interrupts it',
+      'no interruption signal — it spoke over the follow-up');
+    if (b.followUpText) {
+      t(true, 'a second turn works on the same connection');
+      console.log(`  then: "${b.followUpText.trim().slice(0, 200)}"`);
+    } else if (followUp) {
+      t(false, 'a second turn works on the same connection', b.error || 'no reply to the follow-up');
+    }
+    if (b.error) console.log(`  error: ${b.error.slice(0, 200)}`);
+  } else {
+    console.log('\nB. skipped — could not synthesise the clips');
+  }
+}
+
+// C. How fast does it answer out loud?
 if (!TOOLS_ONLY && failures === 0) {
   const pcm = speakToPcm('Hello, are you there? Answer in one short sentence.');
   if (!pcm || pcm.length < 8000) {
