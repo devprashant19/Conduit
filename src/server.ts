@@ -198,12 +198,29 @@ app.get('/api/daemon/status', (_req, res) => {
 });
 
 // Server info — the UI shows this in the footer
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', async (_req, res) => {
+  // Whether the Supervisor is *working*, not merely switched on.
+  //
+  // This reported `supervisor: 'on'` for days while every classification was
+  // failing against a retired Bedrock model, because it only read the config
+  // flag. A health check that reports configuration instead of health is
+  // worse than none — it is the thing you check to find out if the problem is
+  // real. The watcher lives in the daemon, so ask it; a daemon that cannot
+  // answer in a second is itself the answer.
+  let health: unknown = null;
+  try {
+    health = await Promise.race([
+      daemon.request('supervisor:health', {}),
+      new Promise((resolve) => setTimeout(() => resolve(null), 1000)),
+    ]);
+  } catch { /* daemon down — `daemon: false` below already says so */ }
+
   res.json({
     ok: true,
     daemon: daemon.isConnected(),
     auth: isAuthEnabled(),
     supervisor: supervisorDisabled() ? 'off' : 'on',
+    supervisorHealth: health,
     supervisorProvider: supervisorProvider(),
     anthropicCredential: hasAnthropicCredential(),
     anthropicModel: anthropicModel(),

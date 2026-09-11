@@ -21,7 +21,7 @@ import { hookEventToStatus } from '../hook-config.js';
 import { cleanStaleCodexMcp } from '../mcp-config.js';
 import { Orchestrator } from './orchestrator.js';
 import { hookEvents } from './hook-events.js';
-import { attachWatcher, detachWatcher } from '../strands/watcher.js';
+import { attachWatcher, detachWatcher, supervisorHealth } from '../strands/watcher.js';
 import { resetGateSettingsCache } from '../gate-policy.js';
 import {
   orgSnapshot,
@@ -300,6 +300,8 @@ async function handleRequest(ws: WebSocket, req: DaemonRequest): Promise<void> {
       }
       case 'agent:replay':
         return reply(runtime.getReplay(req.agentId));
+      case 'supervisor:health':
+        return reply(supervisorHealth());
       case 'brain:state':
         return reply(orchestrator.getState());
       case 'codex:models':

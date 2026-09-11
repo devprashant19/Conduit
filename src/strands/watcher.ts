@@ -186,6 +186,62 @@ function describeError(err: unknown): string {
 let supervisorFailures = 0;
 
 /**
+ * What the Supervisor is really doing.
+ *
+ * `/api/health` used to report `supervisor: 'on'` whenever it was not
+ * switched off by config — which it dutifully did for days while every single
+ * classification was failing against a retired Bedrock model. A health check
+ * that reports configuration rather than health is worse than none: it is the
+ * thing you look at to find out whether the problem is real.
+ */
+let lastOkAt = 0;
+let lastOkProvider: 'bedrock' | 'anthropic' | null = null;
+let lastError: string | null = null;
+let lastErrorAt = 0;
+
+export interface SupervisorHealth {
+  /** off = disabled by config; ok = classifying; degraded = on the fallback;
+   *  failing = tried and could not; idle = nothing classified yet. */
+  state: 'off' | 'ok' | 'degraded' | 'failing' | 'idle';
+  provider: 'bedrock' | 'anthropic' | null;
+  configured: string;
+  model: string;
+  lastOkAt: number | null;
+  lastError: string | null;
+  lastErrorAt: number | null;
+  consecutiveFailures: number;
+  pausedForMs: number;
+}
+
+export function supervisorHealth(): SupervisorHealth {
+  if (supervisorDisabled()) {
+    return {
+      state: 'off', provider: null, configured: supervisorProvider(),
+      model: '', lastOkAt: null, lastError: null, lastErrorAt: null,
+      consecutiveFailures: 0, pausedForMs: 0,
+    };
+  }
+  const pausedForMs = Math.max(0, supervisorBackoffUntil - Date.now());
+  const state = supervisorFailures > 0 && !lastOkAt ? 'failing'
+    : !lastOkAt ? 'idle'
+      // Working, but not on the backend that was asked for. Worth surfacing:
+      // the fallback is slower, billed elsewhere, and silent until you look.
+      : lastOkProvider === 'anthropic' && supervisorProvider() !== 'anthropic' ? 'degraded'
+        : supervisorFailures > 0 ? 'failing' : 'ok';
+  return {
+    state,
+    provider: lastOkProvider,
+    configured: supervisorProvider(),
+    model: lastOkProvider === 'anthropic' ? currentModel() : BEDROCK_MODEL_ID,
+    lastOkAt: lastOkAt || null,
+    lastError,
+    lastErrorAt: lastErrorAt || null,
+    consecutiveFailures: supervisorFailures,
+    pausedForMs,
+  };
+}
+
+/**
  * How many classifications may be in flight at once, across every agent.
  *
  * Each agent has its own 20s throttle, so N working agents make N times the
@@ -257,11 +313,13 @@ async function classify(prompt: string, onUpdate: (u: SupervisorUpdate) => void)
 
   if (provider === 'anthropic') {
     onUpdate(await classifyWithAnthropic(prompt));
+    lastOkProvider = 'anthropic';
     return;
   }
 
   try {
     await createSupervisorAgent(onUpdate).invoke(prompt);
+    lastOkProvider = 'bedrock';
   } catch (err) {
     const msg = describeError(err);
     if (provider === 'bedrock' || !shouldFallBack(msg) || !hasAnthropicCredential()) throw err;
@@ -274,6 +332,7 @@ async function classify(prompt: string, onUpdate: (u: SupervisorUpdate) => void)
       );
     }
     onUpdate(await classifyWithAnthropic(prompt));
+    lastOkProvider = 'anthropic';
   }
 }
 
@@ -353,9 +412,13 @@ async function processBuffer(state: WatcherState) {
     // A good turn clears the failure streak and re-arms the warning.
     supervisorFailures = 0;
     supervisorWarned = false;
+    lastOkAt = Date.now();
+    lastError = null;
   } catch (err) {
     const msg = describeError(err);
     const kind = (err as { kind?: string })?.kind;
+    lastError = msg.slice(0, 300);
+    lastErrorAt = Date.now();
     let hint: string;
     if (isModelUnavailable(msg)) {
       // Not a credential problem, and saying so sends people to fix the wrong

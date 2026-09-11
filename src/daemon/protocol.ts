@@ -118,6 +118,7 @@ export type DaemonRequest =
   | { id: string; op: 'agent:statuses' }
   | { id: string; op: 'agent:replay'; agentId: string }
   | { id: string; op: 'brain:state' }
+  | { id: string; op: 'supervisor:health' }
   | { id: string; op: 'codex:models' }
   // --- Fire-and-forget commands ---
   | { op: 'terminal:attach'; agentId: string }
@@ -162,6 +163,25 @@ export interface GateEvent {
 }
 
 /** Result shapes for each RPC op (for type-safe clients). */
+/**
+ * Whether the Supervisor is actually working — see `supervisorHealth()`.
+ *
+ * Declared here rather than imported from the watcher: this file is the
+ * contract between the two processes, and the web server must not pull the
+ * Bedrock watcher into its own process just to name a type.
+ */
+export interface SupervisorHealth {
+  state: 'off' | 'ok' | 'degraded' | 'failing' | 'idle';
+  provider: 'bedrock' | 'anthropic' | null;
+  configured: string;
+  model: string;
+  lastOkAt: number | null;
+  lastError: string | null;
+  lastErrorAt: number | null;
+  consecutiveFailures: number;
+  pausedForMs: number;
+}
+
 export interface DaemonRpcResults {
   'agent:start': { ok: boolean; error?: string };
   'agent:stop': { ok: boolean };
@@ -174,5 +194,6 @@ export interface DaemonRpcResults {
   'agent:statuses': { statuses: Record<string, string> };
   'agent:replay': { text?: string; items?: CodexItem[] };
   'brain:state': BrainState;
+  'supervisor:health': SupervisorHealth;
   'codex:models': { models: string[] };
 }
