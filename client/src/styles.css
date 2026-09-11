@@ -4049,7 +4049,13 @@ body.is-resizing .pane-resizer {
 
   /* Mobile Terminal Buffer & Touch Usability */
   .terminal-container {
-    padding: 4px 6px 4px 8px !important;
+    /* Still no padding here — same reason as the desktop rule above.
+       FitAddon measures this element's *border-box* width and never subtracts
+       its padding, so padding here is width it thinks it has and does not, and
+       the rows get laid out past the visible edge. This rule used to set
+       `padding: 4px 6px 4px 8px`, which put the clipped-last-character bug
+       back at mobile widths only. The gutters moved to .xterm below. */
+    padding: 0 !important;
     touch-action: manipulation !important;
     overflow: hidden !important;
     max-width: 100% !important;
@@ -4057,6 +4063,10 @@ body.is-resizing .pane-resizer {
   }
 
   .terminal-container .xterm {
+    /* The mobile gutters, on the element FitAddon does subtract. Tighter than
+       desktop because the screen is narrower; the right gutter keeps the 8px
+       scrollbar allowance. */
+    padding: 4px 14px 4px 8px !important;
     max-width: 100% !important;
     width: 100% !important;
     overflow-x: hidden !important;

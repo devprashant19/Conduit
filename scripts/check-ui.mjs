@@ -164,27 +164,65 @@ const evalJs = async (expression) => {
   return r?.result?.result?.value ?? null;
 };
 
+/**
+ * Wait for the page to reach a state, rather than guessing how long it takes.
+ *
+ * Every wait here used to be a fixed sleep, and they all broke at once when the
+ * landing page gained a 1.7MB background and animated demos: nothing was
+ * wrong with the app, it was simply slower to mount than the numbers written
+ * a week earlier. A fixed sleep encodes today's render cost as a requirement
+ * and then reports a heavier page as a broken button.
+ */
+const waitFor = async (expr, ms = 15_000) => {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    try { if (await evalJs(`return !!(${expr});`)) return true; } catch { /* mid-navigation */ }
+    await sleep(200);
+  }
+  return false;
+};
+
 try {
   // The hash is read at boot, not on hashchange, so navigate then reload.
   await send('Page.navigate', { url: BASE + '/' });
-  await sleep(1200);
+  await waitFor(`document.querySelector('#root')?.firstElementChild`);
   await evalJs(`localStorage.setItem('conduit-onboarding-completed','1');
                 localStorage.setItem('conduit-onboarding-skipped','1'); return true;`);
   await send('Page.navigate', { url: BASE + '/#console' });
-  await sleep(700);
+  await sleep(400);
   await send('Page.reload');
-  await sleep(2800);
+  await waitFor(`document.querySelector('#root')?.firstElementChild`);
 
   t(await evalJs(`return !!document.querySelector('#root')?.firstElementChild;`),
     'the app mounts');
 
+  // The sidebar is populated from a fetch, so the project may not be listed
+  // the instant the app mounts.
+  await waitFor(`[...document.querySelectorAll('.sb-project')]
+    .some(e => e.textContent.trim().startsWith(${JSON.stringify(name)}))`);
   const opened = await evalJs(`
     const el = [...document.querySelectorAll('.sb-project')]
       .find(e => e.textContent.trim().startsWith(${JSON.stringify(name)}));
     if (!el) return false;
     el.click(); return true;`);
-  await sleep(3000);
-  if (!t(opened, 'the fixture project opens from the sidebar')) throw new Error('no project');
+  await waitFor(`document.querySelector('.terminal-container')`);
+  await sleep(1500);   // let the panes paint, not just exist
+  if (!opened) {
+    // Say what was actually on screen. "It did not open" sends you looking at
+    // the click; nine times out of ten the list simply was not there yet, and
+    // the difference matters.
+    const seen = await evalJs(`return JSON.stringify({
+      hash: location.hash,
+      inConsole: !!document.querySelector('.gr-tabs'),
+      onLanding: !!document.querySelector('.landing-nav'),
+      tourOverlay: !!document.querySelector('.tour-overlay-root')?.firstElementChild,
+      sidebarProjects: [...document.querySelectorAll('.sb-project')]
+        .map(e => e.textContent.trim().split('\n')[0]).slice(0, 8),
+    });`);
+    t(false, 'the fixture project opens from the sidebar', `looking for "${name}" — saw ${seen}`);
+    throw new Error('no project');
+  }
+  t(true, 'the fixture project opens from the sidebar');
 
   t(await evalJs(`return document.querySelectorAll('.terminal-container').length > 0;`),
     'terminal panes render for running agents');
@@ -330,28 +368,38 @@ try {
     landing: !!document.querySelector('.landing-nav'),
   });`);
 
+  // Wait for the view to arrive rather than guessing how long it takes.
+  //
+  // These were fixed sleeps, and they broke the moment the landing page got
+  // heavier: the click still worked, the URL still changed, but the console
+  // had not finished mounting when the assertion ran. Measured on the current
+  // landing page — the entry button appears at 1475ms and the console mounts
+  // somewhere between 2000 and 2500ms after the click. A fixed sleep encodes
+  // today's render cost as if it were a requirement, and then reports a
+  // slower page as a broken button.
   await send('Page.navigate', { url: BASE + '/' });
-  await sleep(800);
+  await sleep(500);
   await send('Page.reload');
-  await sleep(2200);
+  await waitFor(`[...document.querySelectorAll('button')]
+    .some(x => /open control center/i.test(x.textContent || ''))`);
   await evalJs(`
     const b = [...document.querySelectorAll('button')]
       .find(x => /open control center/i.test(x.textContent || ''));
     if (b) b.click(); return !!b;`);
-  await sleep(1600);
+  await waitFor(`document.querySelector('.gr-tabs')`);
   const inConsole = JSON.parse((await view()) || '{}');
   t(inConsole.console === true && inConsole.hash === '#console',
     'Open Control Center reaches the console and sets the URL', JSON.stringify(inConsole));
 
   await evalJs(`history.back(); return true;`);
-  await sleep(1400);
+  await waitFor(`document.querySelector('.landing-nav')`);
   const back = JSON.parse((await view()) || '{}');
   t(back.landing === true && back.console === false,
     'the browser Back button returns to the landing page',
     `hash "${back.hash}" but console=${back.console} — the view did not follow the URL`);
 
   await evalJs(`history.forward(); return true;`);
-  await sleep(1400);
+  await waitFor(`document.querySelector('.gr-tabs')`);
   const fwd = JSON.parse((await view()) || '{}');
   t(fwd.console === true, 'and Forward returns to the console', JSON.stringify(fwd));
 
