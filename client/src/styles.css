@@ -2146,37 +2146,36 @@ body.is-resizing .pane-resizer {
   min-height: 0;
   overflow: hidden;
   background: transparent;
-  /* Right padding covers the 8px scrollbar.
+  /* No padding here, deliberately.
 
-     It has to live here rather than as a width override on .xterm-screen,
-     because FitAddon measures *this* box to choose a column count — anything
-     narrower than what it measured gets clipped, and since the screen has
-     `overflow: hidden` nothing ever appears to overflow. The symptom was words
-     quietly losing their last letter: "file edits, or" rendering as "file
-     edits, o". The extra cell covers FitAddon's own off-by-one, which is not
-     reachable from outside the addon. */
-  padding: 8px 14px 6px 12px;
+     FitAddon reads `getComputedStyle(parent).width` to decide how many columns
+     fit — and with `box-sizing: border-box` that is the *border-box* width,
+     which still includes this element's padding. The addon never subtracts it,
+     so every pixel of padding here is width it thinks it has and does not.
+
+     Measured on a real pane: border-box 367px with 12+14 padding, so the true
+     content box was 341px — but the addon computed against 367 and laid out
+     rows 338px wide inside a 331px screen. Two columns past the edge, clipped
+     silently by the `overflow: hidden`, which is why agent output kept losing
+     its last letter: "file edits, or" rendering as "file edits, o".
+
+     The gutters live on .xterm instead, which the addon *does* subtract. */
+  padding: 0;
   position: relative;
   max-width: 100%;
 }
 
 .terminal-container .xterm {
   height: 100% !important;
-  /* FitAddon reads *this* element's padding when choosing a column count —
-     `parentWidth - xtermPadding - scrollbarWidth`. Forcing it to 0 meant the
-     addon believed it had the full width, picked one column too many, and the
-     `overflow: hidden` below silently clipped the last character off every
-     line: "file edits, or" rendered as "file edits, o". Padding on
-     .terminal-container cannot fix it, because the addon never looks there.
+  /* The pane's gutters live here, not on .terminal-container, because this is
+     the element whose padding FitAddon subtracts:
+       availableWidth = parentBorderBoxWidth - thisPadding - scrollbarWidth
+     Padding on the parent is invisible to that sum (see the note there), so it
+     became columns laid out past the visible edge.
 
-     PARTIAL. This plus the font-ready refit in Terminal.tsx took the loss from
-     about two characters to one; a single column is still being clipped at
-     some widths. Raising this further does not close it, which means the
-     remaining column comes from somewhere other than padding — most likely
-     FitAddon's own rounding against a fractional cell width. Worth finishing
-     with a live measurement of `_renderService.dimensions.css.cell.width`
-     against the painted row. */
-  padding: 0 10px 0 0 !important;
+     8/6 vertical and 12 left are the original gutters; 22 right is the
+     original 14 plus 8 for the scrollbar. */
+  padding: 8px 22px 6px 12px !important;
   max-width: 100% !important;
   overflow-x: hidden !important;
 }
