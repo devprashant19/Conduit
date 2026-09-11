@@ -7786,7 +7786,7 @@ body.is-resizing .pane-resizer {
 }
 
 .step-num {
-  font-family: var(--ff-mono);
+  font-family: var(--ff-sans);
   font-size: 11px;
   font-weight: 700;
   color: #7c3aed;
@@ -7819,39 +7819,102 @@ body.is-resizing .pane-resizer {
   box-shadow: 0 12px 32px -8px rgba(168, 140, 255, 0.1);
 }
 
+/* ==========================================================
+   Clean & Professional Animated Safety Loop (Step 01 & Step 02)
+   Sans-Serif Modern Aesthetic
+   ========================================================== */
+
+/* Step 01: Animated Classification Card */
 .preview-prompt-card {
   width: 100%;
   max-width: 520px;
   background: #ffffff;
   border: 1px solid rgba(15, 15, 17, 0.08);
   border-radius: 16px;
-  padding: 20px 24px;
+  padding: 22px 24px;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   box-shadow: 0 10px 30px -6px rgba(15, 15, 17, 0.06);
+  transition: all 0.25s ease;
+  font-family: var(--ff-sans);
+}
+
+.preview-prompt-card:hover {
+  box-shadow: 0 12px 32px -6px rgba(124, 58, 237, 0.09);
+  border-color: rgba(124, 58, 237, 0.2);
+}
+
+.animated-prompt-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.prompt-meta-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prompt-agent-badge {
+  font-family: var(--ff-sans);
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.08);
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: -0.01em;
+}
+
+.prompt-classification-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 9999px;
+  letter-spacing: 0.01em;
+  font-family: var(--ff-sans);
+}
+
+.pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
 }
 
 .preview-prompt-text {
+  font-family: var(--ff-sans);
   font-size: 13.5px;
   font-weight: 500;
   color: #0f0f11;
   line-height: 1.5;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
 }
 
 .preview-submit-arrow {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   background: #0f0f11;
   color: #ffffff;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 14px;
+  font-size: 13px;
   flex-shrink: 0;
+  margin-top: 2px;
+  box-shadow: 0 2px 6px rgba(15, 15, 17, 0.2);
+  transition: transform 0.2s ease;
 }
 
+/* Step 02: Animated Gate & Plan Approval Card */
 .preview-result-card {
   width: 100%;
   max-width: 520px;
@@ -7863,10 +7926,22 @@ body.is-resizing .pane-resizer {
   flex-direction: column;
   gap: 12px;
   box-shadow: 0 10px 30px -6px rgba(15, 15, 17, 0.06);
+  transition: all 0.25s ease;
+  font-family: var(--ff-sans);
+}
+
+.preview-result-card:hover {
+  box-shadow: 0 12px 32px -6px rgba(124, 58, 237, 0.09);
+  border-color: rgba(124, 58, 237, 0.2);
+}
+
+.preview-user-query-wrap {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 .preview-user-query {
-  align-self: flex-end;
   background: rgba(238, 230, 255, 0.85);
   color: #3b0764;
   padding: 8px 14px;
@@ -7874,45 +7949,118 @@ body.is-resizing .pane-resizer {
   border-bottom-right-radius: 3px;
   font-size: 12.5px;
   line-height: 1.4;
-  max-width: 82%;
+  max-width: 92%;
   border: 1px solid rgba(186, 159, 255, 0.3);
+  font-family: var(--ff-sans);
+  font-weight: 500;
+  transition: all 0.3s ease;
+  word-break: break-all;
+}
+
+.preview-user-query.rerouted {
+  background: rgba(236, 253, 245, 0.9);
+  color: #065f46;
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .preview-status-tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
+  gap: 6px;
+  font-size: 11.5px;
   font-weight: 700;
-  color: #15803d;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
+  font-family: var(--ff-sans);
+  transition: color 0.3s ease;
 }
 
 .preview-summary-text {
+  font-family: var(--ff-sans);
   font-size: 13px;
   line-height: 1.55;
   color: var(--text-1);
+  min-height: 40px;
+}
+
+.preview-summary-text strong {
+  color: #0f0f11;
+  font-weight: 600;
+}
+
+.gate-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
 }
 
 .preview-action-pill {
-  align-self: flex-start;
   height: 32px;
   padding: 0 16px;
   background: #0f0f11;
   color: #ffffff;
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-pill, 9999px);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 4px;
   box-shadow: 0 2px 8px rgba(15, 15, 17, 0.2);
-  transition: all 0.15s ease;
+  transition: all 0.18s ease;
 }
 
 .preview-action-pill:hover {
   background: #27272a;
   transform: translateY(-1px);
+}
+
+.preview-action-pill.gate-reject-pill {
+  background: #dc2626;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+
+.preview-action-pill.gate-reject-pill:hover {
+  background: #b91c1c;
+}
+
+.preview-action-pill.gate-active-pill {
+  background: #4b5563;
+  cursor: default;
+}
+
+.gate-mini-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mini-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(15, 15, 17, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mini-dot.active {
+  background: #7c3aed;
+  transform: scale(1.3);
+}
+
+/* Subtle fade swap animation */
+.fade-swap {
+  animation: fadeSwap 0.3s ease-out;
+}
+
+@keyframes fadeSwap {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ==========================================================

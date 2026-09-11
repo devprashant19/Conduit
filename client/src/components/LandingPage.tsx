@@ -5,6 +5,7 @@ import ToolEcosystemSection from './ecosystem/ToolEcosystemSection';
 import WorkflowShowcaseSection from './WorkflowShowcaseSection';
 import { BrandIcons } from './ecosystem/BrandIcons';
 import DownloadModal from './DownloadModal';
+import { WatchClassifyDemo, GateApprovalDemo } from './safety/SafetyLoopShowcase';
 
 interface LandingPageProps {
   onOpenConsole: () => void;
@@ -269,17 +270,12 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
               <span className="step-num">01</span>
               <h3 className="step-title">Watch and classify in real time.</h3>
               <p className="step-desc">
-                The daemon strips ANSI from every agent's terminal output and runs fast regex checks (destructive commands, force pushes, rm -rf) plus an AWS Strands Supervisor call on Bedrock every 10–20 seconds.
+                Conduit scans agent terminals in real time running instant regex checks for destructive commands and AI classification for progress and blockers.
               </p>
             </div>
             <div className="how-step-preview">
               <div className="preview-container-box">
-                <div className="preview-prompt-card">
-                  <span className="preview-prompt-text">
-                    Supervisor classifies agent output: reports progress, blockers, questions, and flags risky commands.
-                  </span>
-                  <span className="preview-submit-arrow"><Ic.bolt size={13} /></span>
-                </div>
+                <WatchClassifyDemo />
               </div>
             </div>
           </div>
@@ -290,25 +286,12 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
               <span className="step-num">02</span>
               <h3 className="step-title">Gate & Plan approval.</h3>
               <p className="step-desc">
-                Nothing is auto-answered. Risky commands pause the agent and surface an Approval Gate. Supervisor instructions must go through `plan_action` and require your explicit sign-off before anything is sent.
+                Risky commands pause the agent instantly. Approval Gates require your explicit sign-off before any destructive action or plan can proceed.
               </p>
             </div>
             <div className="how-step-preview">
               <div className="preview-container-box">
-                <div className="preview-result-card">
-                  <div className="preview-user-query">
-                    claude: git push origin main --force
-                  </div>
-                  <div className="preview-status-tag" style={{ color: '#0f0f11' }}>
-                    <span className="check-icon" style={{ display: 'inline-flex', alignItems: 'center' }}><Ic.logo size={12} /></span> APPROVAL GATE REQUIRED
-                  </div>
-                  <div className="preview-summary-text">
-                    Destructive action detected on branch 'main'. The agent is paused until you approve, reject, or type a custom reply.
-                  </div>
-                  <button className="preview-action-pill" onClick={onOpenConsole}>
-                    Review in Console
-                  </button>
-                </div>
+                <GateApprovalDemo onOpenConsole={onOpenConsole} />
               </div>
             </div>
           </div>
