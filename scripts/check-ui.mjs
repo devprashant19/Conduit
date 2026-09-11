@@ -278,6 +278,43 @@ try {
   t(await evalJs(`return !!document.querySelector('#root')?.firstElementChild;`),
     'the app survived every click');
 
+  // ── the browser's own buttons ───────────────────────────────────────
+  // The app writes `#console` into the address bar, which pushes a history
+  // entry. If nothing listens for it coming back, Back changes the URL and
+  // leaves the view where it was — and the *second* Back leaves the site, from
+  // a page that never appeared to move.
+  currentAction = 'browser history';
+  const view = () => evalJs(`return JSON.stringify({
+    hash: location.hash,
+    console: !!document.querySelector('.gr-tabs'),
+    landing: !!document.querySelector('.landing-nav'),
+  });`);
+
+  await send('Page.navigate', { url: BASE + '/' });
+  await sleep(800);
+  await send('Page.reload');
+  await sleep(2200);
+  await evalJs(`
+    const b = [...document.querySelectorAll('button')]
+      .find(x => /open control center/i.test(x.textContent || ''));
+    if (b) b.click(); return !!b;`);
+  await sleep(1600);
+  const inConsole = JSON.parse((await view()) || '{}');
+  t(inConsole.console === true && inConsole.hash === '#console',
+    'Open Control Center reaches the console and sets the URL', JSON.stringify(inConsole));
+
+  await evalJs(`history.back(); return true;`);
+  await sleep(1400);
+  const back = JSON.parse((await view()) || '{}');
+  t(back.landing === true && back.console === false,
+    'the browser Back button returns to the landing page',
+    `hash "${back.hash}" but console=${back.console} — the view did not follow the URL`);
+
+  await evalJs(`history.forward(); return true;`);
+  await sleep(1400);
+  const fwd = JSON.parse((await view()) || '{}');
+  t(fwd.console === true, 'and Forward returns to the console', JSON.stringify(fwd));
+
 } catch (err) {
   t(false, 'the browser pass completed', String(err).slice(0, 160));
 } finally {

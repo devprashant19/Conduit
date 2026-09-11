@@ -865,6 +865,28 @@ export default function App() {
     }
   }, [projects, selectedProjectId, loadAgents]);
 
+  /**
+   * Keep the view and the URL in step.
+   *
+   * `handleViewChange` writes `#console` into the address bar, which pushes a
+   * history entry — but nothing was listening for it coming back. Pressing the
+   * browser's Back button changed the URL to `/` and left the console on
+   * screen; pressing it again left the site entirely, from a page that had
+   * never appeared to move. Measured: hash "" with the console still rendered.
+   *
+   * The desktop app has no landing page to go back to, so it opts out.
+   */
+  useEffect(() => {
+    if (window.conduitDesktop?.isDesktop) return;
+    const sync = () => setInConsole(window.location.hash === '#console');
+    window.addEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
+    return () => {
+      window.removeEventListener('hashchange', sync);
+      window.removeEventListener('popstate', sync);
+    };
+  }, []);
+
   const handleViewChange = useCallback((v: 'landing' | 'console') => {
     if (v === 'landing') {
       window.location.hash = '';
