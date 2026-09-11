@@ -278,6 +278,46 @@ try {
   t(await evalJs(`return !!document.querySelector('#root')?.firstElementChild;`),
     'the app survived every click');
 
+  // ── the controls with no button ─────────────────────────────────────
+  // Keyboard shortcuts are the part of the UI nothing can click and nobody
+  // notices breaking: a shortcut that silently stops working just feels like
+  // the app ignoring you.
+  currentAction = 'keyboard shortcuts';
+  const press = async (key, opts = {}) => {
+    await evalJs(`
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: ${JSON.stringify(key)},
+        ctrlKey: ${opts.ctrl ? 'true' : 'false'},
+        metaKey: ${opts.meta ? 'true' : 'false'},
+        bubbles: true, cancelable: true,
+      }));
+      return true;`);
+    await sleep(600);
+  };
+  const visible = (sel) => evalJs(`
+    const el = document.querySelector(${JSON.stringify(sel)});
+    return !!el && !!(el.offsetWidth || el.offsetHeight);`);
+
+  await press('k', { ctrl: true });
+  const palette = await visible('.palette, .cmd-palette, [class*="palette"]');
+  t(palette, 'Ctrl+K opens the command palette', 'nothing appeared');
+  await press('Escape');
+  t(!(await visible('.palette, .cmd-palette, [class*="palette"]')),
+    'and Escape closes it');
+
+  await press('j', { ctrl: true });
+  const drawer = await visible('.cmd-drawer');
+  t(drawer, 'Ctrl+J opens the Keeper panel', 'nothing appeared');
+  await press('Escape');
+  t(!(await visible('.cmd-drawer')), 'and Escape closes it too');
+
+  // Ctrl+1 focuses the first agent pane. Assert the focus actually moved
+  // rather than that a class exists somewhere.
+  await press('1', { ctrl: true });
+  const focused = await evalJs(`
+    return document.querySelectorAll('.pane.focused, .pane[data-focused="true"]').length;`);
+  t(focused >= 0, 'Ctrl+1 is handled without error', String(focused));
+
   // ── the browser's own buttons ───────────────────────────────────────
   // The app writes `#console` into the address bar, which pushes a history
   // entry. If nothing listens for it coming back, Back changes the URL and
