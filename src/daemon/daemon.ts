@@ -334,6 +334,51 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+/**
+ * Read a JSON object body, or say the client got it wrong.
+ *
+ * Every `/org/*` POST used to `JSON.parse` inside a try whose catch answered
+ * 500. A malformed body is the client's mistake, and reporting it as a server
+ * fault sends whoever is debugging to look in the wrong process — which is
+ * exactly what a 5xx is *for* telling them. Measured: `{`, `null` and a bare
+ * string all produced 500s here.
+ *
+ * Anything that is not a JSON object is refused, including `null`, arrays and
+ * bare strings, because every caller reads named fields off it.
+ */
+/**
+ * A field from a JSON body, as a string — only if it really is one.
+ *
+ * `String(v)` looks safe and is not. Given `{"project": {"toString": 1}}` —
+ * valid JSON, and something any client can send — it throws
+ * `Cannot convert object to primitive value`, which surfaced here as a 500 on
+ * `/org/ask-agent`. The REST side already learned this: a truthy object used
+ * to slip past a check, inject an empty message, and log "[object Object]"
+ * into the activity feed.
+ *
+ * Anything that is not a string is not a name, a path, or a message. Treat it
+ * as absent and let the caller's own required-field check reject it.
+ */
+function str(v: unknown, fallback = ''): string {
+  return typeof v === 'string' ? v.trim() : fallback;
+}
+
+async function readJsonBody(
+  req: IncomingMessage,
+): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; error: string }> {
+  const raw = (await readBody(req)) || '{}';
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, error: 'Body must be valid JSON.' };
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'Body must be a JSON object.' };
+  }
+  return { ok: true, body: parsed as Record<string, unknown> };
+}
+
 function sendJson(res: ServerResponse, status: number, obj: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(obj));
@@ -370,10 +415,12 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
   // POST /org/ask-agent — dispatch a message to an agent and await its reply
   if (httpReq.method === 'POST' && route === '/org/ask-agent') {
     try {
-      const body = JSON.parse((await readBody(httpReq)) || '{}');
-      const project = String(body.project || '').trim();
-      const agent = String(body.agent || '').trim();
-      const message = String(body.message || '').trim();
+      const parsed = await readJsonBody(httpReq);
+      if (!parsed.ok) { sendJson(res, 400, { ok: false, error: parsed.error }); return; }
+      const body = parsed.body as any;
+      const project = str(body.project);
+      const agent = str(body.agent);
+      const message = str(body.message);
       if (!project || !agent || !message) {
         sendJson(res, 400, {
           ok: false, status: 'not-found',
@@ -406,9 +453,11 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
   // POST /org/start-agent — boot a stopped agent and wait until it is ready
   if (httpReq.method === 'POST' && route === '/org/start-agent') {
     try {
-      const body = JSON.parse((await readBody(httpReq)) || '{}');
-      const project = String(body.project || '').trim();
-      const agent = String(body.agent || '').trim();
+      const parsed = await readJsonBody(httpReq);
+      if (!parsed.ok) { sendJson(res, 400, { ok: false, error: parsed.error }); return; }
+      const body = parsed.body as any;
+      const project = str(body.project);
+      const agent = str(body.agent);
       if (!project || !agent) {
         sendJson(res, 400, {
           ok: false, status: 'not-found',
@@ -459,9 +508,11 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
   // POST /org/broadcast — ask every running agent at once
   if (httpReq.method === 'POST' && route === '/org/broadcast') {
     try {
-      const body = JSON.parse((await readBody(httpReq)) || '{}');
-      const message = String(body.message || '').trim();
-      const project = body.project ? String(body.project).trim() : undefined;
+      const parsed = await readJsonBody(httpReq);
+      if (!parsed.ok) { sendJson(res, 400, { ok: false, error: parsed.error }); return; }
+      const body = parsed.body as any;
+      const message = str(body.message);
+      const project = str(body.project) || undefined;
       if (!message) {
         sendJson(res, 400, { ok: false, error: 'message is required', replies: [], skipped: [] });
         return;
@@ -491,9 +542,11 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
   // POST /org/stop-agent — stop a running agent
   if (httpReq.method === 'POST' && route === '/org/stop-agent') {
     try {
-      const body = JSON.parse((await readBody(httpReq)) || '{}');
-      const project = String(body.project || '').trim();
-      const agent = String(body.agent || '').trim();
+      const parsed = await readJsonBody(httpReq);
+      if (!parsed.ok) { sendJson(res, 400, { ok: false, error: parsed.error }); return; }
+      const body = parsed.body as any;
+      const project = str(body.project);
+      const agent = str(body.agent);
       if (!project || !agent) {
         sendJson(res, 400, {
           ok: false, status: 'not-found',
@@ -518,11 +571,13 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
   // POST /org/inject — inject a message into a running agent (for supervisor)
   if (httpReq.method === 'POST' && route === '/org/inject') {
     try {
-      const body = JSON.parse((await readBody(httpReq)) || '{}');
-      const project = String(body.project || '').trim();
-      const agent = String(body.agent || '').trim();
-      const fromName = String(body.fromName || 'Supervisor').trim();
-      const message = String(body.message || '').trim();
+      const parsed = await readJsonBody(httpReq);
+      if (!parsed.ok) { sendJson(res, 400, { ok: false, error: parsed.error }); return; }
+      const body = parsed.body as any;
+      const project = str(body.project);
+      const agent = str(body.agent);
+      const fromName = str(body.fromName, 'Supervisor');
+      const message = str(body.message);
       
       if (!project || !agent || !message) {
         sendJson(res, 400, {
@@ -570,11 +625,13 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
   // POST /org/create-project — create a new project/team
   if (httpReq.method === 'POST' && route === '/org/create-project') {
     try {
-      const body = JSON.parse((await readBody(httpReq)) || '{}');
+      const parsed = await readJsonBody(httpReq);
+      if (!parsed.ok) { sendJson(res, 400, { ok: false, error: parsed.error }); return; }
+      const body = parsed.body as any;
       const result = createProjectDispatch(
-        String(body.name || ''),
-        String(body.cwd || ''),
-        body.description ? String(body.description) : undefined,
+        str(body.name),
+        str(body.cwd),
+        str(body.description) || undefined,
       );
       if (result.ok) broadcast({ kind: 'event', event: 'org:changed' });
       sendJson(res, 200, result);
@@ -590,13 +647,15 @@ async function handleHttp(httpReq: IncomingMessage, res: ServerResponse) {
   // POST /org/create-agent — add an agent to a project
   if (httpReq.method === 'POST' && route === '/org/create-agent') {
     try {
-      const body = JSON.parse((await readBody(httpReq)) || '{}');
+      const parsed = await readJsonBody(httpReq);
+      if (!parsed.ok) { sendJson(res, 400, { ok: false, error: parsed.error }); return; }
+      const body = parsed.body as any;
       const result = createAgentDispatch(
-        String(body.project || ''),
-        String(body.name || ''),
-        String(body.cli || ''),
-        body.role ? String(body.role) : undefined,
-        body.cwd ? String(body.cwd) : undefined,
+        str(body.project),
+        str(body.name),
+        str(body.cli),
+        str(body.role) || undefined,
+        str(body.cwd) || undefined,
       );
       if (result.ok) broadcast({ kind: 'event', event: 'org:changed' });
       sendJson(res, 200, result);
