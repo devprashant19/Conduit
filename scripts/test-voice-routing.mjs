@@ -2,7 +2,11 @@
 /**
  * Unit checks for spoken-command routing.
  *
- * The safety case matters most: no transcript may ever produce an approve.
+ * The safety case matters most: no transcript may ever produce an approve on
+ * this path. (The live Nova path can approve, but only through the server-side
+ * four-condition guard in `src/voice/approval-guard.ts`, which has its own
+ * tests in `scripts/test-approval-guard.mjs`. This router has no such guard,
+ * so it has no approve.)
  * The rest guards against the two ways voice routing fails in practice —
  * a control word being dispatched as a task, and a transcriber mangling an
  * agent's name so the command silently goes to the wrong place.

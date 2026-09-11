@@ -8,7 +8,7 @@ import * as storage from './storage.js';
 import * as activity from './activity.js';
 import type { DaemonClient } from './daemon/client.js';
 import type { Agent, WSServerMessage, ProjectLayout } from './types.js';
-import { isYesNoPrompt } from './gatePatterns.js';
+import { resolveGate, type GateDecision } from './gate-resolve.js';
 import { VALID_CLIS } from './cli-registry.js';
 import { removeConduitSections } from './instruction-files.js';
 
@@ -494,63 +494,13 @@ export function createRouter(
 
   // --- Approval gates ---
   router.post('/projects/:id/agents/:aid/gate/resolve', (req: Request, res: Response) => {
-    const decision = str(req.body?.decision, 20);
+    const decision = str(req.body?.decision, 20) as GateDecision;
     const customInput = str(req.body?.customInput, 4000);
-    const agent = storage.getAgent(req.params.id, req.params.aid);
-    if (!agent) { res.status(404).json({ error: 'Agent not found' }); return; }
-    const gate = agent.pendingGate;
-    if (!gate) { res.status(409).json({ error: 'No pending gate for this agent' }); return; }
-    if (!['approve', 'reject', 'custom'].includes(decision)) {
-      res.status(400).json({ error: 'decision must be approve, reject, or custom' });
-      return;
-    }
-
-    storage.updateAgent(req.params.id, req.params.aid, { pendingGate: undefined });
-
-    // What actually reaches the agent depends on what it is waiting for:
-    //  - a literal y/n prompt (shell / git / installers): answer it
-    //  - anything else (Claude's own permission UI, a risky command the
-    //    Supervisor spotted): approve = leave it alone; reject = interrupt the
-    //    agent (Escape) and tell it why; custom = type the user's text
-    const yesNo = gate.source === 'regex' && isYesNoPrompt(gate.prompt);
-    let action = 'none';
-    try {
-      if (decision === 'approve') {
-        if (yesNo) { daemon.writeTerminal(agent.id, 'y\r'); action = 'sent y'; }
-      } else if (decision === 'reject') {
-        if (yesNo) { daemon.writeTerminal(agent.id, 'n\r'); action = 'sent n'; }
-        else {
-          daemon.command({ op: 'terminal:interrupt', agentId: agent.id });
-          setTimeout(() => {
-            daemon.request('agent:inject', {
-              agentId: agent.id, fromName: 'User',
-              message: 'STOP. The user rejected the action you were about to take. Do not proceed with it; explain what you were doing and wait for instructions.',
-            }).catch(() => { /* daemon down */ });
-          }, 400);
-          action = 'interrupted';
-        }
-      } else if (decision === 'custom' && customInput) {
-        daemon.writeTerminal(agent.id, customInput.replace(/\r?\n$/, '') + '\r');
-        action = 'sent custom input';
-      }
-    } catch { /* daemon down */ }
-
-    storage.appendAuditLog(req.params.id, { event: `gate_${decision}`, agentId: agent.id, agentName: agent.name, gate, action, customInput: decision === 'custom' ? customInput : undefined });
-    const entry: storage.GroupChatEntry = {
-      id: randomUUID(),
-      ts: new Date().toISOString(),
-      role: 'user',
-      sender: 'User',
-      text: decision === 'approve'
-        ? `Approved ${agent.name}'s pending action.`
-        : decision === 'reject'
-          ? `Rejected ${agent.name}'s pending action.`
-          : `Replied to ${agent.name}: ${customInput}`,
-    };
-    storage.appendGroupChat(req.params.id, entry);
-    broadcast({ type: 'groupchat:message', payload: { ...entry, projectId: req.params.id } });
-    broadcast({ type: 'gate:resolved', agentId: req.params.aid });
-    res.json({ success: true, action });
+    // The mechanics live in gate-resolve.ts because voice can approve too, and
+    // two copies of "what actually reaches the agent" would drift apart.
+    const r = resolveGate(daemon, broadcast, req.params.id, req.params.aid, decision, { customInput });
+    if (!r.ok) { res.status(r.status).json({ error: r.error }); return; }
+    res.json({ success: true, action: r.action });
   });
 
   // --- Plans (Supervisor proposals awaiting human approval) ---

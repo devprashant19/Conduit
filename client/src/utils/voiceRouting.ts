@@ -7,9 +7,16 @@
  * between "reject" and "approve" must never come down to a lucky match.
  *
  * Safety: there is deliberately **no** approve action in the `Route` union.
- * Approving a gate can run `rm -rf`, force-push, or drop a database, so it is
- * not reachable from a transcript at all — not disabled by a flag, absent.
- * Saying "approve" produces a `refuse`, which is answered out loud.
+ * Approving a gate can run `rm -rf`, force-push, or drop a database, and this
+ * path has nothing that could make that safe: it sees one transcript, with no
+ * record of what was read out, when, or whether the gate is still the same one.
+ * So approve is absent here — not disabled by a flag, absent. Saying "approve"
+ * produces a `refuse`, which is answered out loud.
+ *
+ * The live Nova path *can* approve, because it has the four things this one
+ * lacks; see `src/voice/approval-guard.ts`. That guard runs on the server and
+ * checks them itself. Do not add an approve action here to match it — the check
+ * is what makes it safe, and there is no check on this side.
  */
 
 export interface RosterAgent {

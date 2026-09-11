@@ -145,10 +145,27 @@ you with the exact message it wants to send. Nothing reaches an agent until you 
 and every decision is appended to `audit.jsonl`. Approving and rejecting are equally
 one-click, because a safety valve that is tedious to reject gets approved by reflex.
 
-**Voice inherits this asymmetry.** You can reject a gate by saying so. You cannot approve
-one. That is not a setting — the router's type has no approve action in it
-(`client/src/utils/voiceRouting.ts`), so no transcript can produce one, and the unit tests
-assert it. A misheard word must never be able to authorise `rm -rf`.
+**Voice inherits this asymmetry, in both of its forms.** Rejecting a gate out loud always
+works. Approving one is deliberately much harder, and how much harder depends on which voice
+path you are on:
+
+- **The pipeline path** (browser or Whisper transcription, the default) cannot approve at
+  all. That is not a setting — the router's type has no approve action in it
+  (`client/src/utils/voiceRouting.ts`), so no transcript can produce one, and the unit tests
+  assert it. This path sees a bare sentence with no memory of what was read out, so there is
+  nothing it could check.
+- **The live path** (Nova 2 Sonic) can approve, because the user asked for it and because it
+  has the context to make it survivable. It is enforced on the server, in
+  `src/voice/approval-guard.ts`, never by telling the model to be careful. All four must
+  hold: the command was read out loud by `describe_gate`; that was under 60 seconds ago; the
+  user's *own recorded speech* since then contains the word "approve" un-negated — a bare
+  "yes" is not enough; and the gate is still open with its text unchanged. The confirmation
+  is read from the transcript stream, so the model cannot supply its own. Every voice
+  approval writes the authorising words verbatim into `audit.jsonl`.
+
+This is the one place in Conduit where a mishearing can start something destructive, which is
+why there are four conditions rather than one, and why `scripts/test-approval-guard.mjs`
+spends most of its 38 checks on the refusals.
 
 ---
 

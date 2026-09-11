@@ -673,8 +673,11 @@ export default function App() {
   /**
    * Run one routed voice command and return what should be said back.
    *
-   * Note there is no 'approve' branch: `Route` cannot express one, so a
-   * misheard word can never authorise a destructive action.
+   * Note there is no 'approve' branch: `Route` cannot express one, so a single
+   * misheard word on this path can never authorise a destructive action. The
+   * live Nova session reaches approval through a different door entirely —
+   * `src/voice/approval-guard.ts`, server-side, with four conditions — and not
+   * through here.
    */
   const dispatchVoiceRoute = useCallback(async (route: Route): Promise<string | void> => {
     if (route.kind === 'keeper') return sendToKeeper(route.text);

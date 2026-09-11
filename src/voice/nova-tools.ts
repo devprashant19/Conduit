@@ -1,7 +1,7 @@
 /**
  * What the voice Keeper can do.
  *
- * Six tools, not the twelve the text Keeper has. Two reasons, and both are
+ * Eight tools, not the twelve the text Keeper has. Two reasons, and both are
  * deliberate:
  *
  *   - Latency. These all answer immediately. `ask_agent` can legitimately take
@@ -9,10 +9,16 @@
  *     it and `consult_keeper` return "dispatched" and announce the real answer
  *     when it lands (see `deferred`).
  *   - Risk. There are open AWS reports of Nova looping with many tools
- *     declared. `npm run check:nova` shows six is fine here; twelve is untested
- *     and buys little, because `create_project`, `create_agent`, `read_wiki`,
- *     `read_shared` and `get_project_overview` all involve paths and prose that
- *     are far easier typed than spoken. They stay in the Ctrl+J text Keeper.
+ *     declared. `npm run check:nova` shows eight is fine here; twelve is
+ *     untested and buys little, because `create_project`, `create_agent`,
+ *     `read_wiki`, `read_shared` and `get_project_overview` all involve paths
+ *     and prose far easier typed than spoken. They stay in the Ctrl+J Keeper.
+ *
+ * `describe_gate` and `resolve_gate` are the two that can do damage, and they
+ * are the two that are not trusted to the model's judgement: `approve` is
+ * refused by `src/voice/approval-guard.ts` unless the command was read out
+ * loud, recently, the gate is unchanged, and the user's own recorded speech
+ * says to approve it. The model cannot talk its way past any of that.
  *
  * Descriptions are lifted from `src/conduit-mcp-server.ts`. They are doing
  * prompt-engineering work rather than documenting — `ask_agent`'s status
@@ -122,6 +128,41 @@ export const VOICE_TOOLS: NovaTool[] = [
       required: ['project', 'agent', 'message'],
     },
   },
+  {
+    name: 'describe_gate',
+    description:
+      'Read out what an agent is waiting for permission to do. Always call this '
+      + 'before resolve_gate — approving is refused otherwise. Say the command '
+      + 'back to the user plainly and then ask whether to approve it.',
+    schema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'Project name or id.' },
+        agent: { type: 'string', description: 'Agent name or id.' },
+      },
+      required: ['project', 'agent'],
+    },
+  },
+  {
+    name: 'resolve_gate',
+    description:
+      'Approve or reject what an agent is waiting to do. Rejecting always works. '
+      + 'Approving works only after describe_gate has read the command out and '
+      + 'the user has said the word "approve" — if it is refused, say the reason '
+      + 'out loud and do not try again with different wording.',
+    schema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'Project name or id.' },
+        agent: { type: 'string', description: 'Agent name or id.' },
+        decision: {
+          type: 'string',
+          description: 'Either "approve" or "reject".',
+        },
+      },
+      required: ['project', 'agent', 'decision'],
+    },
+  },
 ];
 
 /**
@@ -133,9 +174,41 @@ export const VOICE_TOOLS: NovaTool[] = [
  */
 export const DEFERRED_TOOLS = new Set(['ask_agent']);
 
+/**
+ * Everything the gate tools need, supplied by the server.
+ *
+ * Gates live in the web server's own storage, not behind the daemon's `/org/*`
+ * API, and resolving one has to go through the same code path the UI button
+ * uses. So the server hands this down rather than the tools reaching for it.
+ */
+export interface GateBridge {
+  /** The gate this agent is waiting on right now, or null. */
+  find: (project: string, agent: string) => GateLookup;
+  /** Approve it — may be refused by the guard, with a reason to say out loud. */
+  approve: (found: GateFound) => { ok: boolean; message: string };
+  /** Reject it. Always allowed. */
+  reject: (found: GateFound) => { ok: boolean; message: string };
+  /** Called after the command has been handed over to be read aloud. */
+  noteDescribed: (found: GateFound) => void;
+}
+
+export interface GateFound {
+  projectId: string;
+  agentId: string;
+  agentName: string;
+  prompt: string;
+  source: 'regex' | 'supervisor';
+}
+
+export type GateLookup =
+  | { found: true; gate: GateFound }
+  | { found: false; reason: string };
+
 export interface ToolContext {
   /** Called when a deferred tool finally produces something worth saying. */
   onDeferredResult: (summary: string) => void;
+  /** Absent only in tests that do not exercise the gate tools. */
+  gates?: GateBridge;
 }
 
 /** Resolve a project by name or id, the way `findAgent` does server-side. */
@@ -251,6 +324,34 @@ export async function runVoiceTool(
     });
   }
 
+  if (name === 'describe_gate' || name === 'resolve_gate') {
+    if (!ctx.gates) return 'I cannot reach the approval gates from here.';
+    const lookup = ctx.gates.find(str(input.project), str(input.agent));
+    if (!lookup.found) return lookup.reason;
+    const gate = lookup.gate;
+
+    if (name === 'describe_gate') {
+      // Mark it described only now, as the text is handed over to be spoken.
+      ctx.gates.noteDescribed(gate);
+      return [
+        `${gate.agentName} is waiting for permission.`,
+        `It wants to: ${gate.prompt.trim()}`,
+        'Read that back to the user and ask whether to approve it.',
+      ].join('\n');
+    }
+
+    const decision = str(input.decision).toLowerCase();
+    if (decision === 'reject' || decision === 'no' || decision === 'deny') {
+      const r = ctx.gates.reject(gate);
+      return r.message;
+    }
+    if (decision === 'approve' || decision === 'yes' || decision === 'allow') {
+      const r = ctx.gates.approve(gate);
+      return r.message;
+    }
+    return 'Say either approve or reject.';
+  }
+
   return `There is no tool called ${name}.`;
 }
 
@@ -279,6 +380,13 @@ export const VOICE_SYSTEM_PROMPT = [
   'When you ask an agent something, that returns immediately and the answer comes back',
   'later. Say one short line — "Asking Claude now" — and carry on. Never send the same',
   'message twice, and never claim you reached an agent you did not.',
+  '',
+  'When an agent is waiting for permission, read the command out with',
+  'describe_gate before anything else, and say what it will actually do. You may',
+  'reject on the user\'s word alone. You may not approve on your own judgement:',
+  'the server checks that the command was read out and that the user said the',
+  'word "approve" themselves. If it refuses, say why and leave it — do not',
+  'rephrase and retry.',
   '',
   'If you are interrupted, stop and listen. Do not finish the sentence you were on.',
 ].join('\n');
