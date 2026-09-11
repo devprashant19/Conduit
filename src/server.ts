@@ -25,9 +25,8 @@ import { authMiddleware, isAuthorized, isAuthEnabled } from './auth.js';
 import { loadGateSettings, saveGateSettings } from './gate-policy.js';
 import { NovaSession } from './voice/nova.js';
 import { VOICE_TOOLS, VOICE_SYSTEM_PROMPT, runVoiceTool } from './voice/nova-tools.js';
-import type { GateBridge, GateFound, GateLookup } from './voice/nova-tools.js';
 import { ApprovalGuard } from './voice/approval-guard.js';
-import { resolveGate } from './gate-resolve.js';
+import { createGateBridge } from './voice/gate-bridge.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || '3200', 10);
@@ -510,67 +509,7 @@ voiceWss.on('connection', (ws) => {
   // Consent is per session. Nothing said in one conversation authorises
   // anything in another, and the guard dies with the socket.
   const guard = new ApprovalGuard();
-
-  /** Find the gate an agent is waiting on, by spoken project and agent name. */
-  const findGate = (projectRef: string, agentRef: string): GateLookup => {
-    const wantP = projectRef.toLowerCase();
-    const projects = storage.listProjects();
-    const project = projects.find((x) => x.id === projectRef)
-      || projects.find((x) => x.name.toLowerCase() === wantP)
-      || projects.find((x) => x.name.toLowerCase().includes(wantP))
-      || (projects.length === 1 ? projects[0] : undefined);
-    if (!project) return { found: false, reason: `I cannot find a project called "${projectRef}".` };
-
-    const wantA = agentRef.toLowerCase();
-    const agents = storage.listAgents(project.id);
-    const agent = agents.find((x) => x.id === agentRef)
-      || agents.find((x) => x.name.toLowerCase() === wantA)
-      || agents.find((x) => x.name.toLowerCase().includes(wantA));
-    if (!agent) return { found: false, reason: `There is no agent called "${agentRef}" in ${project.name}.` };
-    if (!agent.pendingGate) return { found: false, reason: `${agent.name} is not waiting on anything.` };
-
-    return {
-      found: true,
-      gate: {
-        projectId: project.id,
-        agentId: agent.id,
-        agentName: agent.name,
-        prompt: agent.pendingGate.prompt,
-        source: agent.pendingGate.source,
-      },
-    };
-  };
-
-  const gates: GateBridge = {
-    find: findGate,
-    noteDescribed: (gate: GateFound) => guard.noteDescribed(gate),
-    reject: (gate: GateFound) => {
-      // Refusing is always safe, so it needs no ceremony.
-      const r = resolveGate(daemon, broadcast, gate.projectId, gate.agentId, 'reject', {
-        via: 'voice',
-      });
-      guard.clear(gate.agentId);
-      return r.ok
-        ? { ok: true, message: `Rejected. ${gate.agentName} has been told to stop.` }
-        : { ok: false, message: r.error };
-    },
-    approve: (gate: GateFound) => {
-      // Re-read the gate at this instant: the four conditions include "still
-      // open and unchanged", and it may have moved on since describe_gate.
-      const now = findGate(gate.projectId, gate.agentId);
-      const verdict = guard.authorize(gate.agentId, now.found ? now.gate : null);
-      if (!verdict.ok) return { ok: false, message: verdict.reason };
-
-      const r = resolveGate(daemon, broadcast, gate.projectId, gate.agentId, 'approve', {
-        via: 'voice',
-        authorisingPhrase: verdict.phrase,
-      });
-      guard.clear(gate.agentId);
-      return r.ok
-        ? { ok: true, message: `Approved. ${gate.agentName} is carrying on.` }
-        : { ok: false, message: r.error };
-    },
-  };
+  const gates = createGateBridge(daemon, broadcast, guard);
 
   const say = (msg: Record<string, unknown>) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
