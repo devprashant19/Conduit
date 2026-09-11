@@ -78,7 +78,7 @@ Every claim below is executable. These run against a live instance and exit non-
 failure:
 
 ```bash
-npm test                  # 207 unit checks: gate patterns, voice routing, utterance
+npm test                  # 237 unit checks: gate patterns, voice routing, utterance
                           # assembly, voice selection, approve-by-voice, the gate
                           # bridge, Supervisor failure handling, supervisor
                           # concurrency, atomic storage writes under concurrency
@@ -319,7 +319,7 @@ otherwise "start the agent… called gere" executes as "start the agent".
 | Agent types that start or explain themselves | **6 of 6** (`npm run check:agents`) |
 | End-to-end REST + WebSocket + a live agent | **61 checks** (`npm run smoke`) |
 | UI interactions in a real browser | **12 checks** (`npm run browser-check`) |
-| Unit checks | **207** across gate patterns, voice routing, utterance assembly, voice selection, approve-by-voice, the gate bridge, Supervisor failure handling, supervisor concurrency, atomic storage writes |
+| Unit checks | **237** across gate patterns, voice routing, utterance assembly, voice selection, approve-by-voice, the gate bridge, Supervisor failure handling, supervisor concurrency, atomic storage writes |
 | Supervisor classification against the real model | **5 checks** (`npm run test:supervisor`) |
 | The Keeper reading and acting | listed projects, started an agent, verified it, stopped it |
 | Concurrent agents | four agent types in one project, supervised, gated and resolved |
