@@ -27,7 +27,12 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
   useEffect(() => {
     const sectionIds = ['how-it-works', 'ecosystem', 'features', 'faq'];
     const handleScroll = () => {
-      const scrollPosition = window.scrollY + 240;
+      // If at top or in hero section, stay on first tab 'how-it-works'
+      if (window.scrollY < 350) {
+        setActiveTab('how-it-works');
+        return;
+      }
+      const scrollPosition = window.scrollY + 220;
       for (let i = sectionIds.length - 1; i >= 0; i--) {
         const el = document.getElementById(sectionIds[i]);
         if (el && el.offsetTop <= scrollPosition) {
@@ -38,6 +43,7 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -202,7 +208,11 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
 
       {/* Hero Section */}
       <section className="landing-hero">
-
+        {/* Hero Background Illustration */}
+        <div className="landing-hero-bg-container" aria-hidden="true">
+          <div className="landing-hero-bg-art" />
+          <div className="landing-hero-bg-glow" />
+        </div>
 
         {/* Center Hero Content */}
         <div className="hero-center-content" data-tour="landing-hero">
@@ -247,9 +257,6 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
         {/* The Animated Conduit Workspace */}
         <ConduitAgentDemo onOpenConsole={onOpenConsole} />
       </section>
-
-      {/* Tool Ecosystem Section: Works With the Tools Engineers Already Use */}
-      <ToolEcosystemSection />
 
       {/* Section 2: How the Safety Loop Works */}
       <section id="how-it-works" className="landing-section how-it-works-sec">
@@ -307,6 +314,9 @@ export default function LandingPage({ onOpenConsole, onStartTour }: LandingPageP
           </div>
         </div>
       </section>
+
+      {/* Tool Ecosystem Section: Works With the Tools Engineers Already Use */}
+      <ToolEcosystemSection />
 
       {/* Features Tabs Showcase — Animated Living Product Showcase */}
       <WorkflowShowcaseSection onOpenConsole={onOpenConsole} />

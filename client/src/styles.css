@@ -7114,7 +7114,9 @@ body.is-resizing .pane-resizer {
   background-image:
     linear-gradient(to right, #f0f0f0 1px, transparent 1px),
     linear-gradient(to bottom, #f0f0f0 1px, transparent 1px),
-    radial-gradient(circle 800px at 100% 200px, rgba(213, 197, 255, 0.95), transparent 70%),
+    radial-gradient(circle 850px at 100% 200px, rgba(213, 197, 255, 0.95), transparent 70%),
+    radial-gradient(circle 750px at 0% 220px, rgba(220, 208, 255, 0.85), transparent 70%),
+    radial-gradient(circle 700px at 50% 620px, rgba(213, 197, 255, 0.4), transparent 70%),
     radial-gradient(circle 750px at 0% 1150px, rgba(220, 208, 255, 0.75), transparent 70%),
     radial-gradient(circle 850px at 100% 2100px, rgba(213, 197, 255, 0.7), transparent 70%),
     radial-gradient(circle 800px at 0% 3050px, rgba(225, 214, 255, 0.75), transparent 70%),
@@ -7122,10 +7124,10 @@ body.is-resizing .pane-resizer {
     radial-gradient(circle 850px at 10% 4950px, rgba(220, 208, 255, 0.65), transparent 70%);
   background-size:
     96px 64px, 96px 64px,
-    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
   background-repeat:
     repeat, repeat,
-    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
 }
 
 .landing-page > *:not(.landing-bg-gradient-grid):not(.landing-nav-wrapper) {
@@ -7219,22 +7221,32 @@ body.is-resizing .pane-resizer {
   font-weight: 500;
   color: var(--text-2);
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
   font-family: inherit;
-  transition: color 0.18s ease;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
 }
 
 .landing-tubelight-item:hover {
   color: #0f0f11;
+  background: rgba(15, 15, 17, 0.04);
 }
 
 .landing-tubelight-item.active {
   color: #0f0f11;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 2px 8px rgba(15, 15, 17, 0.06);
+  background: #ffffff;
+  border-color: rgba(139, 92, 246, 0.28);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 14px rgba(124, 58, 237, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+.landing-tubelight-item.active .tubelight-item-icon {
+  color: #7c3aed;
+  opacity: 1;
 }
 
 .tubelight-item-icon {
@@ -7242,6 +7254,7 @@ body.is-resizing .pane-resizer {
   align-items: center;
   color: inherit;
   opacity: 0.85;
+  transition: color 0.18s ease, opacity 0.18s ease;
 }
 
 .tubelight-item-label {
@@ -7256,10 +7269,11 @@ body.is-resizing .pane-resizer {
   width: 100%;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: rgba(124, 58, 237, 0.05);
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0.02) 60%, transparent 100%);
   pointer-events: none;
-  z-index: 10;
-  animation: tubelight-lamp-fade 0.25s ease-out;
+  z-index: 5;
+  overflow: hidden;
+  animation: tubelight-lamp-fade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes tubelight-lamp-fade {
@@ -7275,52 +7289,53 @@ body.is-resizing .pane-resizer {
 
 .tubelight-lamp-emitter {
   position: absolute;
-  top: -3px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 30px;
+  width: 26px;
   height: 2.5px;
-  background: #7c3aed;
-  border-radius: 9999px 9999px 0 0;
-  box-shadow: 0 0 10px rgba(124, 58, 237, 0.9);
+  background: linear-gradient(90deg, #c084fc, #7c3aed, #c084fc);
+  border-radius: 0 0 3px 3px;
+  box-shadow: 0 1px 8px 1px rgba(124, 58, 237, 0.85);
 }
 
 .tubelight-lamp-glow-wide {
   position: absolute;
-  width: 48px;
-  height: 24px;
-  background: rgba(124, 58, 237, 0.32);
-  border-radius: 9999px;
-  filter: blur(8px);
-  -webkit-filter: blur(8px);
-  top: -8px;
-  left: -9px;
+  width: 44px;
+  height: 18px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(139, 92, 246, 0.45) 0%, transparent 80%);
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  filter: blur(4px);
+  -webkit-filter: blur(4px);
   pointer-events: none;
 }
 
 .tubelight-lamp-glow-mid {
   position: absolute;
-  width: 32px;
-  height: 20px;
-  background: rgba(147, 51, 234, 0.32);
-  border-radius: 9999px;
-  filter: blur(5px);
-  -webkit-filter: blur(5px);
-  top: -4px;
-  left: -1px;
+  width: 28px;
+  height: 12px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(168, 85, 247, 0.55) 0%, transparent 75%);
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  filter: blur(2px);
+  -webkit-filter: blur(2px);
   pointer-events: none;
 }
 
 .tubelight-lamp-glow-core {
   position: absolute;
   width: 16px;
-  height: 14px;
-  background: rgba(168, 85, 247, 0.45);
+  height: 6px;
+  background: rgba(216, 180, 254, 0.75);
   border-radius: 9999px;
-  filter: blur(2px);
-  -webkit-filter: blur(2px);
   top: 0;
-  left: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  filter: blur(1px);
+  -webkit-filter: blur(1px);
   pointer-events: none;
 }
 
@@ -7581,11 +7596,59 @@ body.is-resizing .pane-resizer {
 /* Hero Section */
 .landing-hero {
   position: relative;
-  min-height: 55vh;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 110px 24px 60px;
+  padding: 120px 24px 80px;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Hero Background Art & Ambient Glow - Covers Complete Screen */
+.landing-hero-bg-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.landing-hero-bg-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('/bg.jpg');
+  background-position: center 66%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0.38;
+  mix-blend-mode: multiply;
+  mask-image: linear-gradient(to bottom, black 0%, black 82%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 82%, transparent 100%);
+  filter: saturate(1.1) hue-rotate(-8deg) contrast(1.02);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.landing-hero-bg-glow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle 700px at 0% 15%, rgba(220, 208, 255, 0.85) 0%, transparent 70%),
+    radial-gradient(circle 750px at 100% 15%, rgba(213, 197, 255, 0.9) 0%, transparent 70%),
+    radial-gradient(circle 600px at 0% 90%, rgba(220, 208, 255, 0.55) 0%, transparent 70%),
+    radial-gradient(circle 650px at 100% 90%, rgba(213, 197, 255, 0.6) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 65% at 50% 64%, rgba(213, 197, 255, 0.45) 0%, rgba(225, 215, 255, 0.18) 50%, transparent 80%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* Center Hero Typography */
@@ -7628,6 +7691,7 @@ body.is-resizing .pane-resizer {
   letter-spacing: -0.04em;
   color: #0f0f11;
   margin-bottom: 18px;
+  text-shadow: 0 1px 18px rgba(255, 255, 255, 0.9), 0 0 36px rgba(255, 255, 255, 0.95);
 }
 
 .highlight-pill {
@@ -7647,6 +7711,7 @@ body.is-resizing .pane-resizer {
   max-width: 480px;
   margin-bottom: 30px;
   letter-spacing: -0.015em;
+  text-shadow: 0 1px 12px rgba(255, 255, 255, 0.9);
 }
 
 .hero-actions {
@@ -8836,12 +8901,26 @@ body.is-resizing .pane-resizer {
   }
 
   .landing-hero {
-    min-height: auto;
-    padding: 82px 16px 30px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 86px 16px 40px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 32px;
+  }
+
+  .landing-hero-bg-art {
+    opacity: 0.25;
+    background-position: center 65%;
+    background-size: cover;
+    mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+  }
+
+  .landing-hero-bg-glow {
+    opacity: 0.65;
   }
 
   .hero-bounding-frame {
