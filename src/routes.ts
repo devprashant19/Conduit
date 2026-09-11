@@ -177,6 +177,22 @@ export function createRouter(
     res.json(storage.listProjects());
   });
 
+  /**
+   * One project, with its agents and pending plans.
+   *
+   * This was missing entirely: the API had `/projects` and
+   * `/projects/:id/agents` but no way to fetch a project itself, so anything
+   * wanting one had to list them all and filter. The 404 that `/projects/:id`
+   * used to return came from the catch-all, not from a real lookup — which is
+   * why a test asserting "a missing project gives 404" was passing without any
+   * route to test.
+   */
+  router.get('/projects/:id', (req: Request, res: Response) => {
+    const data = storage.getProjectData(req.params.id);
+    if (!data) { res.status(404).json({ error: 'Project not found' }); return; }
+    res.json(data);
+  });
+
   router.post('/projects', (req: Request, res: Response) => {
     const name = str(req.body?.name, 120).trim();
     const cwdRaw = str(req.body?.cwd, 1000).trim();
