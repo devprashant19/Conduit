@@ -9370,7 +9370,7 @@ body.is-resizing .pane-resizer {
   color: var(--text-2);
 }
 
-/* Cinematic Container with Simulated Cursor Clipping */
+/* Cinematic Showcase Container */
 .conduit-cinematic-stage {
   position: relative;
   width: 100%;
@@ -9381,43 +9381,7 @@ body.is-resizing .pane-resizer {
   background: #ffffff;
   overflow: hidden;
   user-select: none;
-}
-
-/* Simulated Cursor */
-.simulated-cursor {
-  position: absolute;
-  z-index: 1000;
-  pointer-events: none;
-  transform: translate(-3px, -2px);
-  transition: left 0.65s cubic-bezier(0.22, 1, 0.36, 1), top 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.12s ease;
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
-}
-
-.simulated-cursor.clicking {
-  transform: translate(-3px, -2px) scale(0.82);
-}
-
-.cursor-click-ripple {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid rgba(15, 15, 17, 0.5);
-  animation: click-expand 0.4s ease-out forwards;
-}
-
-@keyframes click-expand {
-  0% {
-    transform: scale(0.6);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scale(2.6);
-    opacity: 0;
-  }
+  font-family: var(--ff-sans);
 }
 
 /* Outer Desktop App Window */
@@ -9493,9 +9457,9 @@ body.is-resizing .pane-resizer {
 }
 
 .brand-project {
-  font-family: var(--ff-mono);
+  font-family: var(--ff-sans);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-2);
 }
 
@@ -9678,8 +9642,9 @@ body.is-resizing .pane-resizer {
 
 .badge-sub {
   font-size: 10.5px;
-  font-family: var(--ff-mono);
+  font-family: var(--ff-sans);
   color: var(--text-3);
+  font-weight: 500;
 }
 
 .plan-stepper {
@@ -9706,6 +9671,16 @@ body.is-resizing .pane-resizer {
   font-weight: 500;
 }
 
+.plan-step-item.revealed.active {
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.plan-step-item.revealed.active-gate {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 .step-icon {
   width: 16px;
   height: 16px;
@@ -9717,6 +9692,7 @@ body.is-resizing .pane-resizer {
   font-size: 10px;
   font-weight: 700;
   color: var(--text-2);
+  transition: all 0.2s ease;
 }
 
 .plan-step-item.revealed .step-icon {
@@ -9725,13 +9701,44 @@ body.is-resizing .pane-resizer {
   color: #ffffff;
 }
 
+.step-icon.done {
+  background: #16a34a !important;
+  border-color: #16a34a !important;
+  color: #ffffff !important;
+}
+
+.step-icon.active {
+  background: #7c3aed !important;
+  border-color: #7c3aed !important;
+  color: #ffffff !important;
+  animation: pulse-step-active 1.4s infinite;
+}
+
+.step-icon.gate {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  animation: pulse-step-gate 1.2s infinite;
+}
+
+@keyframes pulse-step-active {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+
+@keyframes pulse-step-gate {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.22); box-shadow: 0 0 8px rgba(220, 38, 38, 0.45); }
+}
+
 .step-text {
   flex: 1;
 }
 
 .step-agent {
   font-size: 10px;
-  font-family: var(--ff-mono);
+  font-family: var(--ff-sans);
+  font-weight: 600;
   background: var(--bg-0);
   border: 1px solid var(--border);
   padding: 1px 6px;
@@ -9843,11 +9850,11 @@ body.is-resizing .pane-resizer {
   color: #16a34a;
 }
 
-/* Terminals Grid */
+/* Terminals Grid: Clean 3-Column Parallel Split */
 .story-terminals-grid {
   display: grid;
-  grid-template-columns: 1.15fr 1fr 0.85fr;
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
   animation: modal-fade 0.3s ease-out;
 }
 
@@ -9858,6 +9865,7 @@ body.is-resizing .pane-resizer {
   overflow: hidden;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: var(--ff-sans);
 }
 
 .cinematic-terminal-card.focused {
@@ -9898,27 +9906,29 @@ body.is-resizing .pane-resizer {
   font-size: 11.5px;
   font-weight: 600;
   color: #f4f4f5;
+  font-family: var(--ff-sans);
 }
 
 .terminal-badge {
-  font-size: 9px;
-  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  font-family: var(--ff-sans);
+  font-weight: 600;
   color: #a1a1aa;
   background: #2a2a2e;
-  padding: 1px 5px;
-  border-radius: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
 .terminal-cwd {
-  font-size: 9.5px;
-  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-family: var(--ff-sans);
   color: #71717a;
 }
 
 .terminal-body {
-  padding: 12px 14px;
-  font-family: var(--ff-mono);
-  font-size: 11px;
+  padding: 14px 16px;
+  font-family: var(--ff-sans);
+  font-size: 11.5px;
   line-height: 1.65;
   color: #d4d4d8;
   display: flex;
@@ -10011,7 +10021,7 @@ body.is-resizing .pane-resizer {
   color: #f87171;
   padding: 10px 14px;
   border-radius: 8px;
-  font-family: var(--ff-mono);
+  font-family: var(--ff-sans);
   font-size: 12px;
   font-weight: 600;
   margin-bottom: 16px;
@@ -10187,13 +10197,56 @@ body.is-resizing .pane-resizer {
   color: var(--text-3);
 }
 
-.shortcut-kbd {
-  font-family: var(--ff-mono);
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  padding: 1px 5px;
-  border-radius: 3px;
-  color: var(--text-1);
+.stepper-crumb-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-family: var(--ff-sans);
+}
+
+.stepper-pill-btn {
+  border: 1px solid rgba(15, 15, 17, 0.12);
+  background: #ffffff;
+  color: #52525b;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--ff-sans);
+}
+
+.stepper-pill-btn:hover {
+  background: #f4f4f5;
+  color: #0f0f11;
+}
+
+.stepper-pill-btn.active {
+  background: #0f0f11;
+  color: #ffffff;
+  border-color: #0f0f11;
+}
+
+.stepper-play-pause-btn {
+  border: 1px solid rgba(15, 15, 17, 0.14);
+  background: #ffffff;
+  color: #0f0f11;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  font-family: var(--ff-sans);
+}
+
+.stepper-play-pause-btn:hover {
+  background: #f4f4f5;
+  border-color: #0f0f11;
 }
 
 /* Reduced Motion Support */
