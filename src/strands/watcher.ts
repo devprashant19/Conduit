@@ -17,7 +17,8 @@ import fs from 'fs';
 import { randomUUID } from 'crypto';
 import * as runtime from '../daemon/runtime.js';
 import { createSupervisorAgent, type SupervisorUpdate } from './agent.js';
-import { supervisorDisabled, supervisorProvider } from './config.js';
+import { supervisorDisabled, supervisorProvider, BEDROCK_MODEL_ID } from './config.js';
+import { isCredentialError, isModelUnavailable, shouldFallBack } from './failure.js';
 import {
   appendGroupChat, appendAuditLog, updateAgent, getAgent, getProjectData, readRecentAudit,
   type GroupChatEntry,
@@ -181,10 +182,6 @@ function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-function isCredentialError(msg: string): boolean {
-  return /credential|AccessDenied|UnrecognizedClient|ExpiredToken|not authorized|security token|Region is missing|ENOTFOUND|ECONNREFUSED/i.test(msg);
-}
-
 /** Consecutive Supervisor failures — drives the escalating backoff. */
 let supervisorFailures = 0;
 
@@ -244,12 +241,16 @@ function backOff(reason: string, hint: string) {
   }
 }
 
+/** Say it once per process, not once per batch. */
+let fallbackAnnounced = false;
+
 /**
  * Run one classification through the configured provider.
  *
  *   bedrock   — Strands + Bedrock only
  *   anthropic — the Anthropic Messages API only
- *   auto      — Bedrock, then Anthropic if Bedrock has no usable credentials
+ *   auto      — Bedrock, then Anthropic if Bedrock cannot serve the request
+ *               (no credentials, a retired model, or a rate cap)
  */
 async function classify(prompt: string, onUpdate: (u: SupervisorUpdate) => void): Promise<void> {
   const provider = supervisorProvider();
@@ -263,8 +264,15 @@ async function classify(prompt: string, onUpdate: (u: SupervisorUpdate) => void)
     await createSupervisorAgent(onUpdate).invoke(prompt);
   } catch (err) {
     const msg = describeError(err);
-    if (provider === 'bedrock' || !isCredentialError(msg) || !hasAnthropicCredential()) throw err;
-    console.log(`[watcher] Bedrock unavailable (${msg}) — falling back to the Anthropic API.`);
+    if (provider === 'bedrock' || !shouldFallBack(msg) || !hasAnthropicCredential()) throw err;
+    if (!fallbackAnnounced) {
+      fallbackAnnounced = true;
+      console.log(
+        `[watcher] Bedrock unavailable (${msg})\n`
+        + `          Falling back to the Anthropic API on ${currentModel()}. `
+        + 'Set BEDROCK_MODEL_ID to a model your IAM policy allows to use Bedrock instead.',
+      );
+    }
     onUpdate(await classifyWithAnthropic(prompt));
   }
 }
@@ -349,7 +357,11 @@ async function processBuffer(state: WatcherState) {
     const msg = describeError(err);
     const kind = (err as { kind?: string })?.kind;
     let hint: string;
-    if (kind === 'auth' || isCredentialError(msg)) {
+    if (isModelUnavailable(msg)) {
+      // Not a credential problem, and saying so sends people to fix the wrong
+      // thing. Bedrock retires model ids, and the default here will age out.
+      hint = `BEDROCK_MODEL_ID (${BEDROCK_MODEL_ID}) cannot be invoked — usually retired, or an inference profile your IAM policy does not allow. Pick a current model, or set SUPERVISOR_PROVIDER=anthropic.`;
+    } else if (kind === 'auth' || isCredentialError(msg)) {
       hint = 'Set AWS credentials for Bedrock, or ANTHROPIC_API_KEY with SUPERVISOR_PROVIDER=anthropic. CONDUIT_SUPERVISOR=off silences this.';
     } else if (kind === 'rate-limit') {
       hint = `Every candidate model is rate-limited on this credential. Pin a cheaper one with ANTHROPIC_MODEL_ID (currently trying ${currentModel()}), or use an ANTHROPIC_API_KEY.`;
