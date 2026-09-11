@@ -9,9 +9,15 @@
  *   1. `promptStart` rejected when `toolConfiguration` is included
  *   2. an infinite tool-calling loop when multiple tools are declared
  *
- * Conduit has 12 tools. This declares the 6 we intend to expose to voice and
- * finds out, before a single line of UI is written, which is the cheapest
- * possible place to learn it.
+ * Conduit has 12 tools. This declares the 8 we expose to voice and finds out,
+ * before a single line of UI is written, which is the cheapest possible place
+ * to learn it.
+ *
+ * The list below must stay the same set as `VOICE_TOOLS` in
+ * `src/voice/nova-tools.ts` — a probe that clears a different tool set than the
+ * one that ships has proved nothing about the one that ships. It cannot be
+ * imported (this runs as plain JS, and that module is TypeScript reaching for
+ * the daemon), so the names are checked against the source instead.
  *
  * Two parts:
  *   A. Tools  — a text turn that cannot be answered without calling a tool.
@@ -63,7 +69,7 @@ function t(ok, label, detail) {
   return ok;
 }
 
-// ── the six tools we intend to give the voice model ───────────────────
+// ── the eight tools the voice model actually gets ─────────────────────
 // Names and descriptions are lifted from src/conduit-mcp-server.ts: those
 // description strings do prompt-engineering work, not just documentation.
 const TOOLS = [
@@ -118,18 +124,70 @@ const TOOLS = [
     },
   },
   {
-    name: 'broadcast',
-    description: 'Send one message to every running agent at once. Use this instead of asking each agent in turn.',
+    name: 'ask_agent',
+    description:
+      'Send a message to one running agent and get its answer. Returns at once; '
+      + 'the answer is read out when it arrives. Do NOT send the same message twice.',
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', description: 'What to say to them.' },
-        project: { type: 'string', description: 'Optional: limit to one project.' },
+        project: { type: 'string', description: 'Project name or id.' },
+        agent: { type: 'string', description: 'Agent name or id.' },
+        message: { type: 'string', description: 'What to say to the agent.' },
       },
-      required: ['message'],
+      required: ['project', 'agent', 'message'],
+    },
+  },
+  {
+    name: 'describe_gate',
+    description:
+      'Read out what an agent is waiting for permission to do. Always call this '
+      + 'before resolve_gate — approving is refused otherwise.',
+    schema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'Project name or id.' },
+        agent: { type: 'string', description: 'Agent name or id.' },
+      },
+      required: ['project', 'agent'],
+    },
+  },
+  {
+    name: 'resolve_gate',
+    description:
+      'Approve or reject what an agent is waiting to do. Rejecting always works; '
+      + 'approving is checked by the server and may be refused.',
+    schema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'Project name or id.' },
+        agent: { type: 'string', description: 'Agent name or id.' },
+        decision: { type: 'string', description: 'Either "approve" or "reject".' },
+      },
+      required: ['project', 'agent', 'decision'],
     },
   },
 ];
+
+// Drift check. If someone adds a tool to the shipped set and not here, the
+// loop risk this whole probe exists to measure goes untested for that set.
+{
+  const src = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/voice/nova-tools.ts'), 'utf8');
+  const listed = src.slice(
+    src.indexOf('export const VOICE_TOOLS'), src.indexOf('export const DEFERRED_TOOLS'));
+  const shipped = [...listed.matchAll(/name: '([a-z_]+)'/g)].map((m) => m[1]);
+  const mine = TOOLS.map((x) => x.name);
+  const missing = shipped.filter((n) => !mine.includes(n));
+  const extra = mine.filter((n) => !shipped.includes(n));
+  if (missing.length || extra.length) {
+    console.error('\nThis probe declares a different tool set than the app ships.');
+    if (missing.length) console.error('  shipped but not probed: ' + missing.join(', '));
+    if (extra.length) console.error('  probed but not shipped: ' + extra.join(', '));
+    console.error('Bring scripts/check-nova.mjs back in step with src/voice/nova-tools.ts.');
+    process.exit(2);
+  }
+}
 
 const SYSTEM_PROMPT = [
   'You are The Keeper, the orchestrator of a multi-agent coding control centre.',
@@ -188,9 +246,11 @@ async function runTool(name, input) {
       const a = agents.find((x) => x.name === input.agent || x.id === input.agent);
       return a ? `${a.name} is ${a.status}.` : `No agent matching "${input.agent}".`;
     }
-    // Deliberately NOT executing start/stop/broadcast against the user's real
-    // agents from a probe. The model only needs a plausible result to decide
-    // whether to call again — which is the behaviour under test.
+    // Deliberately NOT executing start, stop, ask, or either gate tool against
+    // the user's real agents from a probe. The model only needs a plausible
+    // result to decide whether to call again, which is the behaviour under
+    // test — and approving a live gate to measure tool latency would be an
+    // absurd trade. The guard itself is tested in test-approval-guard.mjs.
     return `[not executed by the probe] ${name} would have run with ${JSON.stringify(input)}`;
   } catch (err) {
     return `Tool failed: ${String(err).slice(0, 120)}`;
@@ -287,6 +347,7 @@ async function runSession({ label, withTools, say, audio, followUpAudio }) {
     accepted: false, toolCalls: [], firstAudioMs: null, firstTextMs: null,
     assistantText: '', userTranscript: '', error: null, audioBytes: 0,
     events: new Set(), turnComplete: false, followUpText: '', bargeIns: 0,
+    audioChunks: 0, speechEndMs: null,
   };
 
   stream.push({ event: { sessionStart: {
@@ -435,22 +496,29 @@ async function runSession({ label, withTools, say, audio, followUpAudio }) {
 
       if (ev.contentStart) role = ev.contentStart.role || role;
 
+      // Nova's own endpointing verdict: the moment it decided we had stopped
+      // talking. This is the only honest origin for "how long until it
+      // answered" — see the note where that number is reported.
+      if (ev.userSpeechEnd && result.speechEndMs === null) {
+        result.speechEndMs = Date.now() - started;
+      }
+
       // The assistant finished a spoken turn: audio came, then the content
       // closed. Nothing more is coming unless we speak again, and waiting for
       // the 55s idle timeout would report a failure that did not happen.
       if (ev.contentEnd && role === 'ASSISTANT' && result.audioBytes > 0
           && ev.contentEnd.type !== 'TOOL') {
-        if (followUpAudio && !sentFollowUp) {
-          // Same connection, same prompt: this is what a conversation is.
-          sentFollowUp = true;
-          firstTurnText = result.assistantText;
-          // Speak into the microphone that is already open, exactly as a
-          // person would. The feeder is streaming silence into it right now.
-          pendingSpeech = followUpAudio;
-          continue;
-        }
         if (sentFollowUp && result.assistantText.length <= firstTurnText.length) {
           // That contentEnd was the interruption, not an answer. Keep listening.
+          continue;
+        }
+        if (!sentFollowUp && followUpAudio) {
+          // It finished before we could talk over it — the clip was short or
+          // the reply was. Speak now so the second-turn check still means
+          // something; the barge-in assertion below will report the miss.
+          sentFollowUp = true;
+          firstTurnText = result.assistantText;
+          pendingSpeech = followUpAudio;
           continue;
         }
         result.turnComplete = true;
@@ -475,6 +543,17 @@ async function runSession({ label, withTools, say, audio, followUpAudio }) {
       if (ev.audioOutput) {
         if (result.firstAudioMs === null) result.firstAudioMs = Date.now() - started;
         result.audioBytes += Buffer.from(ev.audioOutput.content || '', 'base64').length;
+        result.audioChunks++;
+        // Barge in *while it is talking*. Two chunks in, it is unambiguously
+        // mid-sentence, which is the only moment an interruption can be
+        // tested — waiting for the turn to end tests nothing at all.
+        if (followUpAudio && !sentFollowUp && result.audioChunks >= 2) {
+          sentFollowUp = true;
+          firstTurnText = result.assistantText;
+          // Speak into the microphone that is already open, exactly as a
+          // person would. The feeder is streaming silence into it right now.
+          pendingSpeech = followUpAudio;
+        }
       }
 
       if (ev.toolUse) {
@@ -583,9 +662,19 @@ if (a.error && !/tool-call loop/.test(a.error)) console.log(`  error: ${a.error.
 if (a.firstTextMs !== null) console.log(`  first text: ${a.firstTextMs}ms`);
 if (a.userTranscript.trim()) console.log(`  heard: "${a.userTranscript.trim().slice(0, 140)}"`);
 if (a.firstAudioMs !== null) {
+  // Measure from `userSpeechEnd`, not from the clip's duration.
+  //
+  // This used to be `firstAudio - clipDuration`, which silently assumes the
+  // clip starts at t=0. It does not: the session has to open and the prompt
+  // has to start first, and that took 4.3s on one run here. The metric then
+  // charges the connection handshake to the model and reports a latency
+  // regression that never happened — measured 1318ms real against 5290ms
+  // claimed on the same machine, minutes apart.
   const clipMs = (questionPcm.length / 2 / INPUT_RATE) * 1000;
-  const afterSpeech = Math.max(0, Math.round(a.firstAudioMs - clipMs));
-  console.log(`  first audio: ${a.firstAudioMs}ms from open, ~${afterSpeech}ms after the clip ended`);
+  const origin = a.speechEndMs !== null ? a.speechEndMs : clipMs;
+  const basis = a.speechEndMs !== null ? 'after you stopped talking' : 'after the clip ended (estimated)';
+  const afterSpeech = Math.max(0, Math.round(a.firstAudioMs - origin));
+  console.log(`  first audio: ${a.firstAudioMs}ms from open, ${afterSpeech}ms ${basis}`);
   t(afterSpeech < 2000, 'it replies within 2s of the user finishing', `${afterSpeech}ms`);
 }
 
@@ -611,8 +700,8 @@ if (failures === 0) {
     t(!!b.assistantText.trim(), 'it answered', b.error || '(silence)');
     console.log(`  tools called: ${bn.map((n, i) => `${n}@${b.toolCalls[i].at}ms`).join(' → ') || '(none)'}`);
     if (b.assistantText.trim()) console.log(`  said: "${b.assistantText.trim().slice(0, 220)}"`);
-    t(b.bargeIns > 0, 'talking over it interrupts it',
-      'no interruption signal — it spoke over the follow-up');
+    t(b.bargeIns > 0, 'talking over it mid-sentence interrupts it',
+      'it kept talking — no "interrupted" marker came back');
     if (b.followUpText) {
       t(true, 'a second turn works on the same connection');
       console.log(`  then: "${b.followUpText.trim().slice(0, 200)}"`);
@@ -638,9 +727,13 @@ if (!TOOLS_ONLY && failures === 0) {
     });
     t(b.firstAudioMs !== null, 'it answered out loud', b.error || 'no audio came back');
     if (b.firstAudioMs !== null) {
-      // Measured from stream open; the clip itself takes ~2-3s to feed in.
-      const afterSpeech = b.firstAudioMs - (pcm.length / 2 / INPUT_RATE) * 1000;
-      console.log(`  first audio: ${b.firstAudioMs}ms from open, ~${Math.max(0, Math.round(afterSpeech))}ms after the clip ended`);
+      // From Nova's own endpointing verdict, for the reason given in part A:
+      // the clip does not start at t=0, so subtracting its duration charges
+      // the connection handshake to the model.
+      const origin = b.speechEndMs !== null ? b.speechEndMs : (pcm.length / 2 / INPUT_RATE) * 1000;
+      const basis = b.speechEndMs !== null ? 'after you stopped talking' : 'after the clip ended (estimated)';
+      const afterSpeech = b.firstAudioMs - origin;
+      console.log(`  first audio: ${b.firstAudioMs}ms from open, ${Math.max(0, Math.round(afterSpeech))}ms ${basis}`);
       console.log(`  audio returned: ${(b.audioBytes / 2 / OUTPUT_RATE).toFixed(1)}s`);
       if (b.userTranscript.trim()) console.log(`  heard: "${b.userTranscript.trim().slice(0, 120)}"`);
       if (b.assistantText.trim()) console.log(`  said: "${b.assistantText.trim().slice(0, 160)}"`);
