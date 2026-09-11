@@ -2283,10 +2283,15 @@ body.is-resizing .pane-resizer {
   gap: 8px;
 }
 
+/* 10px, not 5. `.sdot.running::after` is a ping ring at `inset: -3px` with a
+   1.5px border, so it sweeps 4.5px past the dot on every side — with a 5px gap
+   it swept straight through the adjacent label, and the status bar read as
+   "●3 running" and "●connected" with the dot sitting on the text. The ring is
+   absolutely positioned so it never moved layout; it just drew over it. */
 .st-count-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 10px;
   white-space: nowrap;
 }
 
@@ -2391,7 +2396,8 @@ body.is-resizing .pane-resizer {
 .st-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  /* Same ping-ring clearance as .st-count-item above. */
+  gap: 10px;
   white-space: nowrap;
 }
 
