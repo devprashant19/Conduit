@@ -6848,6 +6848,18 @@ body.is-resizing .pane-resizer {
   gap: 14px;
 }
 
+/* Anchor the conversation to the bottom, the way every chat does: a few
+   messages should sit just above the composer rather than stranded at the top
+   of 700px of empty panel.
+
+   `margin-top: auto` on a pseudo-element rather than `justify-content:
+   flex-end`, because that combination with `overflow-y: auto` makes the top of
+   a long scrollback unreachable in several browsers. */
+.gc-list::before {
+  content: '';
+  margin-top: auto;
+}
+
 /* AI Assistant / Agent task card */
 .gc-msg {
   align-self: flex-start;
@@ -6874,6 +6886,13 @@ body.is-resizing .pane-resizer {
 
 .gc-msg.mine .gc-meta {
   opacity: 0.7;
+  color: #ffffff;
+}
+
+/* The sender name sits in a <strong>, and `.gc-meta strong` is more specific
+   than the rule above — so "User" stayed near-black on the near-black bubble
+   and was effectively invisible. */
+.gc-msg.mine .gc-meta strong {
   color: #ffffff;
 }
 
@@ -7010,7 +7029,11 @@ body.is-resizing .pane-resizer {
 }
 
 .gc-compose {
-  padding: 14px 20px;
+  /* The Keeper orb is `position: fixed` in the bottom-right corner, so
+     anything anchored to the bottom of this panel lands underneath it. The
+     send button was half-covered and unclickable at its right edge. Reserve
+     the orb's width plus its margin. */
+  padding: 14px 92px 14px 20px;
   border-top: 1px solid var(--border);
   background: var(--bg-1);
 }
