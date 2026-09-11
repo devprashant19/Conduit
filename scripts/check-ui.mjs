@@ -396,6 +396,135 @@ for (const [method, route, check] of ROUTES) {
 t(routeOk === ROUTES.length, `all ${ROUTES.length} REST routes answer with the right shape`,
   `${ROUTES.length - routeOk} wrong`);
 
+// ── the write routes, round-tripped ──────────────────────────────────
+// A 200 is not proof of anything. Every check below writes something and then
+// reads it back through a different route, because "returned OK but did not
+// persist" is the failure that reaches the user as the UI losing their work.
+console.log('write routes:');
+const writes = [];
+const w = (ok, label, detail) => { writes.push(ok); t(ok, label, detail); };
+
+{
+  const put = await api('PUT', `/projects/${projectId}/content/notes.md`,
+    { content: '# Notes\n\nEdited by the audit.\n' });
+  const back = await api('GET', `/projects/${projectId}/content/notes.md`);
+  w(put.status === 200 && String(back.json?.content || '').includes('Edited by the audit'),
+    'PUT content persists and reads back',
+    `${put.status} / ${JSON.stringify(back.json?.content).slice(0, 50)}`);
+
+  const wput = await api('PUT', `/projects/${projectId}/wiki/audit.md`,
+    { content: '# Audit\n\nWritten by the UI audit.\n' });
+  const wback = await api('GET', `/projects/${projectId}/wiki/audit.md`);
+  w(wput.status === 200 && String(wback.json?.content || '').includes('Written by the UI audit'),
+    'PUT wiki persists and reads back',
+    `${wput.status} / ${JSON.stringify(wback.json?.content).slice(0, 50)}`);
+
+  // The layout is written into project.json, which is re-serialised on every
+  // agent status change — so a layout that does not survive the round trip is
+  // a layout that gets silently overwritten while you work.
+  const layout = {
+    mode: '2up',
+    splitRatios: [0.4, 0.6],
+    activeAgentIds: seeded.map((a) => a.id),
+    focusedAgentId: seeded[0]?.id,
+  };
+  const lput = await api('PUT', `/projects/${projectId}/layout`, { layout });
+  const lback = await api('GET', `/projects/${projectId}/layout`);
+  w(lput.status === 200
+    && lback.json?.layout?.mode === '2up'
+    && JSON.stringify(lback.json?.layout?.splitRatios) === '[0.4,0.6]'
+    && lback.json?.layout?.focusedAgentId === seeded[0]?.id,
+    'PUT layout persists and reads back',
+    `${lput.status} / ${JSON.stringify(lback.json?.layout).slice(0, 80)}`);
+
+  const bad = await api('PUT', `/projects/${projectId}/layout`, { layout: { mode: 'nonsense' } });
+  w(bad.status === 400, 'and an invalid layout mode is refused', `got ${bad.status}`);
+
+  if (seeded[0]) {
+    const aput = await api('PUT', `/projects/${projectId}/agents/${seeded[0].id}`, { role: 'audited' });
+    const aback = ((await api('GET', `/projects/${projectId}/agents`)).json || [])
+      .find((a) => a.id === seeded[0].id);
+    w(aput.status === 200 && aback?.role === 'audited',
+      'PUT agent persists and reads back', `${aput.status} / role=${aback?.role}`);
+  }
+
+  // The project name doubles as a folder name under shared_content/ and wiki/,
+  // so a rename moves directories on disk. If the files do not come with it,
+  // the rename looks fine and the content is gone.
+  const renamed = name + '-renamed';
+  const pput = await api('PUT', `/projects/${projectId}`, { name: renamed });
+  const pback = await api('GET', `/projects/${projectId}`);
+  const survived = await api('GET', `/projects/${projectId}/content/notes.md`);
+  w(pput.status === 200 && pback.json?.project?.name === renamed
+    && String(survived.json?.content || '').includes('Edited by the audit'),
+    'PUT project renames and the content moves with it',
+    `${pput.status} / name=${pback.json?.project?.name} / content=${survived.status}`);
+  await api('PUT', `/projects/${projectId}`, { name });
+
+  const plan = await api('POST', `/projects/${projectId}/plans`, {
+    description: 'Audit plan',
+    targetAgent: seeded[0]?.name || 'Claude',
+    proposedMessage: 'Say hello.',
+  });
+  const plans = (await api('GET', `/projects/${projectId}/plans`)).json || [];
+  w(plan.status === 201 && plans.some((x) => x.id === plan.json?.id),
+    'POST plan appears in the plan list', `${plan.status}, ${plans.length} pending`);
+  w((await api('POST', `/projects/${projectId}/plans`, { description: 'x' })).status === 400,
+    'and a plan missing its message is refused');
+
+  if (plan.json?.id) {
+    const res = await api('POST', `/projects/${projectId}/plans/${plan.json.id}/resolve`,
+      { decision: 'reject' });
+    const after = (await api('GET', `/projects/${projectId}/plans`)).json || [];
+    w(res.status < 400 && !after.some((x) => x.id === plan.json.id),
+      'rejecting a plan removes it from the list', `${res.status}, ${after.length} left`);
+    w((await api('POST', `/projects/${projectId}/plans/${plan.json.id}/resolve`,
+      { decision: 'reject' })).status === 404,
+      'and resolving it twice is a 404, not a second rejection');
+  }
+
+  if (seeded.length > 1) {
+    const tm = await api('GET', `/projects/${projectId}/agents/${seeded[0].id}/teammates`);
+    w(tm.status === 200
+      && tm.json?.self?.id === seeded[0].id
+      && Array.isArray(tm.json?.teammates)
+      && tm.json.teammates.length === seeded.length - 1
+      && !tm.json.teammates.some((x) => x.id === seeded[0].id),
+      'teammates lists the others and excludes the agent itself',
+      JSON.stringify(tm.json).slice(0, 90));
+
+    const msg = await api('POST', `/projects/${projectId}/messages`, {
+      fromAgentId: seeded[0].id, target: seeded[1].name, message: 'Audit ping.',
+    });
+    w(msg.status === 200 && msg.json?.toAgentId === seeded[1].id,
+      'POST messages routes to the named teammate',
+      `${msg.status} / ${JSON.stringify(msg.json)}`);
+    // A truthy object here used to slip past the check, inject an empty
+    // message, and log "[object Object]" into the activity feed.
+    w((await api('POST', `/projects/${projectId}/messages`, {
+      fromAgentId: seeded[0].id, target: seeded[1].name, message: { toString: 1 },
+    })).status === 400, 'and an object in place of the message is refused');
+  }
+
+  if (seeded[0]) {
+    const rs = await api('POST', `/projects/${projectId}/agents/${seeded[0].id}/restart`);
+    await sleep(6000);
+    const st = ((await api('GET', `/projects/${projectId}/agents`)).json || [])
+      .find((a) => a.id === seeded[0].id)?.status;
+    w(rs.status === 200 && st && st !== 'stopped',
+      'restart brings the agent back up', `${rs.status}, now ${st}`);
+  }
+
+  const del = await api('DELETE', `/projects/${projectId}/content/notes.md`);
+  const gone = await api('GET', `/projects/${projectId}/content/notes.md`);
+  w(del.status === 204 && gone.status === 404,
+    'DELETE content removes the file', `${del.status} then ${gone.status}`);
+  w((await api('DELETE', `/projects/${projectId}/content/notes.md`)).status === 404,
+    'and deleting it again is a 404');
+}
+t(writes.every(Boolean), `all ${writes.length} write-route round trips hold`,
+  `${writes.filter((x) => !x).length} did not`);
+
 if (consoleErrors.length) {
   console.log('\n  console errors:');
   for (const e of consoleErrors.slice(0, 8)) console.log(`    ${e.slice(0, 160)}`);
