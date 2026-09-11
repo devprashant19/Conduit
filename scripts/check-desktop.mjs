@@ -305,11 +305,30 @@ try {
   t(appExited, 'the app exits when its window is closed',
     closed ? 'still running after 15s' : 'could not send a close request');
 
-  await sleep(3000);
-  const survivors = descendants.filter(isAlive);
+  // Give them time to go, and *watch* them go.
+  //
+  // This used to sleep 3s and assert once. Six agent processes — two of them
+  // Python under aider — do not always finish unwinding in three seconds, so a
+  // slow exit was reported as an orphaned agent. Worse, the cleanup loop below
+  // kills any survivor immediately afterwards, so the evidence was gone before
+  // anyone could tell the two apart.
+  //
+  // An orphan is a process that is *still there*, not one that takes an extra
+  // second. Poll for 20s and report how long the last one took.
+  const ORPHAN_GRACE_MS = 20_000;
+  const waitStarted = Date.now();
+  let survivors = descendants.filter(isAlive);
+  while (survivors.length && Date.now() - waitStarted < ORPHAN_GRACE_MS) {
+    await sleep(500);
+    survivors = descendants.filter(isAlive);
+  }
+  const tookMs = Date.now() - waitStarted;
   t(survivors.length === 0,
     'every process it started died with it — no orphaned agents',
-    `${survivors.length} still alive: ${survivors.join(', ')}`);
+    `${survivors.length} still alive after ${Math.round(ORPHAN_GRACE_MS / 1000)}s: ${survivors.join(', ')}`);
+  if (survivors.length === 0 && tookMs > 3000) {
+    console.log(`    (the last one took ${(tookMs / 1000).toFixed(1)}s to exit)`);
+  }
   const stillServing = await health();
   t(!stillServing, 'nothing is left listening on the port');
 

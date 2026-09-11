@@ -29,7 +29,10 @@ src/
   cli-registry.ts      the six CLI ids, their binaries, install hints and required env
   pty-manager.ts       PTY agents (claude/gemini/opencode/gpt/nemotron): spawn, buffer, inject, quoting
   gatePatterns.ts      stripAnsi + regex gates (y/N prompts, destructive commands)
-  activity.ts, usage.ts, hook-config.ts, mcp-config.ts
+  gate-resolve.ts      resolving a gate — the ONE implementation, shared by the
+                       REST route and the voice path; do not add a second
+  gate-policy.ts       harmful vs routine; which gates auto-approve
+  activity.ts, usage.ts, hook-config.ts, mcp-config.ts, instruction-files.ts
   daemon/
     daemon.ts          WS/HTTP server, status engine, terminal attach, org HTTP API
     runtime.ts         routes ops to PTY vs Codex runtime; subscribeOutput/getReplay
@@ -40,9 +43,15 @@ src/
   strands/
     agent.ts           Supervisor agent (BedrockModel + report_update / plan_action tools)
     watcher.ts         per-agent watchdog: fast regex gates + batched Supervisor calls
+    failure.ts         is a failure worth falling back on? (pure, no imports)
+    anthropic.ts       the fallback provider; used whenever Bedrock cannot serve
     tools.ts, config.ts
   voice/               STT/TTS providers + settings (browser | groq | openai | gemini;
                        groq is STT-only and the recommended engine)
+    nova.ts            the live Nova 2 Sonic bidirectional session
+    nova-tools.ts      the 8 tools the voice Keeper gets, and its system prompt
+    approval-guard.ts  the four conditions on approving a gate by voice (pure)
+    gate-bridge.ts     finds and resolves real gates for the voice tools
 client/src/
   App.tsx              state owner; ws events → agents/gates/plans; modals
   hooks/useWebSocket   reconnecting socket; subscribe(); ws:open/ws:close frames
@@ -52,7 +61,20 @@ client/src/
 scripts/
   smoke.mjs            end-to-end test against a running instance (npm run smoke)
   test-gates.mjs       unit checks for gate patterns (npm test)
+  check-ui.mjs         every button, every REST route, every write round-tripped
+  check-org.mjs        every daemon /org/* endpoint (npm run check:org)
+  check-nova.mjs       the live voice model with the shipped tool set
 ```
+
+## Two rules that are easy to break by accident
+
+- **Gate resolution has one implementation.** `src/gate-resolve.ts`. The REST route and the
+  voice path both call it. Two copies of "what actually reaches the agent" will drift, and
+  the half that drifts is the one answering a destructive prompt.
+- **Approving a gate by voice is enforced server-side**, in `src/voice/approval-guard.ts`,
+  never by telling the model to ask first. The confirmation is read from the transcript
+  stream so the model cannot supply its own. Do not add an approve action to
+  `client/src/utils/voiceRouting.ts` to match — that path has no such check.
 
 ## Data model (src/types.ts)
 
