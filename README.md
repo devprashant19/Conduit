@@ -37,7 +37,7 @@ actually renders, and none of them are mock-ups. The approval gate below was rai
 | ![Activity](docs/screenshots/activity.jpg) | ![Voice settings](docs/screenshots/settings.jpg) |
 | **Activity.** Every file change and lifecycle event in order, filterable, so "what happened while I was away" is one screen rather than five scrollbacks. | **Voice.** Speech-to-text through the browser, Groq Whisper, OpenAI or Gemini. Keys live in `~/.conduit/api-keys.json` and are never committed. |
 | ![Landing](docs/screenshots/landing.jpg) | ![Downloads](docs/screenshots/downloads.jpg) |
-| **The front page**, served from the same origin as the app. | **Downloads.** Only builds that exist on this server, with the sizes they actually are on disk — a platform with no build says so instead of offering a dead link. |
+| **The front page**, served from the same origin as the app. | **Download and run it locally.** A native Windows build — installer or portable archive — with real pseudo-terminals, local JSON storage and the approval gates, no browser required. Sizes are read from the files on disk, so a platform with no build says "Coming Soon" rather than offering a dead link. macOS and Linux are in development. |
 
 Regenerate them yourself:
 

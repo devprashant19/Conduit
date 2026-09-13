@@ -360,10 +360,39 @@ try {
   await sleep(500);
 
   // 7. The download modal, listing what the server can actually serve.
+  //
+  // Wait for a row rather than a fixed delay. The modal renders through a
+  // portal and then asks the server for the real file sizes, so a flat 1500ms
+  // sometimes photographed the landing page with nothing open — which is a
+  // screenshot that looks fine and is of the wrong thing.
   await goto(BASE + '/');
-  await clickText('button', 'download');
-  await sleep(1500);
-  if (await shot('downloads', 'only builds that exist on disk, with their real sizes')) shots++;
+  // Let the landing page finish before clicking. goto resolves on load, but the
+  // hero button is React-rendered a beat later, so the click found nothing.
+  for (let i = 0; i < 20; i++) {
+    if (await evalJs(`return !!document.querySelector('.landing-hero');`)) break;
+    await sleep(300);
+  }
+  await sleep(600);
+  for (let i = 0; i < 5; i++) {
+    if (await evalJs(`return !!document.querySelector('.download-format-row');`)) break;
+    await clickText('button', 'download');
+    await sleep(700);
+  }
+  let modalReady = false;
+  for (let i = 0; i < 25; i++) {
+    modalReady = await evalJs(`
+      const row = document.querySelector('.download-format-row');
+      return !!row && !/checking/i.test(row.innerText);
+    `);
+    if (modalReady) break;
+    await sleep(400);
+  }
+  if (!modalReady) {
+    console.log('  ! the download modal never opened — skipping that shot');
+  } else {
+    await sleep(400);
+    if (await shot('downloads', 'a native Windows build, sized from the files on disk')) shots++;
+  }
 } finally {
   await restoreGateSettings();
   cdp.close();
