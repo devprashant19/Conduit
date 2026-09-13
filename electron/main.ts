@@ -1,7 +1,42 @@
 import { app, BrowserWindow, ipcMain, dialog, Notification, Menu, shell } from 'electron';
 import path from 'path';
+import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { DaemonManager, ServiceStatus } from './daemon-manager.js';
+
+/**
+ * Re-launch without ELECTRON_RUN_AS_NODE if we inherited it.
+ *
+ * That variable makes the Electron binary behave as plain Node: it runs this
+ * file and exits. No window, no error, no log {D} the app simply appears to do
+ * nothing, which is the worst failure mode available.
+ *
+ * It is easy to inherit without knowing. Any terminal opened from an Electron
+ * application has it set, and that includes the editors and coding tools a
+ * person likely to be running Conduit is using. Double-clicking from Explorer
+ * is fine; launching from the wrong shell is not, and nothing on screen
+ * explains the difference.
+ *
+ * `app` is undefined in that mode, so this check has to come before anything
+ * touches it. Re-spawning ourselves detached and exiting is the whole fix.
+ */
+if (process.env.ELECTRON_RUN_AS_NODE) {
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  try {
+    spawn(process.execPath, process.argv.slice(1), {
+      env,
+      detached: true,
+      stdio: 'ignore',
+    }).unref();
+  } catch (err) {
+    // Nothing sensible left to do: we cannot draw a window from here.
+    console.error('Conduit could not relaunch itself:', err);
+    console.error('Unset ELECTRON_RUN_AS_NODE and start it again.');
+    process.exit(1);
+  }
+  process.exit(0);
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

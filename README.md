@@ -110,16 +110,21 @@ from *silently broken*:
 
 ```
 ✓ claude    running — 882 bytes of terminal output
-✓ codex     running — 12 bytes of terminal output
+✓ codex     running — app-server thread started
 ✓ gemini    running — 846 bytes of terminal output
 ✓ opencode  running — 287 bytes of terminal output
 ✓ gpt       running — 553 bytes of terminal output
 ✓ nemotron  running — 595 bytes of terminal output
+
+6 ok, 0 problems
 ```
 
-A missing CLI is a pass, because saying so is the correct behaviour. What is never
-acceptable — and what these checks exist to prevent — is a terminal that looks alive and
-has silently printed `'gemini' is not recognized`.
+Your own run will differ, because it reports *your* machine. An agent whose CLI you have
+not installed is reported as refused, with the command that installs it — which is a pass,
+not a failure.
+
+What is never acceptable — and what these checks exist to prevent — is a terminal that
+looks alive and has silently printed `'gemini' is not recognized`.
 
 ---
 
