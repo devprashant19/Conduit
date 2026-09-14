@@ -30,3 +30,8 @@ plan3.md
 
 # Video/demo scripts — local working notes, never part of the repo.
 docs/demo-script-*.md
+
+# Throwaway browser profiles from the check scripts. They are deleted on a
+# clean exit; this catches the runs that are interrupted.
+*-profile/
+.mermaid-check.html
