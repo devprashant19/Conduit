@@ -7,7 +7,6 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { STATIC_PREVIEW } from '../preview';
 
 export interface VoiceCfg {
   /** 'pipeline' is the record-transcribe-answer-speak path; 'live' is Nova. */
@@ -38,10 +37,6 @@ export function useVoiceConfig() {
   const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(() => {
-    // The preview has no server to hold voice settings; the defaults are the
-    // honest answer there. See client/src/preview.ts.
-    if (STATIC_PREVIEW) { setLoaded(true); return; }
-
     fetch('/api/voice/config')
       .then((r) => r.json())
       .then((d) => { if (d?.config) setCfg(d.config); setLoaded(true); })

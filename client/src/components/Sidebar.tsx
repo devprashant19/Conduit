@@ -4,7 +4,6 @@ import Ic, { MOD } from './Icons';
 import { agentHue } from '../utils/agentIdentity';
 import claudeIcon from '../assets/claude.svg';
 import codexIcon from '../assets/codex.svg';
-import { STATIC_PREVIEW } from '../preview';
 
 interface Props {
   projects: Project[];
@@ -80,10 +79,6 @@ export default function Sidebar({
   }>({ claude: null, codex: null });
 
   useEffect(() => {
-    // No backend on the hosted preview, so there are no usage figures to show
-    // and no point asking for them on a timer. See client/src/preview.ts.
-    if (STATIC_PREVIEW) return;
-
     const fetchUsage = () => {
       fetch('/api/usage').then(r => r.json()).then(data => {
         setUsageData({

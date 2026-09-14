@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import claudeIcon from '../assets/claude.svg';
 import codexIcon from '../assets/codex.svg';
-import { STATIC_PREVIEW } from '../preview';
 
 interface UsageData {
   session: { utilization: number; resetsAt: string } | null;
@@ -128,11 +127,6 @@ export default function UsagePanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Nothing serves /api/usage on the hosted preview, and this polls on a
-    // timer — so without this it is one console error every sixty seconds,
-    // forever, saying nothing the banner has not already said.
-    if (STATIC_PREVIEW) { setLoading(false); return; }
-
     const fetchUsage = () => {
       fetch('/api/usage')
         .then(res => res.json())

@@ -11,6 +11,8 @@
  */
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { STATIC_PREVIEW } from '../preview';
+import { createDemoSocket } from '../demo/backend';
 
 export type WSMessage = { type: string } & Record<string, unknown>;
 export type MessageHandler = (msg: WSMessage) => void;
@@ -45,8 +47,22 @@ export function useWebSocket(onMessage?: MessageHandler, enabled = true): WsApi 
     }
   }, []);
 
+  const demoRef = useRef<{ send: (m: object) => boolean } | null>(null);
+
   useEffect(() => {
     if (!enabled) return;
+
+    // The hosted preview has no daemon to connect to, but the panes that stream
+    // — terminals, the Keeper — are most of what there is to look at. So stand
+    // a socket in front of the fixtures rather than leaving them dead.
+    if (STATIC_PREVIEW) {
+      const demo = createDemoSocket(dispatch);
+      demoRef.current = demo;
+      setConnected(true);
+      setDaemon(true);
+      return () => { demo.stop(); demoRef.current = null; setConnected(false); };
+    }
+
     let stopped = false;
     let attempt = 0;
     let everConnected = false;
@@ -118,6 +134,7 @@ export function useWebSocket(onMessage?: MessageHandler, enabled = true): WsApi 
   }, [dispatch, enabled]);
 
   const send = useCallback((msg: object): boolean => {
+    if (demoRef.current) return demoRef.current.send(msg);
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg));
@@ -131,7 +148,8 @@ export function useWebSocket(onMessage?: MessageHandler, enabled = true): WsApi 
     return () => { handlersRef.current.delete(handler); };
   }, []);
 
-  const isOpen = useCallback(() => wsRef.current?.readyState === WebSocket.OPEN, []);
+  const isOpen = useCallback(
+    () => !!demoRef.current || wsRef.current?.readyState === WebSocket.OPEN, []);
 
   return useMemo(() => ({ send, subscribe, isOpen, connected, daemon }), [send, subscribe, isOpen, connected, daemon]);
 }

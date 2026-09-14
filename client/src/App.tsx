@@ -72,10 +72,10 @@ export default function App() {
   /**
    * True when nothing is serving the API behind this page.
    *
-   * The hosted preview is a static build of the client with no daemon behind
-   * it, so /api/* answers 404 and the socket never opens. Without this the
-   * console renders its empty state and looks broken, which is a worse first
-   * impression than saying plainly what this page is.
+   * The hosted preview is the client with no daemon behind it. It runs on
+   * fixtures instead (client/src/demo/), so every tab has something to show —
+   * but a visitor still has to be told that none of it is a live process, or
+   * the demonstration becomes a claim that isn't true.
    */
   const [backendMissing, setBackendMissing] = useState(STATIC_PREVIEW);
   // Spoken output. Lived in JarvisHud, which unmounts whenever the Command
@@ -292,7 +292,7 @@ export default function App() {
       const planId = String(msg.planId);
       setPlans((prev) => prev.filter((p) => p.id !== planId));
     }
-  }, inConsole && !STATIC_PREVIEW);
+  }, inConsole);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -325,7 +325,7 @@ export default function App() {
   // The landing page needs none of this, and on the hosted static preview
   // there is no API behind it — so firing these on mount put three 404s in
   // the console of the one page judges and visitors actually look at.
-  useEffect(() => { if (inConsole && !STATIC_PREVIEW) loadProjects(); }, [loadProjects, inConsole]);
+  useEffect(() => { if (inConsole) loadProjects(); }, [loadProjects, inConsole]);
 
   // Open a gate modal for any agent that already has one pending (e.g. after
   // a page reload) — the live gate:triggered event covers the rest.
@@ -1239,9 +1239,10 @@ export default function App() {
         <div className="canvas-frame" aria-hidden="true" />
         {backendMissing && (
               <div className="preview-banner" role="status">
-                <b>You are looking at the hosted preview.</b> The interface is real, but
-                there is no Conduit running behind it — agents, terminals and the
-                Supervisor all need the app on your own machine.
+                <b>You are looking at the hosted preview, on sample data.</b> Every screen
+                here is the real interface and you can click through all of it — but no agent
+                is running, and nothing here touches a machine. Real terminals and a real
+                Supervisor need the app on your own computer.
                 {' '}<a href="/" onClick={() => { window.location.hash = ''; }}>
                   Back to the overview
                 </a> for the download, or clone the repository.

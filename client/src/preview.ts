@@ -1,3 +1,5 @@
+import { demoApi } from './demo/backend';
+
 /**
  * Is this build the hosted static preview?
  *
@@ -75,7 +77,13 @@ export function installPreviewFetchGuard(): void {
       path = u.origin === window.location.origin ? u.pathname : '';
     } catch { path = ''; }
 
-    if (path === '/api' || path.startsWith('/api/') || path === '/downloads' || path.startsWith('/downloads/')) {
+    if (path === '/api' || path.startsWith('/api/')) {
+      // Answered in the browser, from fixtures. See client/demo/backend.ts.
+      const u = new URL(href, window.location.origin);
+      return Promise.resolve(demoApi(u.pathname.slice(4) + u.search, init));
+    }
+
+    if (path === '/downloads' || path.startsWith('/downloads/')) {
       return Promise.resolve(new Response(
         JSON.stringify({ error: NO_BACKEND }),
         { status: 503, statusText: 'No backend', headers: { 'content-type': 'application/json' } },
