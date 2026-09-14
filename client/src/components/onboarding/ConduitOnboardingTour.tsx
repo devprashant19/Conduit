@@ -22,6 +22,7 @@ interface ConduitOnboardingTourProps {
   onTabChange?: (tab: 'terminals' | 'messages' | 'groupchat') => void;
   onViewChange?: (view: 'landing' | 'console') => void;
   onEnsureDemoWorkspace?: () => void;
+  isDownloadModalOpen?: boolean;
   onOpenDownloadModal?: () => void;
   onCloseDownloadModal?: () => void;
 }
@@ -32,6 +33,7 @@ export const ConduitOnboardingTour: React.FC<ConduitOnboardingTourProps> = ({
   onTabChange,
   onViewChange,
   onEnsureDemoWorkspace,
+  isDownloadModalOpen = false,
   onOpenDownloadModal,
   onCloseDownloadModal,
 }) => {
@@ -46,12 +48,16 @@ export const ConduitOnboardingTour: React.FC<ConduitOnboardingTourProps> = ({
   });
   const [gateApproved, setGateApproved] = useState<boolean>(false);
 
+  const downloadModalOpenedRef = useRef<boolean>(false);
+  const prevDownloadOpenRef = useRef<boolean>(false);
+
   const activeStep = TOUR_STEPS[stepIndex];
   const totalSteps = TOUR_STEPS.length; // 14 steps
 
   // Check localStorage on mount
   useEffect(() => {
     if (forceStart) {
+      downloadModalOpenedRef.current = false;
       setStage('step');
       setStepIndex(0);
       return;
@@ -147,9 +153,15 @@ export const ConduitOnboardingTour: React.FC<ConduitOnboardingTourProps> = ({
 
     // Download modal management
     if (activeStep.isDownloadStep) {
-      onOpenDownloadModal?.();
+      if (!downloadModalOpenedRef.current) {
+        downloadModalOpenedRef.current = true;
+        onOpenDownloadModal?.();
+      }
     } else {
-      onCloseDownloadModal?.();
+      if (downloadModalOpenedRef.current) {
+        downloadModalOpenedRef.current = false;
+        onCloseDownloadModal?.();
+      }
     }
 
     // Allow DOM to settle, then measure
@@ -170,6 +182,23 @@ export const ConduitOnboardingTour: React.FC<ConduitOnboardingTourProps> = ({
     };
   }, [stage, stepIndex, activeStep, onViewChange, onTabChange, onEnsureDemoWorkspace, onOpenDownloadModal, onCloseDownloadModal, updateTargetRect]);
 
+  // Handle user closing the download modal (via X button, backdrop, or Escape) while on download step
+  useEffect(() => {
+    if (
+      prevDownloadOpenRef.current &&
+      !isDownloadModalOpen &&
+      stage === 'step' &&
+      activeStep?.isDownloadStep
+    ) {
+      downloadModalOpenedRef.current = false;
+      localStorage.setItem('conduit-onboarding-completed', '1');
+      setStage('done');
+      setCursor((c) => ({ ...c, visible: false }));
+      onClose?.();
+    }
+    prevDownloadOpenRef.current = !!isDownloadModalOpen;
+  }, [isDownloadModalOpen, stage, activeStep, onClose]);
+
   // Keyboard controls: Escape to close/skip
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -184,12 +213,14 @@ export const ConduitOnboardingTour: React.FC<ConduitOnboardingTourProps> = ({
 
   // Tour navigation handlers
   const handleStartTour = () => {
+    downloadModalOpenedRef.current = false;
     setStage('step');
     setStepIndex(0);
     setCursor({ x: window.innerWidth / 2, y: window.innerHeight / 2, visible: true });
   };
 
   const handleSkip = () => {
+    downloadModalOpenedRef.current = false;
     localStorage.setItem('conduit-onboarding-skipped', '1');
     setStage('done');
     setCursor((c) => ({ ...c, visible: false }));
@@ -206,6 +237,8 @@ export const ConduitOnboardingTour: React.FC<ConduitOnboardingTourProps> = ({
 
     // Last Step (Step 14: Download Step)
     if (stepIndex === totalSteps - 1) {
+      downloadModalOpenedRef.current = false;
+      onCloseDownloadModal?.();
       setStage('completion');
       setCursor((c) => ({ ...c, visible: false }));
       return;
@@ -237,6 +270,7 @@ export const ConduitOnboardingTour: React.FC<ConduitOnboardingTourProps> = ({
   };
 
   const handleFinishExploring = () => {
+    downloadModalOpenedRef.current = false;
     localStorage.setItem('conduit-onboarding-completed', '1');
     setStage('done');
     setCursor((c) => ({ ...c, visible: false }));
@@ -250,8 +284,8 @@ export const ConduitOnboardingTour: React.FC<ConduitOnboardingTourProps> = ({
 
   return (
     <div className="tour-overlay-root">
-      {/* 1. Spotlight Dim Backdrop & Cutout */}
-      {stage === 'step' && <TourSpotlight targetRect={targetRect} />}
+      {/* 1. Spotlight Dim Backdrop & Cutout (not needed on download step as the modal has its own backdrop) */}
+      {stage === 'step' && !activeStep?.isDownloadStep && <TourSpotlight targetRect={targetRect} />}
 
       {/* 2. Simulated Cursor */}
       <TourCursor cursor={cursor} />

@@ -22,6 +22,14 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
 }) => {
   // Compute best position for tooltip based on targetRect
   const positionStyle = useMemo(() => {
+    if (step.isDownloadStep) {
+      return {
+        bottom: '24px',
+        right: '24px',
+        zIndex: 100002,
+      };
+    }
+
     if (!targetRect) {
       return {
         bottom: '32px',
@@ -63,7 +71,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
       top: `${top}px`,
       left: `${left}px`,
     };
-  }, [targetRect, step.preferredPlacement]);
+  }, [targetRect, step.preferredPlacement, step.isDownloadStep]);
 
   const isFirstStep = step.stepNumber === 1;
   const isLastStep = step.stepNumber === totalSteps;

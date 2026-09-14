@@ -882,6 +882,14 @@ export default function App() {
   const [tourForceStart, setTourForceStart] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
+  const handleOpenDownloadModal = useCallback(() => {
+    setIsDownloadOpen(true);
+  }, []);
+
+  const handleCloseDownloadModal = useCallback(() => {
+    setIsDownloadOpen(false);
+  }, []);
+
   const ensureDemoWorkspace = useCallback(() => {
     if (projects.length > 0 && !selectedProjectId) {
       setSelectedProjectId(projects[0].id);
@@ -1602,10 +1610,11 @@ export default function App() {
         onViewChange={handleViewChange}
         onTabChange={(t) => setMainTab(t)}
         onEnsureDemoWorkspace={ensureDemoWorkspace}
-        onOpenDownloadModal={() => setIsDownloadOpen(true)}
-        onCloseDownloadModal={() => setIsDownloadOpen(false)}
+        isDownloadModalOpen={isDownloadOpen}
+        onOpenDownloadModal={handleOpenDownloadModal}
+        onCloseDownloadModal={handleCloseDownloadModal}
       />
-      <DownloadModal isOpen={isDownloadOpen} onClose={() => setIsDownloadOpen(false)} />
+      <DownloadModal isOpen={isDownloadOpen} onClose={handleCloseDownloadModal} />
     </>
   );
 }
