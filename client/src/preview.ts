@@ -33,3 +33,55 @@ const onVercelPreview = typeof window !== 'undefined'
 
 export const STATIC_PREVIEW =
   import.meta.env.VITE_STATIC_PREVIEW === '1' || onVercelPreview;
+
+/** What every server-backed request answers with on the preview. */
+export const NO_BACKEND =
+  'this is the hosted preview, and there is no Conduit running behind it';
+
+/**
+ * Answer the app's own API calls locally, instead of letting them reach a host
+ * that has no API.
+ *
+ * Gating call sites one at a time does not hold. Each one missed is a 404 in
+ * the console, and worse than the 404: the host answers a *page* — Vercel's
+ * "The page could not be found" — so `res.json()` throws
+ * `Unexpected token 'T'` and that lands in the interface as the reason the
+ * Keeper is unavailable. A visitor is shown a parser error where an
+ * explanation belongs.
+ *
+ * One guard at the entry point covers every caller, including the ones written
+ * after this: same-origin `/api/*` and `/downloads` resolve immediately with a
+ * 503 and a JSON body saying why. No request leaves the browser, every caller
+ * gets the JSON shape it expects, and the reason it can show the user is a
+ * sentence rather than a stack trace.
+ *
+ * Off entirely when STATIC_PREVIEW is false, so it cannot affect a real install.
+ */
+export function installPreviewFetchGuard(): void {
+  if (!STATIC_PREVIEW || typeof window === 'undefined') return;
+
+  const real = window.fetch.bind(window);
+
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const href = typeof input === 'string' ? input
+      : input instanceof URL ? input.href
+      : input.url;
+
+    let path: string;
+    try {
+      const u = new URL(href, window.location.origin);
+      // Only our own server's routes. Anything cross-origin is somebody else's
+      // and none of this guard's business.
+      path = u.origin === window.location.origin ? u.pathname : '';
+    } catch { path = ''; }
+
+    if (path === '/api' || path.startsWith('/api/') || path === '/downloads' || path.startsWith('/downloads/')) {
+      return Promise.resolve(new Response(
+        JSON.stringify({ error: NO_BACKEND }),
+        { status: 503, statusText: 'No backend', headers: { 'content-type': 'application/json' } },
+      ));
+    }
+
+    return real(input as RequestInfo, init);
+  };
+}

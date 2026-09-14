@@ -19,6 +19,7 @@ import { useSpeechInput } from '../hooks/useSpeechInput';
 import { stopSpeaking } from './JarvisHud';
 import { renderMarkdown } from '../utils/md';
 import type { WsApi } from '../hooks/useWebSocket';
+import { STATIC_PREVIEW, NO_BACKEND } from '../preview';
 
 interface BrainMessage {
   id: string;
@@ -260,7 +261,9 @@ export default function CommandPanel({ open, onClose, ws, sttCfg }: Props) {
           <div className="cmd-body scroll" ref={bodyRef} onScroll={onBodyScroll}>
             {loadError && (
               <div className="cmd-err">
-                The Keeper is unavailable: {loadError}. The daemon must be running (<code>npm run daemon</code>) and the <code>codex</code> CLI installed.
+                {STATIC_PREVIEW
+                  ? <>The Keeper runs inside Conduit on your own machine; {NO_BACKEND}.</>
+                  : <>The Keeper is unavailable: {loadError}. The daemon must be running (<code>npm run daemon</code>) and the <code>codex</code> CLI installed.</>}
               </div>
             )}
             {!ws.connected && <div className="cmd-system">Reconnecting to Conduit…</div>}
