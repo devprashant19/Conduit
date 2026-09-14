@@ -48,7 +48,7 @@ export const PLANS: Plan[] = [{
   id: 'plan-1',
   projectId: PROJECT.id,
   description: 'Nova has the endpoint list but not the new error codes Luna added.',
-  targetAgent: 'a-nova',
+  targetAgent: 'Nova',   // the modal shows this verbatim, so use the name
   targetProject: PROJECT.id,
   proposedMessage: 'Luna added 409 and 422 responses to POST /orbits in the last commit. Update docs/api.md to cover both, with an example body for each.',
   createdAt: ago(3),

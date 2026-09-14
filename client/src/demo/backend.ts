@@ -273,7 +273,8 @@ export function demoApi(path: string, init?: RequestInit): Response {
         state.plans = state.plans.filter((p) => p.id !== seg[3]);
         emit({ type: 'plan:resolved', planId: seg[3], decision });
         if (plan && decision === 'approve') {
-          const target = state.agents.find((a) => a.id === plan.targetAgent);
+          const target = state.agents.find(
+            (a) => a.id === plan.targetAgent || a.name === plan.targetAgent);
           if (target) {
             setStatus(target.id, 'running');
             write(target.id, `\r\n\x1b[2m> ${plan.proposedMessage}\x1b[0m\r\n`);
