@@ -17,6 +17,7 @@ import PlanModal from './components/PlanModal';
 import UsagePanel from './components/UsagePanel';
 import Ic, { MOD } from './components/Icons';
 import { useWebSocket } from './hooks/useWebSocket';
+import { STATIC_PREVIEW } from './preview';
 import { useSpeechInput } from './hooks/useSpeechInput';
 import { useVoiceSession } from './hooks/useVoiceSession';
 import { useVoiceAnnouncer } from './hooks/useVoiceAnnouncer';
@@ -76,7 +77,7 @@ export default function App() {
    * console renders its empty state and looks broken, which is a worse first
    * impression than saying plainly what this page is.
    */
-  const [backendMissing, setBackendMissing] = useState(false);
+  const [backendMissing, setBackendMissing] = useState(STATIC_PREVIEW);
   // Spoken output. Lived in JarvisHud, which unmounts whenever the Command
   // panel opens — so a reply could be cut off mid-sentence and never resume.
   const [voiceOut, setVoiceOut] = useState(
@@ -291,7 +292,7 @@ export default function App() {
       const planId = String(msg.planId);
       setPlans((prev) => prev.filter((p) => p.id !== planId));
     }
-  }, inConsole);
+  }, inConsole && !STATIC_PREVIEW);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -324,7 +325,7 @@ export default function App() {
   // The landing page needs none of this, and on the hosted static preview
   // there is no API behind it — so firing these on mount put three 404s in
   // the console of the one page judges and visitors actually look at.
-  useEffect(() => { if (inConsole) loadProjects(); }, [loadProjects, inConsole]);
+  useEffect(() => { if (inConsole && !STATIC_PREVIEW) loadProjects(); }, [loadProjects, inConsole]);
 
   // Open a gate modal for any agent that already has one pending (e.g. after
   // a page reload) — the live gate:triggered event covers the rest.
