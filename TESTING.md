@@ -3,6 +3,17 @@
 Written for hackathon judges and anyone evaluating this without wanting to set up six
 coding CLIs first.
 
+> **For judges, in one paragraph** — copy this straight into a submission form:
+>
+> **0 min:** open the live demo and scroll to the animated walkthrough — the full workflow
+> including an approval gate, nothing installed.
+> **10 min:** clone and follow `TESTING.md`. Node 22+, one agent CLI, one API key — not all
+> six. `npm run seed:demo` gives you a working console.
+> **15 min:** Docker, `TESTING.md` Level 3. The image has all six CLIs.
+>
+> Built on AWS Strands Agents. `GET /api/health` reports `supervisorHealth.strands` —
+> whether the last classification actually went through the SDK.
+
 **There are three ways in, from zero effort to full power.** Start at Level 1. Each level
 takes longer and shows more. You do not need Level 3 to judge whether this works.
 
