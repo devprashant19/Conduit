@@ -282,6 +282,17 @@ const Ic = {
       <path d="M2 2l12 12M6.7 6.7A2 2 0 009.3 9.3M4.2 4.3C2.8 5.4 1.5 8 1.5 8s2.5 4.5 6.5 4.5c1.4 0 2.6-.4 3.7-1.1M9.9 5.3A6.4 6.4 0 0114.5 8s-2.5 4.5-6.5 4.5" />
     </svg>
   ),
+  copy: (p: IconProps = {}) => (
+    <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.5} strokeLinecap="round" strokeLinejoin="round" style={p.style} className={p.className}>
+      <rect x="5" y="5" width="8" height="8" rx="1.5" />
+      <path d="M3 11V3.5A1.5 1.5 0 014.5 2H11" />
+    </svg>
+  ),
+  edit: (p: IconProps = {}) => (
+    <svg width={p.size || 14} height={p.size || 14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 1.5} strokeLinecap="round" strokeLinejoin="round" style={p.style} className={p.className}>
+      <path d="M11.5 2.5a1.4 1.4 0 012 2L4.5 13.5 2 14l.5-2.5 9-9z" />
+    </svg>
+  ),
   download: (p: IconProps = {}) => (
     <svg width={p.size || 16} height={p.size || 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={p.strokeWidth || 2} strokeLinecap="round" strokeLinejoin="round" style={p.style} className={p.className}>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
