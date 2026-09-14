@@ -633,17 +633,24 @@ No test framework — the suites are plain Node scripts that print what they che
 non-zero. `--experimental-strip-types` runs the TypeScript ones directly, which is why the
 testable pieces are pure functions with no React import.
 
-## Documentation
+## 📚 Comprehensive Documentation Suite
 
-**[`docs/`](docs/) — nine documents**, indexed in [`docs/README.md`](docs/README.md):
+We have thoroughly documented every aspect of Conduit in the [`docs/`](docs/) directory (indexed in [`docs/README.md`](docs/README.md)). Whether you are exploring the system architecture, configuring agent runtimes, or deploying to production, these guides provide deep technical context:
 
-| | | |
-|---|---|---|
-| 1. [Architecture & Topology](ARCHITECTURE.md) | 2. [Agent Runtime](docs/agent-runtime.md) | 3. [Data Model & State Machines](docs/data-model.md) |
-| 4. [Security & Authentication](docs/security.md) | 5. [UI & Design System](docs/ui.md) | 6. [API Reference](docs/api.md) |
-| 7. [Deployment Guide](docs/deployment.md) | 8. [Development Guide](docs/development.md) | 9. [Environment Configuration](docs/environment.md) |
-- [`CLAUDE.md`](CLAUDE.md) — orientation for coding agents working on Conduit itself
-- [`.env.example`](.env.example) — every setting, with what it costs and what it needs
+1. **[Architecture & Topology](ARCHITECTURE.md)**: Deep dive into the two-process architecture, process supervision, PTY isolation, sequence diagrams, and daemon relay protocol.
+2. **[Agent Runtime](docs/agent-runtime.md)**: Detailed breakdown of the six supported agent CLIs, process spawning, terminal PTY management, and real-time status inference.
+3. **[Data Model & State Machines](docs/data-model.md)**: Comprehensive schema specifications for projects, agents, approval gates, plan state transitions, and disk persistence.
+4. **[Security & Authentication](docs/security.md)**: Documentation on HTTP basic auth, loopback isolation, approval gates, audit trails, and the 4-factor voice approval guard.
+5. **[UI & Design System](docs/ui.md)**: Overview of the 7 workspace tabs, multi-terminal grid layouts, glassmorphism aesthetics, color tokens, and automated layout measurement.
+6. **[API Reference](docs/api.md)**: Complete reference for 34 Express REST endpoints, WebSocket pub/sub events, and the internal `/org/*` daemon protocol.
+7. **[Deployment Guide](docs/deployment.md)**: The exact deployment topology, container requirements, Docker Compose setup, AWS EC2, and static landing page hosting.
+8. **[Development Guide](docs/development.md)**: Local setup instructions, developer scripts, zero-dependency test runner, regression suites, and codebase invariants.
+9. **[Environment Configuration](docs/environment.md)**: The master template and deep-dive explanation for all required API keys, model providers, voice tokens, and ports.
+
+Additional technical guides:
+- [`TESTING.md`](TESTING.md) — 3-tier testing guide from browser walkthrough to multi-agent Docker
+- [`CLAUDE.md`](CLAUDE.md) — orientation and invariants for coding agents working on Conduit itself
+- [`.env.example`](.env.example) — master environment template with cost and credential requirements
 
 ## License
 
