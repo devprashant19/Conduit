@@ -24,7 +24,13 @@ export interface WsApi {
   daemon: boolean;
 }
 
-export function useWebSocket(onMessage?: MessageHandler): WsApi {
+/**
+ * @param enabled Connect at all. The landing page does not need a socket, and
+ *   on the hosted static preview there is nothing to connect to — so opening
+ *   one there only fills a visitor's console with failures before they have
+ *   clicked anything.
+ */
+export function useWebSocket(onMessage?: MessageHandler, enabled = true): WsApi {
   const wsRef = useRef<WebSocket | null>(null);
   const handlersRef = useRef(new Set<MessageHandler>());
   const appHandlerRef = useRef(onMessage);
@@ -40,8 +46,10 @@ export function useWebSocket(onMessage?: MessageHandler): WsApi {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     let stopped = false;
     let attempt = 0;
+    let everConnected = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let pingTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -53,6 +61,7 @@ export function useWebSocket(onMessage?: MessageHandler): WsApi {
 
       ws.onopen = () => {
         attempt = 0;
+        everConnected = true;
         setConnected(true);
         dispatch({ type: 'ws:open' });
         if (pingTimer) clearInterval(pingTimer);
@@ -79,6 +88,18 @@ export function useWebSocket(onMessage?: MessageHandler): WsApi {
         dispatch({ type: 'ws:close' });
         if (stopped) return;
         attempt += 1;
+        // Give up after a handful of failures when nothing ever connected.
+        //
+        // The static preview on Vercel has no daemon behind it, so every
+        // attempt fails and the old loop retried every ten seconds forever —
+        // filling a visitor's console with WebSocket errors and holding a
+        // socket open against a host that will never answer. A backend that is
+        // merely restarting always connects at least once, so `everConnected`
+        // keeps the reconnect behaviour where it is actually wanted.
+        if (!everConnected && attempt >= 4) {
+          dispatch({ type: 'ws:unavailable' });
+          return;
+        }
         const delay = Math.min(10_000, 1000 * Math.pow(1.6, attempt - 1));
         reconnectTimer = setTimeout(connect, delay);
       };
@@ -94,7 +115,7 @@ export function useWebSocket(onMessage?: MessageHandler): WsApi {
       wsRef.current = null;
       try { ws?.close(); } catch { /* ignore */ }
     };
-  }, [dispatch]);
+  }, [dispatch, enabled]);
 
   const send = useCallback((msg: object): boolean => {
     const ws = wsRef.current;

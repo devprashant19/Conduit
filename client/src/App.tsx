@@ -68,6 +68,15 @@ export default function App() {
     () => localStorage.getItem('conduit:wake-phrase') || 'jarvis',
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /**
+   * True when nothing is serving the API behind this page.
+   *
+   * The hosted preview is a static build of the client with no daemon behind
+   * it, so /api/* answers 404 and the socket never opens. Without this the
+   * console renders its empty state and looks broken, which is a worse first
+   * impression than saying plainly what this page is.
+   */
+  const [backendMissing, setBackendMissing] = useState(false);
   // Spoken output. Lived in JarvisHud, which unmounts whenever the Command
   // panel opens — so a reply could be cut off mid-sentence and never resume.
   const [voiceOut, setVoiceOut] = useState(
@@ -190,6 +199,8 @@ export default function App() {
     if (msg.type === 'content:updated') {
       setContentRefresh((n) => n + 1);
     }
+    if (msg.type === 'ws:unavailable') { setBackendMissing(true); return; }
+    if (msg.type === 'ws:open') setBackendMissing(false);
     if (msg.type === 'org:changed' || msg.type === 'ws:open') {
       // Something changed a project or agent (or we just reconnected) —
       // refresh the sidebar and every loaded agent list.
@@ -280,7 +291,7 @@ export default function App() {
       const planId = String(msg.planId);
       setPlans((prev) => prev.filter((p) => p.id !== planId));
     }
-  });
+  }, inConsole);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -308,7 +319,12 @@ export default function App() {
     } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => { loadProjects(); }, [loadProjects]);
+  // Don't fetch until the console is actually open.
+  //
+  // The landing page needs none of this, and on the hosted static preview
+  // there is no API behind it — so firing these on mount put three 404s in
+  // the console of the one page judges and visitors actually look at.
+  useEffect(() => { if (inConsole) loadProjects(); }, [loadProjects, inConsole]);
 
   // Open a gate modal for any agent that already has one pending (e.g. after
   // a page reload) — the live gate:triggered event covers the rest.
@@ -1220,6 +1236,16 @@ export default function App() {
 
       <section className="gr" data-tour="agents">
         <div className="canvas-frame" aria-hidden="true" />
+        {backendMissing && (
+              <div className="preview-banner" role="status">
+                <b>You are looking at the hosted preview.</b> The interface is real, but
+                there is no Conduit running behind it — agents, terminals and the
+                Supervisor all need the app on your own machine.
+                {' '}<a href="/" onClick={() => { window.location.hash = ''; }}>
+                  Back to the overview
+                </a> for the download, or clone the repository.
+              </div>
+        )}
         {selectedProjectId ? (
           <>
             <div className="gr-subbar">

@@ -12567,3 +12567,24 @@ body.is-resizing .pane-resizer {
 @media (prefers-reduced-motion: reduce) {
   .tab-panel { animation: none; }
 }
+
+
+/* Shown only when nothing is serving the API behind this page — the hosted
+   static preview. Saying so is better than an empty console that reads as
+   broken. */
+.preview-banner {
+  padding: 10px 16px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-1);
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-banner b { color: var(--text-0); }
+
+.preview-banner a {
+  color: var(--text-0);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
