@@ -12536,3 +12536,34 @@ body.is-resizing .pane-resizer {
   }
 }
 
+
+
+/* ── Switching tabs ───────────────────────────────────────────────────
+   A short fade with a few pixels of lift. Short on purpose: this runs
+   every time someone changes tab, and an animation you notice twice is
+   an animation you resent by the tenth time.
+
+   The wrapper is keyed on the tab in App.tsx, so React remounts it and
+   the animation replays without any JS driving it.
+
+   `flex: 1` and `min-height: 0` keep it invisible to layout — the
+   panels inside still size themselves against the column they were in,
+   and a terminal can still shrink below its content height. */
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  animation: tab-enter 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@keyframes tab-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Someone who has asked their system for less motion has asked for this
+   too. The content still arrives; it just arrives without moving. */
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel { animation: none; }
+}

@@ -1285,6 +1285,10 @@ export default function App() {
               </div>
             </div>
 
+            {/* Keyed on the tab, so switching remounts this and the entrance
+                animation replays. Transparent to layout: it inherits the
+                column flex it replaced. */}
+            <div className="tab-panel" key={mainTab}>
             {mainTab === 'terminals' && projectAgents.length > 1 && (
               <div className="mobile-agent-strip mobile-only" aria-label="Quick Agent Switcher">
                 {projectAgents.map((a) => {
@@ -1331,6 +1335,7 @@ export default function App() {
             {mainTab === 'wiki' && <ProjectWiki key={selectedProjectId} projectId={selectedProjectId} />}
             {mainTab === 'activity' && <ActivityFeed key={selectedProjectId} projectId={selectedProjectId} ws={ws} />}
             {mainTab === 'usage' && <UsagePanel />}
+            </div>
           </>
         ) : (
           <div className="panel-empty" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
